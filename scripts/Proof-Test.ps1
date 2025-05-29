@@ -1,0 +1,1 @@
+Write-Output "Script executado com sucesso!"

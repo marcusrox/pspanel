@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Scripts - Administração</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-terminal"></i>
+            <h2>PS Panel</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="active"><i class="fas fa-code"></i> Scripts</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-cog"></i> Configurações</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span><i class="fas fa-user"></i> Admin</span>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Painel de Scripts</h1>
+                <p>Execute e gerencie seus scripts PowerShell</p>
+            </div>
+            <div class="header-actions">
+                <button class="refresh-btn" title="Atualizar Lista">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="help-btn" title="Ajuda">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+                <img src="/logo.png" alt="Desenbahia Logo" class="header-logo">
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="script-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-play-circle"></i> Executar Script</h2>
+                </div>
+                
+                <form class="script-form" 
+                      hx-post="/run-script" 
+                      hx-target="#output" 
+                      hx-swap="innerHTML"
+                      hx-trigger="submit"
+                      hx-on::before-request="return validateForm(event)">
+                    <div class="form-group">
+                        <label for="script">
+                            <i class="fas fa-file-code"></i> Selecione o Script:
+                        </label>
+                        <select name="script" id="script" 
+                                hx-get="/render-scripts" 
+                                hx-trigger="load" 
+                                hx-target="#script"
+                                hx-swap="innerHTML">
+                            <option value="">- Selecione -</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="params">
+                            <i class="fas fa-sliders-h"></i> Parâmetros:
+                        </label>
+                        <input type="text" 
+                               name="params" 
+                               id="params" 
+                               placeholder="Ex: -Path 'C:\Temp' -Force">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">
+                            <i class="fas fa-play"></i> Executar
+                        </button>
+                        <button type="reset" class="secondary-btn">
+                            <i class="fas fa-undo"></i> Limpar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="output-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-terminal"></i> Saída do Script</h2>
+                    <div class="panel-actions">
+                        <button class="icon-btn" title="Limpar Saída">
+                            <i class="fas fa-eraser"></i>
+                        </button>
+                        <button class="icon-btn" title="Copiar">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="output" class="output-content">
+                    <div class="output-placeholder">
+                        <i class="fas fa-terminal"></i>
+                        <p>A saída do script será exibida aqui</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        function validateForm(event) {
+            const scriptSelect = document.getElementById('script');
+            if (!scriptSelect.value) {
+                alert('Por favor, selecione um script para executar.');
+                event.preventDefault();
+                return false;
+            }
+            return true;
+        }
+    </script>
+</body>
+
+</html>
