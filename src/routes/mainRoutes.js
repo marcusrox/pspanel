@@ -85,7 +85,7 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        const scriptsDir = path.join(process.cwd(), "scripts");
+        const scriptsDir = path.join(process.cwd(), "scripts-ps");
         const files = await fs.readdir(scriptsDir);
         const scripts = [];
 
@@ -117,7 +117,7 @@ router.get('/', async (req, res) => {
 
 // Rota para listar scripts
 router.get("/list-scripts", (req, res) => {
-  const scriptsDir = path.join(process.cwd(), "scripts");
+  const scriptsDir = path.join(process.cwd(), "scripts-ps");
 
   fs.readdir(scriptsDir, (err, files) => {
     if (err) {
@@ -131,7 +131,9 @@ router.get("/list-scripts", (req, res) => {
 });
 
 router.get("/render-scripts", (req, res) => {
-  const scriptsDir = path.join(process.cwd(), "scripts");
+  console.log('\n=== Renderizando lista de scripts ===');
+  const scriptsDir = path.join(process.cwd(), "scripts-ps");
+  console.log('Diretório de scripts:', scriptsDir);
 
   fs.readdir(scriptsDir, (err, files) => {
     if (err) {
@@ -139,7 +141,9 @@ router.get("/render-scripts", (req, res) => {
       return res.status(500).send("<option>Erro ao carregar</option>");
     }
 
+    console.log('Arquivos encontrados:', files);
     const ps1Files = files.filter((f) => f.endsWith(".ps1"));
+    console.log('Scripts PowerShell encontrados:', ps1Files);
 
     const options = [
       '<option value="">- Selecione -</option>',
@@ -151,17 +155,28 @@ router.get("/render-scripts", (req, res) => {
 });
 
 router.post("/run-script", async (req, res) => {
+    console.log('\n=== Iniciando execução de script ===');
     const { script, params } = req.body;
+    console.log('Script solicitado:', script);
+    console.log('Parâmetros:', params);
 
-    const scriptsDir = path.join(process.cwd(), "scripts");
+    const scriptsDir = path.join(process.cwd(), "scripts-ps");
     const scriptPath = path.join(scriptsDir, script);
+    console.log('Caminho completo do script:', scriptPath);
 
     // Segurança: verificar se o script existe na pasta
     if (!fsSync.existsSync(scriptPath)) {
+        console.error('Erro: Script não encontrado em:', scriptPath);
         return res.status(404).send("Script não encontrado");
     }
+    console.log('Script encontrado com sucesso');
 
     const args = params ? params.split(" ") : [];
+    console.log('Argumentos processados:', args);
+
+    console.log('Iniciando execução do PowerShell com os seguintes parâmetros:');
+    console.log('- Script:', scriptPath);
+    console.log('- Argumentos:', args);
 
     const ps = spawn("powershell.exe", ["-File", scriptPath, ...args]);
 
@@ -169,20 +184,33 @@ router.post("/run-script", async (req, res) => {
     let error = "";
 
     ps.stdout.on("data", (data) => {
-        output += data.toString();
+        const newOutput = data.toString();
+        console.log('Saída do script:', newOutput);
+        output += newOutput;
     });
 
     ps.stderr.on("data", (data) => {
-        error += data.toString();
+        const newError = data.toString();
+        console.error('Erro do script:', newError);
+        error += newError;
+    });
+
+    ps.on("error", (err) => {
+        console.error('Erro ao executar o PowerShell:', err);
+        error += `\nErro ao executar o PowerShell: ${err.message}`;
     });
 
     ps.on("close", (code) => {
+        console.log(`\n=== Script finalizado ===`);
+        console.log('Código de saída:', code);
+        console.log('Saída acumulada:', output);
+        if (error) console.error('Erros acumulados:', error);
+
         const result = `Script ${script} executado com código ${code}`;
-        console.log(result);
         if (code === 0) {
             res.send(`<pre>${output}</pre><br />${result}`);
         } else {
-            res.send(`<pre>Erro: ${error}</pre><br />${result} `);
+            res.send(`<pre>Erro: ${error}</pre><br />${result}`);
         }
     });
 });

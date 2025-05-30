@@ -57,6 +57,9 @@ app.use('/', mainRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`URL: http://localhost:${PORT}`);
+  console.log(`Iniciando servidor em ambiente: ${process.env.NODE_ENV}`);
+  console.log(`Data e hora: ${new Date().toLocaleString()}`);
 });
 
 

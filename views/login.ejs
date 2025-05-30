@@ -267,5 +267,24 @@
             </form>
         </div>
     </div>
+    <script>
+        // Recupera a preferência salva ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedLoginType = localStorage.getItem('preferredLoginType');
+            if (savedLoginType) {
+                const radioButton = document.querySelector(`input[name="loginType"][value="${savedLoginType}"]`);
+                if (radioButton) {
+                    radioButton.checked = true;
+                }
+            }
+        });
+
+        // Salva a preferência quando o usuário muda a opção
+        document.querySelectorAll('input[name="loginType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                localStorage.setItem('preferredLoginType', this.value);
+            });
+        });
+    </script>
 </body>
 </html> 

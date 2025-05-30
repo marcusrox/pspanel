@@ -79,8 +79,8 @@ NODE_ENV=production
 
 ### Scripts PowerShell
 
-- Coloque seus scripts PowerShell no diretório `scripts/`
-- Apenas arquivos com extensão `.ps1` serão listados no painel
+- Coloque seus scripts PowerShell no diretório `scripts-ps/`
+- Apenas scripts localizados no diretório `scripts-ps/` podem ser executados
 - Recomenda-se documentar os parâmetros no início de cada script
 
 ## 📚 Estrutura do Projeto
@@ -93,7 +93,7 @@ pspanel/
 │   └── logo.png        # Logo da aplicação
 ├── views/              # Templates HTML
 │   └── index.html      # Página principal
-├── scripts/            # Scripts PowerShell
+├── scripts-ps/         # Scripts PowerShell
 │   ├── Deploy-IIS.ps1
 │   ├── Backup-Fortigate.ps1
 │   └── Test-Zap.ps1
@@ -103,7 +103,7 @@ pspanel/
 ## 🔒 Segurança
 
 - Os scripts são executados em um ambiente controlado
-- Apenas scripts localizados no diretório `scripts/` podem ser executados
+- Apenas scripts localizados no diretório `scripts-ps/` podem ser executados
 - Validação de parâmetros antes da execução
 - Execução isolada de cada script
 

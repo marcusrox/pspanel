@@ -42,5 +42,5 @@ debug/
 .debug
 
 # Arquivos específicos do projeto
-scripts/*.log
-scripts/output/ 
+scripts-ps/*.log
+scripts-ps/output/ 

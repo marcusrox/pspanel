@@ -19,8 +19,7 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
-    "ldapjs": "^3.0.7",
-    "passport-activedirectory": "^1.4.0"
+    "ldapjs": "^3.0.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

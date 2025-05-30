@@ -8,7 +8,17 @@ async function authenticateUser(username, password, loginType) {
 }
 
 async function authenticateLocal(username, password) {
+  console.log('\n=== Iniciando autenticação Local ===');
+
+  console.log('Configurações:');
+  console.log('Admin User:', process.env.ADMIN_USER);
+  console.log('Admin Password:', process.env.ADMIN_PASSWORD);
+
+  console.log('Usuário tentando autenticar:', username);
+  console.log('Senha fornecida:', password);
+
   if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
+    console.log('✓ Autenticação Local bem sucedida!');
     return {
       success: true,
       user: {

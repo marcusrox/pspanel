@@ -5,7 +5,8 @@
     "src/**/*",
     "views/**/*",
     "public/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "scripts-ps/**/*"
   ],
   "ext": "js,ejs,json,css,html,env",
   "ignore": [
