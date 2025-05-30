@@ -72,7 +72,8 @@ const LDAP_OPTIONS = {
         bindDN: process.env.LDAP_BIND_DN,
         bindCredentials: process.env.LDAP_BIND_PASSWORD,
         searchBase: process.env.LDAP_SEARCH_BASE,
-        searchFilter: process.env.LDAP_SEARCH_FILTER || '(&(objectClass=user)(sAMAccountName={{username}})(memberOf=CN=PSPanel_Users,OU=Groups,DC=company,DC=local))',
+        //searchFilter: process.env.LDAP_SEARCH_FILTER || '(&(objectClass=user)(sAMAccountName={{username}})(memberOf=CN=PSPanel_Users,OU=Groups,DC=company,DC=local))',
+        searchFilter: '(&(objectClass=user)(sAMAccountName={{username}}))',
         searchAttributes: ['displayName', 'mail', 'memberOf'],
         tlsOptions: {
             rejectUnauthorized: false

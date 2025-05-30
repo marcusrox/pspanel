@@ -146,6 +146,74 @@
             justify-content: center;
             gap: 0.5rem;
         }
+
+        .login-type-selector {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+
+        .login-type-option {
+            flex: 1;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .login-type-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .login-type-option span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .login-type-option span::before {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .login-type-option:hover span {
+            border-color: var(--primary-color);
+            color: var(--text-primary);
+        }
+
+        .login-type-option input[type="radio"]:checked + span {
+            background-color: rgba(var(--primary-rgb), 0.1);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .login-type-option input[type="radio"]:checked + span::before {
+            border-color: var(--primary-color);
+            background-color: var(--primary-color);
+            box-shadow: inset 0 0 0 3px var(--bg-dark);
+        }
+
+        .login-type-option input[type="radio"]:focus + span {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body>
@@ -157,51 +225,44 @@
                 <p>Faça login para continuar</p>
             </div>
 
-            <% if (messages.error && messages.error.length > 0) { %>
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                <%= messages.error %>
-            </div>
-            <% } %>
-
-            <form action="/login" method="POST" class="login-form">
-                <div class="auth-type">
-                    <input type="radio" name="authType" id="ad" value="ldap" checked>
-                    <label for="ad">
-                        <i class="fas fa-users"></i> Active Directory
+            <form class="login-form" action="/login" method="POST">
+                <div class="login-type-selector">
+                    <label class="login-type-option">
+                        <input type="radio" name="loginType" value="ad" checked>
+                        <span><i class="fas fa-building"></i> Active Directory</span>
                     </label>
-                    
-                    <input type="radio" name="authType" id="local" value="local">
-                    <label for="local">
-                        <i class="fas fa-user-shield"></i> Admin Local
+                    <label class="login-type-option">
+                        <input type="radio" name="loginType" value="local">
+                        <span><i class="fas fa-user-shield"></i> Login Local</span>
                     </label>
                 </div>
 
                 <div class="form-group">
                     <label for="username">
-                        <i class="fas fa-user"></i> Usuário
+                        <i class="fas fa-user"></i>
+                        <span>Usuário</span>
                     </label>
-                    <input type="text" 
-                           id="username" 
-                           name="username" 
-                           required 
-                           autocomplete="username"
-                           autofocus>
+                    <input type="text" id="username" name="username" required>
                 </div>
 
                 <div class="form-group">
                     <label for="password">
-                        <i class="fas fa-lock"></i> Senha
+                        <i class="fas fa-lock"></i>
+                        <span>Senha</span>
                     </label>
-                    <input type="password" 
-                           id="password" 
-                           name="password" 
-                           required
-                           autocomplete="current-password">
+                    <input type="password" id="password" name="password" required>
                 </div>
 
+                <% if (messages.error && messages.error.length > 0) { %>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <%= messages.error %>
+                </div>
+                <% } %>
+
                 <button type="submit" class="login-btn">
-                    <i class="fas fa-sign-in-alt"></i> Entrar
+                    <i class="fas fa-sign-in-alt"></i>
+                    Entrar
                 </button>
             </form>
         </div>
