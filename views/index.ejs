@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Scripts - Administração</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.8);
+            justify-content: center;
+            align-items: center;
+            border-radius: 0.5rem;
+            z-index: 10;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .script-panel {
+            position: relative;
+            min-height: 200px;
+        }
+
+        .output-panel {
+            position: relative;
+            min-height: 200px;
+        }
+
+        .execution-status {
+            display: none;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .execution-status.running {
+            display: block;
+            background-color: var(--bg-darker);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .execution-status.success {
+            display: block;
+            background-color: rgba(34, 197, 94, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .execution-status.error {
+            display: block;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .htmx-request .loading-overlay {
+            display: flex !important;
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .secondary-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-terminal"></i>
+            <h2>PS Panel</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="active"><i class="fas fa-code"></i> Scripts</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-cog"></i> Configurações</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span><i class="fas fa-user"></i> <%= user.username %></span>
+            <a href="/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </a>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Painel de Scripts</h1>
+                <p>Execute e gerencie seus scripts PowerShell</p>
+            </div>
+            <div class="header-actions">
+                <button class="refresh-btn" title="Atualizar Lista">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="help-btn" title="Ajuda">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="script-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-play-circle"></i> Executar Script</h2>
+                </div>
+                
+                <form class="script-form" 
+                      hx-post="/run-script" 
+                      hx-target="#output" 
+                      hx-swap="innerHTML"
+                      hx-trigger="submit"
+                      hx-indicator=".loading-overlay">
+                    <div class="form-group">
+                        <label for="script">
+                            <i class="fas fa-file-code"></i> Selecione o Script:
+                        </label>
+                        <select name="script" id="script" 
+                                hx-get="/render-scripts" 
+                                hx-trigger="load" 
+                                hx-target="#script"
+                                hx-swap="innerHTML">
+                            <option value="">- Selecione -</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="params">
+                            <i class="fas fa-sliders-h"></i> Parâmetros:
+                        </label>
+                        <input type="text" 
+                               name="params" 
+                               id="params" 
+                               placeholder="Ex: -Path 'C:\Temp' -Force">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn" id="executeBtn">
+                            <i class="fas fa-play"></i> Executar
+                        </button>
+                        <button type="reset" class="secondary-btn">
+                            <i class="fas fa-undo"></i> Limpar
+                        </button>
+                    </div>
+
+                    <div class="execution-status" id="executionStatus"></div>
+                </form>
+
+                <div class="loading-overlay">
+                    <div class="loading-content">
+                        <div class="spinner"></div>
+                        <p>Executando script...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="output-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-terminal"></i> Saída do Script</h2>
+                    <div class="panel-actions">
+                        <button class="icon-btn" title="Limpar Saída" onclick="clearOutput()">
+                            <i class="fas fa-eraser"></i>
+                        </button>
+                        <button class="icon-btn" title="Copiar" onclick="copyOutput()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="output" class="output-content">
+                    <div class="output-placeholder">
+                        <i class="fas fa-terminal"></i>
+                        <p>A saída do script será exibida aqui</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('.script-form');
+            const status = document.getElementById('executionStatus');
+            const executeBtn = document.getElementById('executeBtn');
+
+            // Reseta o estado inicial
+            status.style.display = 'none';
+            status.className = 'execution-status';
+            executeBtn.disabled = false;
+
+            // Antes de enviar o formulário
+            form.addEventListener('htmx:beforeRequest', function(event) {
+                const script = document.getElementById('script').value;
+                if (!script) {
+                    alert('Por favor, selecione um script');
+                    event.preventDefault();
+                    return;
+                }
+
+                executeBtn.disabled = true;
+                status.className = 'execution-status running';
+                status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Executando script...';
+                status.style.display = 'block';
+            });
+
+            // Depois de receber a resposta
+            form.addEventListener('htmx:afterRequest', function(event) {
+                executeBtn.disabled = false;
+                const output = document.getElementById('output');
+
+                if (output && output.innerText) {
+                    if (output.innerText.includes('código 0')) {
+                        status.className = 'execution-status success';
+                        status.innerHTML = '<i class="fas fa-check-circle"></i> Script executado com sucesso!';
+                    } else {
+                        status.className = 'execution-status error';
+                        status.innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro ao executar o script';
+                    }
+                }
+
+                // Esconde o status após 5 segundos
+                setTimeout(() => {
+                    status.style.display = 'none';
+                    status.className = 'execution-status';
+                }, 5000);
+            });
+        });
+
+        function copyOutput() {
+            const output = document.getElementById('output').innerText;
+            navigator.clipboard.writeText(output)
+                .then(() => {
+                    const btn = document.querySelector('[title="Copiar"]');
+                    const originalHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => {
+                        btn.innerHTML = originalHtml;
+                    }, 2000);
+                })
+                .catch(err => console.error('Erro ao copiar:', err));
+        }
+
+        function clearOutput() {
+            const output = document.getElementById('output');
+            output.innerHTML = `
+                <div class="output-placeholder">
+                    <i class="fas fa-terminal"></i>
+                    <p>A saída do script será exibida aqui</p>
+                </div>
+            `;
+            const status = document.getElementById('executionStatus');
+            status.style.display = 'none';
+            status.className = 'execution-status';
+        }
+    </script>
+</body>
+
+</html>

@@ -41,7 +41,7 @@ O PS Panel é uma aplicação web que permite executar e gerenciar scripts Power
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/pspanel.git
+git clone https://github.com/marcusrox/pspanel.git
 cd pspanel
 ```
 
@@ -140,7 +140,7 @@ Este projeto está sob a licença ISC. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## 📞 Suporte
 
-Para suporte, envie um email para [seu-email@exemplo.com](mailto:seu-email@exemplo.com) ou abra uma issue no GitHub.
+Para suporte, envie um email para [seu-email@exemplo.com](mailto:marcus.moreira@gmail.com) ou abra uma issue no GitHub.
 
 ---
 

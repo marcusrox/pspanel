@@ -1,5 +1,5 @@
 {
   "watch": ["app.js", "routes/", "scripts/"],
-  "ext": "js,json,css,html",
+  "ext": "js,ejs,json,css,html",
   "ignore": ["public/", "scripts/"]
 }

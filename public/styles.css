@@ -85,6 +85,9 @@ body {
 .sidebar-footer {
     padding: 1rem 1.5rem;
     border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .sidebar-footer span {
@@ -92,6 +95,22 @@ body {
     align-items: center;
     gap: 0.5rem;
     color: var(--text-secondary);
+}
+
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--danger-color);
+    text-decoration: none;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.logout-btn:hover {
+    background-color: var(--bg-light);
+    color: var(--danger-color);
 }
 
 /* Main Content Styles */
