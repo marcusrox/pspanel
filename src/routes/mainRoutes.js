@@ -4,6 +4,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
+const History = require('../models/History');
 
 // Função para ler os parâmetros de um script PowerShell
 async function getScriptParameters(scriptPath) {
@@ -174,6 +175,15 @@ router.post("/run-script", async (req, res) => {
     const args = params ? params.split(" ") : [];
     console.log('Argumentos processados:', args);
 
+    // Criar registro no histórico
+    let historyId;
+    try {
+        historyId = await History.addEntry(script, params, req.session.user.username);
+    } catch (error) {
+        console.error('Erro ao registrar histórico:', error);
+        // Continua a execução mesmo se falhar o registro no histórico
+    }
+
     console.log('Iniciando execução do PowerShell com os seguintes parâmetros:');
     console.log('- Script:', scriptPath);
     console.log('- Argumentos:', args);
@@ -200,11 +210,25 @@ router.post("/run-script", async (req, res) => {
         error += `\nErro ao executar o PowerShell: ${err.message}`;
     });
 
-    ps.on("close", (code) => {
+    ps.on("close", async (code) => {
         console.log(`\n=== Script finalizado ===`);
         console.log('Código de saída:', code);
         console.log('Saída acumulada:', output);
         if (error) console.error('Erros acumulados:', error);
+
+        // Atualizar registro no histórico
+        if (historyId) {
+            try {
+                await History.updateEntry(
+                    historyId,
+                    output || error,
+                    code === 0 ? 'success' : 'error',
+                    error || null
+                );
+            } catch (updateError) {
+                console.error('Erro ao atualizar histórico:', updateError);
+            }
+        }
 
         const result = `Script ${script} executado com código ${code}`;
         if (code === 0) {

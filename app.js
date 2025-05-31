@@ -8,6 +8,7 @@ require("dotenv").config();
 // Importar rotas
 const authRoutes = require('./src/routes/authRoutes');
 const mainRoutes = require('./src/routes/mainRoutes');
+const historyRoutes = require('./src/routes/historyRoutes');
 const { isAuthenticated } = require('./src/middleware/authMiddleware');
 
 const app = express();
@@ -50,10 +51,11 @@ app.use((req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
+app.use('/history', historyRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
