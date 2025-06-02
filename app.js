@@ -3,13 +3,15 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const session = require("express-session");
 const flash = require('connect-flash');
+const Settings = require('./src/models/Settings');
+const settingsRoutes = require('./src/routes/settingsRoutes');
+const { isAuthenticated } = require('./src/middleware/authMiddleware');
 require("dotenv").config();
 
 // Importar rotas
 const authRoutes = require('./src/routes/authRoutes');
 const mainRoutes = require('./src/routes/mainRoutes');
 const historyRoutes = require('./src/routes/historyRoutes');
-const { isAuthenticated } = require('./src/middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,11 +53,15 @@ app.use((req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
 app.use('/history', historyRoutes);
+app.use('/settings', settingsRoutes);
+
+// Inicializar configurações
+Settings.initialize().catch(console.error);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
@@ -63,5 +69,7 @@ app.listen(PORT, () => {
   console.log(`Iniciando servidor em ambiente: ${process.env.NODE_ENV}`);
   console.log(`Data e hora: ${new Date().toLocaleString()}`);
 });
+
+module.exports = app;
 
 

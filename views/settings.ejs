@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - PS Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .settings-container {
+            padding: 1.5rem;
+        }
+
+        .settings-section {
+            background-color: var(--bg-light);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-section h2 {
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-darker);
+            color: var(--text-primary);
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="number"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .primary-btn,
+        .secondary-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .primary-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .primary-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .secondary-btn {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .secondary-btn:hover {
+            background-color: var(--bg-darker);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="/" style="text-decoration: none; color: inherit;">
+                <i class="fas fa-terminal"></i>
+                <h2>PS Panel</h2>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/"><i class="fas fa-code"></i> Scripts</a>
+            <a href="/history"><i class="fas fa-history"></i> Histórico</a>
+            <a href="/settings" class="active"><i class="fas fa-cog"></i> Configurações</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <% if (user.displayName) { %>
+                    <span class="user-info1"><i class="fas fa-user"></i> <%= user.displayName %></span>
+                    <span class="user-info2"><%=user.email  %></span>
+                <% } else { %>
+                    <span class="user-info1"><i class="fas fa-user"></i> <%= user.username %></span>
+                <% } %>
+            </div>
+            <a href="/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </a>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Configurações</h1>
+                <p>Gerencie as configurações do sistema</p>
+            </div>
+            <div class="header-actions">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <div class="settings-container">
+            <% if (success) { %>
+                <div class="alert alert-success">
+                    <%= success %>
+                </div>
+            <% } %>
+
+            <% if (error) { %>
+                <div class="alert alert-danger">
+                    <%= error %>
+                </div>
+            <% } %>
+
+            <form action="/settings/update" method="POST">
+                <div class="settings-section">
+                    <h2>
+                        <i class="fas fa-folder"></i>
+                        Diretórios
+                    </h2>
+                    <div class="form-group">
+                        <label for="scripts.directory">Diretório de Scripts</label>
+                        <input type="text" 
+                               id="scripts.directory" 
+                               name="scripts.directory"
+                               value="<%= settings.scripts?.directory || 'C:\\Scripts' %>"
+                               placeholder="Ex: C:\Scripts">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scripts.log_directory">Diretório de Logs</label>
+                        <input type="text" 
+                               id="scripts.log_directory" 
+                               name="scripts.log_directory"
+                               value="<%= settings.scripts?.log_directory || 'C:\\Scripts\\Logs' %>"
+                               placeholder="Ex: C:\Scripts\Logs">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>
+                        <i class="fas fa-clock"></i>
+                        Execução
+                    </h2>
+                    <div class="form-group">
+                        <label for="scripts.max_execution_time">Tempo Máximo de Execução (segundos)</label>
+                        <input type="number" 
+                               id="scripts.max_execution_time" 
+                               name="scripts.max_execution_time"
+                               value="<%= settings.scripts?.max_execution_time || '3600' %>"
+                               min="1">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="reset" class="secondary-btn">
+                        <i class="fas fa-undo"></i>
+                        Restaurar
+                    </button>
+                    <button type="submit" class="primary-btn">
+                        <i class="fas fa-save"></i>
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+</html> 
