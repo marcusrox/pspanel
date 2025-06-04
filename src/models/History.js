@@ -1,6 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const dbPath = path.join(process.cwd(), 'data', 'history.db');
+const dbPath = path.join(__dirname, '../../database/execution_history.sqlite');
 
 // Ensure the database directory exists
 const fs = require('fs');
