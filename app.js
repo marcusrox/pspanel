@@ -12,6 +12,8 @@ require("dotenv").config();
 const authRoutes = require('./src/routes/authRoutes');
 const mainRoutes = require('./src/routes/mainRoutes');
 const historyRoutes = require('./src/routes/historyRoutes');
+const scheduleRoutes = require('./src/routes/scheduleRoutes');
+const Schedule = require('./src/models/Schedule');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,15 +55,17 @@ app.use((req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history', '/settings'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings', '/schedules'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
 app.use('/history', historyRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/schedules', scheduleRoutes);
 
 // Inicializar configurações
 Settings.initialize().catch(console.error);
+Schedule.initialize().catch(console.error);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);

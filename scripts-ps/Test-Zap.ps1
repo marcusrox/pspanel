@@ -1,3 +1,17 @@
+<#
+.SYNOPSIS
+    Envia uma mensagem de teste via Evolution API (WhatsApp).
+
+.DESCRIPTION
+    Define a função Send-WhatsAppMessage e envia uma mensagem fixa de exemplo após carregar o script.
+    URLs, instância e chave de API estão no corpo do arquivo; ajuste conforme o ambiente.
+
+.PARAMETER Nenhum
+    Este script não declara param(). Número e texto da mensagem estão definidos no final do arquivo.
+
+.EXAMPLE
+    .\Test-Zap.ps1
+#>
 
 # Função para enviar mensagem via WhatsApp usando Evolution API
 function Send-WhatsAppMessage {

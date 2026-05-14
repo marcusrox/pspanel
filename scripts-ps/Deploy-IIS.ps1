@@ -1,10 +1,24 @@
-# Script para deploy da aplicação no IIS
-# Autor: Deployment Team
-# Data: 2024
+<#
+.SYNOPSIS
+    Publica arquivos web de uma pasta de implantação para IIS (interno ou externo).
 
-# Exemplo de uso:
-# .\Deploy-IIS.ps1 -appName "APP_NAME" -AMBIENTE "INTERNO"
-# .\Deploy-IIS.ps1 -appName "ConsultaAcesso" -AMBIENTE "INTERNO"
+.DESCRIPTION
+    Com base no ambiente (INTERNO ou EXTERNO), define servidor e caminhos UNC, valida origem e destino,
+    cria backup ZIP do site atual, limpa a pasta mantendo web.config, copia novos arquivos, atualiza
+    timestamp do web.config e envia notificação por WhatsApp. Exige confirmação interativa (S/N).
+
+.PARAMETER appName
+    Nome da aplicação (pasta sob o caminho de sistemas/WWW conforme o ambiente).
+
+.PARAMETER AMBIENTE
+    Destino do deploy: INTERNO (SERV38D) ou EXTERNO (ext05d).
+
+.EXAMPLE
+    .\Deploy-IIS.ps1 -appName "ConsultaAcesso" -AMBIENTE "INTERNO"
+
+.EXAMPLE
+    .\Deploy-IIS.ps1 -appName "Portal" -AMBIENTE "EXTERNO"
+#>
 param(
     [Parameter(Mandatory=$true)]
     [string]$appName,

@@ -193,6 +193,74 @@
             color: var(--primary-color);
         }
 
+        .scripts-table-wrap {
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            overflow: auto;
+            max-height: 320px;
+            background-color: var(--bg-darker);
+        }
+
+        .scripts-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .scripts-table th,
+        .scripts-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .scripts-table th {
+            background-color: var(--bg-light);
+            color: var(--text-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .scripts-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .scripts-table tbody tr:hover {
+            background-color: rgba(37, 99, 235, 0.08);
+        }
+
+        .scripts-table tbody tr.is-selected {
+            background-color: rgba(37, 99, 235, 0.18);
+            box-shadow: inset 3px 0 0 var(--primary-color);
+        }
+
+        .scripts-table .script-name-cell {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+        }
+
+        .scripts-table .script-synopsis {
+            display: block;
+            margin-top: 0.35rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            max-width: 42rem;
+        }
+
+        .scripts-table .script-synopsis.muted {
+            font-style: italic;
+            opacity: 0.75;
+        }
+
         .mandatory-badge {
             font-size: 0.75rem;
             background-color: rgba(239, 68, 68, 0.1);
@@ -238,6 +306,7 @@
         </div>
         <nav class="sidebar-nav">
             <a href="/" class="active"><i class="fas fa-code"></i> Scripts</a>
+            <a href="/schedules"><i class="fas fa-clock"></i> Agendamentos</a>
             <a href="/history"><i class="fas fa-history"></i> Histórico</a>
             <a href="/settings"><i class="fas fa-cog"></i> Configurações</a>
         </nav>
@@ -285,20 +354,41 @@
                       hx-swap="innerHTML"
                       hx-trigger="submit"
                       hx-indicator=".loading-overlay">
+                    <input type="hidden" name="script" id="script" value="">
+
                     <div class="form-group">
-                        <label for="script">
-                            <i class="fas fa-file-code"></i> Selecione o Script:
+                        <label id="script-table-label">
+                            <i class="fas fa-file-code"></i> Scripts disponíveis - Clique em uma linha para selecionar o script a executar.
                         </label>
-                        <select name="script" id="script" onchange="showScriptInfo(this)">
-                            <option value="">- Selecione -</option>
-                            <% scripts.forEach(script => { %>
-                                <% console.log('Script:', script.name, 'Params:', script.parameters); %>
-                                <option value="<%= script.name %>" 
-                                        data-params='<%- JSON.stringify(script.parameters) %>'>
-                                    <%= script.name %>
-                                </option>
-                            <% }); %>
-                        </select>
+                        <div class="scripts-table-wrap" role="grid" aria-labelledby="script-table-label">
+                            <table class="scripts-table">
+                                <tbody>
+                                    <% if (!scripts.length) { %>
+                                        <tr><td class="script-synopsis muted">Nenhum arquivo .ps1 encontrado em <code>scripts-ps</code>.</td></tr>
+                                    <% } %>
+                                    <% scripts.forEach(function (script) {
+                                        const paramsB64 = Buffer.from(JSON.stringify(script.parameters || null)).toString('base64');
+                                    %>
+                                        <tr class="script-row"
+                                            data-script-name="<%= script.name %>"
+                                            data-params-b64="<%= paramsB64 %>"
+                                            role="row"
+                                            tabindex="0"
+                                            onclick="selectScriptRow(this)"
+                                            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectScriptRow(this);}">
+                                            <td class="script-name-cell">
+                                                <%= script.name %>
+                                                <% if (script.synopsis) { %>
+                                                    <span class="script-synopsis"><%= script.synopsis %></span>
+                                                <% } else { %>
+                                                    <span class="script-synopsis muted">Sem bloco de ajuda (.SYNOPSIS) no comentário &lt;# #&gt;.</span>
+                                                <% } %>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div id="scriptInfo" class="script-info" style="display: none;">
@@ -373,9 +463,9 @@
 
             // Antes de enviar o formulário
             form.addEventListener('htmx:beforeRequest', function(event) {
-                const script = document.getElementById('script').value;
+                const script = document.getElementById('script').value.trim();
                 if (!script) {
-                    alert('Por favor, selecione um script');
+                    alert('Por favor, selecione um script na tabela');
                     event.preventDefault();
                     return;
                 }
@@ -407,6 +497,14 @@
                     status.className = 'execution-status';
                 }, 5000);
             });
+
+            form.addEventListener('reset', function () {
+                document.getElementById('script').value = '';
+                document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
+                    r.classList.remove('is-selected');
+                });
+                document.getElementById('scriptInfo').style.display = 'none';
+            });
         });
 
         function copyOutput() {
@@ -436,18 +534,31 @@
             status.className = 'execution-status';
         }
 
-        function showScriptInfo(selectElement) {
+        function decodeParamsFromRow(tr) {
+            const b64 = tr.getAttribute('data-params-b64');
+            if (!b64) return null;
+            try {
+                return JSON.parse(atob(b64));
+            } catch (e) {
+                console.error('Parâmetros do script (base64):', e);
+                return null;
+            }
+        }
+
+        function selectScriptRow(tr) {
+            document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
+                r.classList.remove('is-selected');
+            });
+            tr.classList.add('is-selected');
+            const name = tr.getAttribute('data-script-name') || '';
+            document.getElementById('script').value = name;
+            showScriptInfoForParams(decodeParamsFromRow(tr));
+        }
+
+        function showScriptInfoForParams(scriptData) {
             const scriptInfo = document.getElementById('scriptInfo');
             const paramsList = document.getElementById('paramsList');
-            const option = selectElement.selectedOptions[0];
 
-            if (!option || !option.value) {
-                scriptInfo.style.display = 'none';
-                return;
-            }
-
-            const scriptData = JSON.parse(option.dataset.params || 'null');
-            
             if (!scriptData || !scriptData.content) {
                 scriptInfo.style.display = 'none';
                 return;

@@ -1,3 +1,18 @@
+<#
+.SYNOPSIS
+    Realiza backup lógico do FortiGate via SSH e versiona os arquivos com Git.
+
+.DESCRIPTION
+    Garante o módulo Posh-SSH, conecta ao firewall, executa vários comandos "show" e grava saídas
+    em texto em C:\FortiGate-Backup (ou pasta configurada), incluindo full-configuration. Opcionalmente
+    inicializa ou atualiza um repositório Git nessa pasta. Credenciais e host estão nas variáveis no início.
+
+.PARAMETER Nenhum
+    Não há parâmetros de linha de comando. Edite FortiHost, FortiUser, FortiPassword e BackupDir no script.
+
+.EXAMPLE
+    .\Backup-Fortigate.ps1
+#>
 # Requer o módulo Posh-SSH
 # Instale com: Install-Module -Name Posh-SSH -Force
 

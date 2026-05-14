@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendamentos - PS Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .container-box { background-color: var(--bg-light); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; align-items: center; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .data-table th { background: var(--bg-darker); color: var(--text-secondary); font-weight: 500; }
+        .data-table tr:hover { background: var(--bg-darker); }
+        .badge-off { opacity: 0.6; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="/" style="text-decoration: none; color: inherit;">
+                <i class="fas fa-terminal"></i>
+                <h2>PS Panel</h2>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/"><i class="fas fa-code"></i> Scripts</a>
+            <a href="/schedules" class="active"><i class="fas fa-clock"></i> Agendamentos</a>
+            <a href="/history"><i class="fas fa-history"></i> Histórico</a>
+            <a href="/settings"><i class="fas fa-cog"></i> Configurações</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <% if (user.displayName) { %>
+                    <span class="user-info1"><i class="fas fa-user"></i> <%= user.displayName %></span>
+                <% } else { %>
+                    <span class="user-info1"><i class="fas fa-user"></i> <%= user.username %></span>
+                <% } %>
+            </div>
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Agendamentos</h1>
+                <p>Execuções agendadas de scripts PowerShell</p>
+            </div>
+            <div class="header-actions">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <% if (messages.error && messages.error.length) { %>
+            <div class="alert alert-danger"><%= messages.error[0] %></div>
+        <% } %>
+        <% if (messages.success && messages.success.length) { %>
+            <div class="alert alert-success"><%= messages.success[0] %></div>
+        <% } %>
+
+        <div class="container-box">
+            <div class="toolbar">
+                <a href="/schedules/new" class="primary-btn"><i class="fas fa-plus"></i> Novo agendamento</a>
+                <a href="/schedules/audit" class="secondary-btn"><i class="fas fa-clipboard-list"></i> Auditoria</a>
+            </div>
+
+            <% if (!schedules.length) { %>
+                <p style="color: var(--text-secondary);">Nenhum agendamento cadastrado.</p>
+            <% } else { %>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ativo</th>
+                            <th>Script</th>
+                            <th>Parâmetros</th>
+                            <th>Próxima execução</th>
+                            <th>Repetir (min)</th>
+                            <th>Última execução</th>
+                            <th>Saída (resumo)</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% schedules.forEach(function (s) { %>
+                            <tr class="<%= s.enabled ? '' : 'badge-off' %>">
+                                <td><%= s.enabled ? 'Sim' : 'Não' %></td>
+                                <td><%= s.script_name %></td>
+                                <td><%= s.parameters || '—' %></td>
+                                <td><%= new Date(s.next_run_at).toLocaleString('pt-BR') %></td>
+                                <td><%= s.repeat_interval_minutes != null ? s.repeat_interval_minutes : '— (uma vez)' %></td>
+                                <td><%= s.last_run_at ? new Date(s.last_run_at).toLocaleString('pt-BR') : '—' %></td>
+                                <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= (s.last_run_output || '').replace(/"/g, '&quot;') %>">
+                                    <%= s.last_run_exit_code != null ? ('código ' + s.last_run_exit_code + ' — ') : '' %><%= (s.last_run_output || '').slice(0, 80) %><%= (s.last_run_output && s.last_run_output.length > 80) ? '…' : '' %>
+                                </td>
+                                <td style="white-space:nowrap;">
+                                    <a href="/schedules/<%= s.id %>/edit" class="icon-btn" title="Editar"><i class="fas fa-edit"></i></a>
+                                    <form action="/schedules/<%= s.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Excluir este agendamento?');">
+                                        <button type="submit" class="icon-btn" title="Excluir" style="border:none;background:transparent;color:inherit;cursor:pointer;">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            <% } %>
+        </div>
+
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+            O processamento no horário usa o script <code>scripts-ps/Invoke-ScheduleWorker.ps1</code> + <code>scripts-js/schedule-worker.js</code> (Task Scheduler, ex.: a cada 5 minutos).
+        </p>
+    </main>
+</body>
+</html>

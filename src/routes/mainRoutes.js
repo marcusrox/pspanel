@@ -6,77 +6,82 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const History = require('../models/History');
 
-// Função para ler os parâmetros de um script PowerShell
-async function getScriptParameters(scriptPath) {
-    try {
-        const content = await fs.readFile(scriptPath, 'utf8');
-        console.log('Reading script:', scriptPath);
+/** Extrai .SYNOPSIS do primeiro bloco de comentário baseado em ajuda (<# ... #>). */
+function parseSynopsisFromContent(content) {
+    const start = content.indexOf('<#');
+    if (start === -1) return null;
+    const end = content.indexOf('#>', start + 2);
+    if (end === -1) return null;
+    const help = content.slice(start + 2, end);
+    const lines = help.split(/\r?\n/);
+    const synopsisLines = [];
+    let inSynopsis = false;
 
-        // Encontra o início do bloco param
-        const startIndex = content.indexOf('param(');
-        if (startIndex === -1) {
-            console.log('No param block found in:', scriptPath);
-            return null;
-        }
-
-        // Encontra o fechamento do parênteses correspondente
-        let openParens = 1;
-        let endIndex = startIndex + 6; // Começa após 'param('
-        
-        while (openParens > 0 && endIndex < content.length) {
-            if (content[endIndex] === '(') openParens++;
-            if (content[endIndex] === ')') openParens--;
-            endIndex++;
-        }
-
-        if (openParens > 0) {
-            console.log('Incomplete param block in:', scriptPath);
-            return null;
-        }
-
-        // Extrai o conteúdo entre param( e )
-        const paramContent = content.substring(startIndex + 6, endIndex - 1);
-        
-        // Divide em linhas e processa cada uma
-        const lines = paramContent.split('\n');
-        
-        // Se só tem uma linha, retorna ela sem processamento
-        if (lines.length === 1) {
-            return {
-                content: paramContent.trim()
-            };
-        }
-        
-        // Encontra a indentação base (da primeira linha não vazia)
-        let baseIndent = '';
-        for (const line of lines) {
-            if (line.trim()) {
-                baseIndent = line.match(/^\s*/)[0];
-                break;
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (!inSynopsis) {
+            if (/^\.SYNOPSIS\b/i.test(trimmed)) {
+                inSynopsis = true;
+                const after = trimmed.replace(/^\.SYNOPSIS\b/i, '').trim();
+                if (after) synopsisLines.push(after);
             }
+        } else if (/^\.[A-Z][A-Za-z0-9_]*\b/.test(trimmed)) {
+            break;
+        } else {
+            synopsisLines.push(lines[i].trimEnd());
         }
-        
-        // Remove a indentação base de todas as linhas e junta novamente
-        const processedContent = lines
-            .map(line => {
-                if (!line.trim()) return '';
-                // Se a linha começa com a indentação base, remove ela
-                if (line.startsWith(baseIndent)) {
-                    return line.substring(baseIndent.length);
-                }
-                return line.trim();
-            })
-            .join('\n');
+    }
 
-        console.log('Found param content:', processedContent);
-        
-        return {
-            content: processedContent
-        };
-    } catch (error) {
-        console.error(`Error reading script ${scriptPath}:`, error);
+    const text = synopsisLines.join('\n').trim();
+    return text.length ? text : null;
+}
+
+/** Mesma lógica de getScriptParameters, a partir do texto do arquivo (uma leitura por script). */
+function parseScriptParametersFromContent(content) {
+    const startIndex = content.indexOf('param(');
+    if (startIndex === -1) {
         return null;
     }
+
+    let openParens = 1;
+    let endIndex = startIndex + 6;
+
+    while (openParens > 0 && endIndex < content.length) {
+        if (content[endIndex] === '(') openParens++;
+        if (content[endIndex] === ')') openParens--;
+        endIndex++;
+    }
+
+    if (openParens > 0) {
+        return null;
+    }
+
+    const paramContent = content.substring(startIndex + 6, endIndex - 1);
+    const lines = paramContent.split('\n');
+
+    if (lines.length === 1) {
+        return { content: paramContent.trim() };
+    }
+
+    let baseIndent = '';
+    for (const line of lines) {
+        if (line.trim()) {
+            baseIndent = line.match(/^\s*/)[0];
+            break;
+        }
+    }
+
+    const processedContent = lines
+        .map((line) => {
+            if (!line.trim()) return '';
+            if (line.startsWith(baseIndent)) {
+                return line.substring(baseIndent.length);
+            }
+            return line.trim();
+        })
+        .join('\n');
+
+    return { content: processedContent };
 }
 
 // Rota principal
@@ -87,17 +92,25 @@ router.get('/', async (req, res) => {
 
     try {
         const scriptsDir = path.join(process.cwd(), "scripts-ps");
-        const files = await fs.readdir(scriptsDir);
+        const files = (await fs.readdir(scriptsDir)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
         const scripts = [];
 
         for (const file of files) {
             if (file.endsWith('.ps1')) {
                 const scriptPath = path.join(scriptsDir, file);
-                const parameters = await getScriptParameters(scriptPath);
-                scripts.push({
-                    name: file,
-                    parameters: parameters || []
-                });
+                try {
+                    const content = await fs.readFile(scriptPath, 'utf8');
+                    const parameters = parseScriptParametersFromContent(content);
+                    const synopsis = parseSynopsisFromContent(content);
+                    scripts.push({
+                        name: file,
+                        synopsis,
+                        parameters: parameters || null
+                    });
+                } catch (readErr) {
+                    console.error(`Erro ao ler script ${scriptPath}:`, readErr);
+                    scripts.push({ name: file, synopsis: null, parameters: null });
+                }
             }
         }
 
