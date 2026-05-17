@@ -97,13 +97,66 @@
             cursor: not-allowed;
         }
 
-        .parameters-container,
-        .parameter-fields,
-        .parameter-field,
-        .parameter-field label,
-        .parameter-field select,
-        .parameter-field input {
+        .parameter-fields {
             display: none;
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: var(--bg-darker);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+
+        .parameter-fields.is-visible {
+            display: block;
+        }
+
+        .parameter-fields h3 {
+            margin: 0 0 1rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .parameter-grid {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .parameter-field {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .parameter-field label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .parameter-field input,
+        .parameter-field select {
+            width: 100%;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .parameter-field input:focus,
+        .parameter-field select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .parameter-meta {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
         }
 
         .sidebar-footer {
@@ -245,6 +298,34 @@
             font-size: 0.875rem;
         }
 
+        .scripts-table .script-actions-cell {
+            width: 3.5rem;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .source-view-btn {
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-light);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .source-view-btn:hover,
+        .source-view-btn:focus {
+            background-color: rgba(37, 99, 235, 0.12);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            outline: none;
+        }
+
         .scripts-table .script-synopsis {
             display: block;
             margin-top: 0.35rem;
@@ -353,7 +434,8 @@
                       hx-target="#output" 
                       hx-swap="innerHTML"
                       hx-trigger="submit"
-                      hx-indicator=".loading-overlay">
+                      hx-indicator=".loading-overlay"
+                      novalidate>
                     <input type="hidden" name="script" id="script" value="">
 
                     <div class="form-group">
@@ -384,6 +466,16 @@
                                                     <span class="script-synopsis muted">Sem bloco de ajuda (.SYNOPSIS) no comentário &lt;# #&gt;.</span>
                                                 <% } %>
                                             </td>
+                                            <td class="script-actions-cell">
+                                                <button type="button"
+                                                        class="source-view-btn"
+                                                        title="Visualizar codigo fonte"
+                                                        aria-label="Visualizar codigo fonte de <%= script.name %>"
+                                                        data-source-url="/scripts/<%= encodeURIComponent(script.name) %>/source"
+                                                        onclick="openScriptSource(event, this)">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </td>
                                         </tr>
                                     <% }); %>
                                 </tbody>
@@ -398,14 +490,19 @@
                         </div>
                     </div>
 
+                    <div id="parameterFields" class="parameter-fields" aria-live="polite">
+                        <h3><i class="fas fa-sliders-h"></i> Preenchimento de parâmetros</h3>
+                        <div id="parameterGrid" class="parameter-grid"></div>
+                    </div>
+
                     <div class="form-group">
                         <label for="params">
-                            <i class="fas fa-sliders-h"></i> Parâmetros:
+                            <i class="fas fa-terminal"></i> Parâmetros adicionais:
                         </label>
                         <input type="text" 
                                name="params" 
                                id="params" 
-                               placeholder="Ex: -Path 'C:\Temp' -Force">
+                               placeholder="Opcional. Ex: -Verbose -Force">
                     </div>
 
                     <div class="form-actions">
@@ -451,6 +548,8 @@
     </main>
 
     <script>
+        let selectedParameterDefinitions = [];
+
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.querySelector('.script-form');
             const status = document.getElementById('executionStatus');
@@ -466,6 +565,14 @@
                 const script = document.getElementById('script').value.trim();
                 if (!script) {
                     alert('Por favor, selecione um script na tabela');
+                    event.preventDefault();
+                    return;
+                }
+
+                const missingParameters = getMissingRequiredParameters();
+                if (missingParameters.length) {
+                    const message = `Informe os parametros obrigatorios: ${missingParameters.join(', ')}.`;
+                    showExecutionError(message);
                     event.preventDefault();
                     return;
                 }
@@ -498,12 +605,23 @@
                 }, 5000);
             });
 
+            form.addEventListener('htmx:responseError', function(event) {
+                executeBtn.disabled = false;
+                const message = event.detail.xhr && event.detail.xhr.responseText
+                    ? event.detail.xhr.responseText
+                    : 'Erro ao executar o script';
+                document.getElementById('output').innerHTML = message;
+                showExecutionError('Erro ao executar o script');
+            });
+
             form.addEventListener('reset', function () {
                 document.getElementById('script').value = '';
                 document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
                     r.classList.remove('is-selected');
                 });
+                selectedParameterDefinitions = [];
                 document.getElementById('scriptInfo').style.display = 'none';
+                clearParameterFields();
             });
         });
 
@@ -552,7 +670,20 @@
             tr.classList.add('is-selected');
             const name = tr.getAttribute('data-script-name') || '';
             document.getElementById('script').value = name;
-            showScriptInfoForParams(decodeParamsFromRow(tr));
+            const scriptData = decodeParamsFromRow(tr);
+            selectedParameterDefinitions = Array.isArray(scriptData && scriptData.parameters)
+                ? scriptData.parameters
+                : [];
+            showScriptInfoForParams(scriptData);
+            renderParameterFields(selectedParameterDefinitions);
+        }
+
+        function openScriptSource(event, button) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const url = button.getAttribute('data-source-url');
+            window.open(url, 'scriptSource', 'width=1000,height=700,scrollbars=yes,resizable=yes');
         }
 
         function showScriptInfoForParams(scriptData) {
@@ -561,27 +692,172 @@
 
             if (!scriptData || !scriptData.content) {
                 scriptInfo.style.display = 'none';
+                paramsList.innerHTML = '';
                 return;
             }
 
-            // Processa o conteúdo linha por linha para destacar as linhas [string]
-            const formattedContent = scriptData.content
-                .split('\n')
-                .map(line => {
-                    if (line.trim().startsWith('[string]')) {
-                        return `<strong>${line}</strong>`;
-                    }
-                    return line;
-                })
-                .join('\n');
-
-            paramsList.innerHTML = `
-                <div class="param-content">
-                    <pre>${formattedContent}</pre>
-                </div>
-            `;
-
+            paramsList.replaceChildren(createParameterInfoContent(scriptData.content));
             scriptInfo.style.display = 'block';
+        }
+
+        function createParameterInfoContent(content) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'param-content';
+
+            const pre = document.createElement('pre');
+            const lines = content.split('\n');
+
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                if (/^\[[A-Za-z_][\w.]*\]\$[A-Za-z_][\w]*/.test(trimmed)) {
+                    const strong = document.createElement('strong');
+                    strong.textContent = line;
+                    pre.appendChild(strong);
+                } else {
+                    pre.appendChild(document.createTextNode(line));
+                }
+
+                if (index < lines.length - 1) {
+                    pre.appendChild(document.createTextNode('\n'));
+                }
+            });
+
+            wrapper.appendChild(pre);
+            return wrapper;
+        }
+
+        function clearParameterFields() {
+            const container = document.getElementById('parameterFields');
+            const grid = document.getElementById('parameterGrid');
+            grid.replaceChildren();
+            container.classList.remove('is-visible');
+        }
+
+        function renderParameterFields(parameters) {
+            clearParameterFields();
+
+            if (!parameters || !parameters.length) {
+                return;
+            }
+
+            const container = document.getElementById('parameterFields');
+            const grid = document.getElementById('parameterGrid');
+
+            parameters.forEach((param) => {
+                const field = document.createElement('div');
+                field.className = 'parameter-field';
+
+                const label = document.createElement('label');
+                label.setAttribute('for', `param-${param.name}`);
+                label.appendChild(document.createTextNode(param.name));
+
+                if (param.mandatory) {
+                    const badge = document.createElement('span');
+                    badge.className = 'mandatory-badge';
+                    badge.textContent = 'Obrigatório';
+                    label.appendChild(badge);
+                }
+
+                const input = Array.isArray(param.validateSet) && param.validateSet.length
+                    ? document.createElement('select')
+                    : document.createElement('input');
+
+                input.id = `param-${param.name}`;
+                input.name = `paramValues[${param.name}]`;
+                input.required = Boolean(param.mandatory);
+
+                if (input.tagName === 'SELECT') {
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = '';
+                    emptyOption.textContent = 'Selecione...';
+                    input.appendChild(emptyOption);
+
+                    param.validateSet.forEach((optionValue) => {
+                        const option = document.createElement('option');
+                        option.value = optionValue;
+                        option.textContent = optionValue;
+                        input.appendChild(option);
+                    });
+                } else {
+                    input.type = 'text';
+                    input.placeholder = param.defaultValue
+                        ? `Padrao: ${param.defaultValue}`
+                        : `Valor de ${param.name}`;
+                }
+
+                field.appendChild(label);
+                field.appendChild(input);
+
+                if (param.type || param.defaultValue) {
+                    const meta = document.createElement('div');
+                    meta.className = 'parameter-meta';
+                    meta.textContent = [
+                        param.type ? `Tipo: ${param.type}` : null,
+                        param.defaultValue ? `Padrao: ${param.defaultValue}` : null
+                    ].filter(Boolean).join(' | ');
+                    field.appendChild(meta);
+                }
+
+                grid.appendChild(field);
+            });
+
+            container.classList.add('is-visible');
+        }
+
+        function getMissingRequiredParameters() {
+            const rawParamValues = parseRawNamedParameterValues(
+                document.getElementById('params').value,
+                selectedParameterDefinitions
+            );
+
+            return selectedParameterDefinitions
+                .filter((param) => param.mandatory)
+                .filter((param) => {
+                    const input = document.getElementById(`param-${param.name}`);
+                    const structuredValue = input ? input.value.trim() : '';
+                    return !structuredValue && !rawParamValues[param.name];
+                })
+                .map((param) => param.name);
+        }
+
+        function parseRawNamedParameterValues(rawParams, parameters) {
+            const values = {};
+            if (!rawParams || !rawParams.trim()) {
+                return values;
+            }
+
+            const tokens = rawParams.trim().match(/"[^"]*"|'[^']*'|\S+/g) || [];
+            const knownNames = new Map(parameters.map((param) => [param.name.toLowerCase(), param.name]));
+
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                if (!token.startsWith('-')) {
+                    continue;
+                }
+
+                const canonicalName = knownNames.get(token.slice(1).toLowerCase());
+                if (!canonicalName) {
+                    continue;
+                }
+
+                const nextToken = tokens[i + 1];
+                if (!nextToken || nextToken.startsWith('-')) {
+                    values[canonicalName] = 'true';
+                    continue;
+                }
+
+                values[canonicalName] = nextToken.replace(/^['"]|['"]$/g, '');
+                i++;
+            }
+
+            return values;
+        }
+
+        function showExecutionError(message) {
+            const status = document.getElementById('executionStatus');
+            status.className = 'execution-status error';
+            status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+            status.style.display = 'block';
         }
     </script>
 </body>

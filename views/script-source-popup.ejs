@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codigo fonte - <%= scriptName || 'Script' %></title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .source-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .source-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background-color: var(--bg-darker);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .source-title {
+            min-width: 0;
+        }
+
+        .source-title h1 {
+            margin: 0;
+            font-size: 1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .source-title p {
+            margin: 0.35rem 0 0;
+            color: var(--text-secondary);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            overflow-wrap: anywhere;
+        }
+
+        .close-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+            padding: 0.6rem 0.85rem;
+            cursor: pointer;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            outline: none;
+        }
+
+        .source-content {
+            flex: 1;
+            padding: 1rem;
+        }
+
+        .source-code {
+            margin: 0;
+            padding: 1rem;
+            min-height: calc(100vh - 7rem);
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background-color: var(--bg-darker);
+            color: var(--text-primary);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            white-space: pre;
+            tab-size: 4;
+        }
+
+        .source-code code {
+            display: block;
+            min-width: max-content;
+        }
+
+        .source-code.is-highlighted {
+            padding: 0;
+            white-space: normal;
+        }
+
+        .source-code.is-highlighted code {
+            min-width: 100%;
+        }
+
+        .source-line {
+            display: grid;
+            grid-template-columns: minmax(3rem, max-content) minmax(0, 1fr);
+            min-height: 1.5em;
+        }
+
+        .source-line-number {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            padding: 0 0.85rem;
+            border-right: 1px solid var(--border-color);
+            background-color: var(--bg-darker);
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            user-select: none;
+        }
+
+        .source-line-code {
+            padding: 0 1rem;
+            white-space: pre;
+        }
+
+        .source-line:first-child .source-line-number,
+        .source-line:first-child .source-line-code {
+            padding-top: 1rem;
+        }
+
+        .source-line:last-child .source-line-number,
+        .source-line:last-child .source-line-code {
+            padding-bottom: 1rem;
+        }
+
+        .token-comment {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .token-string {
+            color: #4ade80;
+        }
+
+        .token-variable {
+            color: #38bdf8;
+        }
+
+        .token-keyword {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+
+        .token-command {
+            color: #c084fc;
+        }
+
+        .token-type {
+            color: #f472b6;
+        }
+
+        .token-operator {
+            color: #f87171;
+        }
+
+        .source-error {
+            margin: 0;
+            padding: 1rem;
+            border: 1px solid var(--danger-color);
+            border-radius: 0.5rem;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="source-page">
+        <header class="source-header">
+            <div class="source-title">
+                <h1><i class="fas fa-file-code"></i> Codigo fonte</h1>
+                <p><%= scriptName || 'Script nao informado' %></p>
+            </div>
+            <button type="button" class="close-btn" onclick="window.close()">
+                <i class="fas fa-times"></i> Fechar
+            </button>
+        </header>
+
+        <section class="source-content">
+            <% if (error) { %>
+                <p class="source-error"><%= error %></p>
+            <% } else { %>
+                <pre class="source-code"><code id="script-source-code" class="language-powershell"><%= source %></code></pre>
+            <% } %>
+        </section>
+    </main>
+
+    <% if (!error) { %>
+        <script>
+            (() => {
+                const codeElement = document.getElementById('script-source-code');
+                const codeBlock = codeElement ? codeElement.closest('.source-code') : null;
+
+                if (!codeElement || !codeBlock) {
+                    return;
+                }
+
+                const keywords = new Set([
+                    'begin', 'break', 'catch', 'class', 'continue', 'data', 'do', 'dynamicparam',
+                    'else', 'elseif', 'end', 'exit', 'filter', 'finally', 'for', 'foreach',
+                    'from', 'function', 'if', 'in', 'param', 'process', 'return', 'switch',
+                    'throw', 'trap', 'try', 'until', 'using', 'while'
+                ]);
+
+                const operators = new Set([
+                    '-and', '-as', '-band', '-bnot', '-bor', '-bxor', '-contains', '-eq',
+                    '-ge', '-gt', '-in', '-is', '-isnot', '-join', '-le', '-like', '-lt',
+                    '-match', '-ne', '-not', '-notcontains', '-notin', '-notlike',
+                    '-notmatch', '-or', '-replace', '-shl', '-shr', '-split', '-xor'
+                ]);
+
+                function appendToken(parent, text, className) {
+                    if (!text) {
+                        return;
+                    }
+
+                    const span = document.createElement('span');
+                    span.className = className;
+                    span.textContent = text;
+                    parent.appendChild(span);
+                }
+
+                function appendPlain(parent, text) {
+                    if (text) {
+                        parent.appendChild(document.createTextNode(text));
+                    }
+                }
+
+                function appendWord(parent, word) {
+                    const lowerWord = word.toLowerCase();
+
+                    if (keywords.has(lowerWord)) {
+                        appendToken(parent, word, 'token-keyword');
+                    } else if (operators.has(lowerWord)) {
+                        appendToken(parent, word, 'token-operator');
+                    } else if (/^[A-Z][A-Za-z]+-[A-Za-z][A-Za-z0-9]*$/.test(word)) {
+                        appendToken(parent, word, 'token-command');
+                    } else {
+                        appendPlain(parent, word);
+                    }
+                }
+
+                function appendHighlightedLine(parent, line, state) {
+                    let index = 0;
+
+                    while (index < line.length) {
+                        if (state.inBlockComment) {
+                            const endIndex = line.indexOf('#>', index);
+
+                            if (endIndex === -1) {
+                                appendToken(parent, line.slice(index), 'token-comment');
+                                return;
+                            }
+
+                            appendToken(parent, line.slice(index, endIndex + 2), 'token-comment');
+                            state.inBlockComment = false;
+                            index = endIndex + 2;
+                            continue;
+                        }
+
+                        const blockCommentStart = line.indexOf('<#', index);
+                        if (blockCommentStart === index) {
+                            const endIndex = line.indexOf('#>', index + 2);
+
+                            if (endIndex === -1) {
+                                appendToken(parent, line.slice(index), 'token-comment');
+                                state.inBlockComment = true;
+                                return;
+                            }
+
+                            appendToken(parent, line.slice(index, endIndex + 2), 'token-comment');
+                            index = endIndex + 2;
+                            continue;
+                        }
+
+                        const char = line[index];
+
+                        if (char === '#') {
+                            appendToken(parent, line.slice(index), 'token-comment');
+                            return;
+                        }
+
+                        if (char === '\'' || char === '"') {
+                            const quote = char;
+                            let endIndex = index + 1;
+
+                            while (endIndex < line.length) {
+                                if (line[endIndex] === '`') {
+                                    endIndex += 2;
+                                    continue;
+                                }
+
+                                if (line[endIndex] === quote) {
+                                    endIndex++;
+                                    break;
+                                }
+
+                                endIndex++;
+                            }
+
+                            appendToken(parent, line.slice(index, endIndex), 'token-string');
+                            index = endIndex;
+                            continue;
+                        }
+
+                        if (char === '$') {
+                            const variableMatch = line.slice(index).match(/^\$(?:\{[^}\r\n]+\}|[A-Za-z_][\w]*(?::[\w*?]+)?|\?|\^|_|\$)/);
+
+                            if (variableMatch) {
+                                appendToken(parent, variableMatch[0], 'token-variable');
+                                index += variableMatch[0].length;
+                                continue;
+                            }
+                        }
+
+                        if (char === '[') {
+                            const typeMatch = line.slice(index).match(/^\[[A-Za-z_][\w.]*\]/);
+
+                            if (typeMatch) {
+                                appendToken(parent, typeMatch[0], 'token-type');
+                                index += typeMatch[0].length;
+                                continue;
+                            }
+                        }
+
+                        const wordMatch = line.slice(index).match(/^-?[A-Za-z_][A-Za-z0-9_-]*/);
+
+                        if (wordMatch) {
+                            appendWord(parent, wordMatch[0]);
+                            index += wordMatch[0].length;
+                            continue;
+                        }
+
+                        appendPlain(parent, char);
+                        index++;
+                    }
+                }
+
+                function buildHighlightedSource(source) {
+                    const fragment = document.createDocumentFragment();
+                    const lines = source.split(/\r\n|\r|\n/);
+                    const state = { inBlockComment: false };
+
+                    lines.forEach((line, lineIndex) => {
+                        const row = document.createElement('span');
+                        row.className = 'source-line';
+
+                        const lineNumber = document.createElement('span');
+                        lineNumber.className = 'source-line-number';
+                        lineNumber.setAttribute('aria-hidden', 'true');
+                        lineNumber.textContent = String(lineIndex + 1);
+
+                        const lineCode = document.createElement('span');
+                        lineCode.className = 'source-line-code';
+                        appendHighlightedLine(lineCode, line, state);
+
+                        row.append(lineNumber, lineCode);
+                        fragment.appendChild(row);
+                    });
+
+                    return fragment;
+                }
+
+                try {
+                    const source = codeElement.textContent || '';
+                    const highlightedSource = buildHighlightedSource(source);
+                    codeElement.replaceChildren(highlightedSource);
+                    codeBlock.classList.add('is-highlighted');
+                } catch (highlightError) {
+                    console.warn('Nao foi possivel aplicar highlight ao script PowerShell.', highlightError);
+                }
+            })();
+        </script>
+    <% } %>
+</body>
+
+</html>
