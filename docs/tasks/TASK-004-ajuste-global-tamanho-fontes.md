@@ -1,4 +1,4 @@
-# Task: Ajuste global do tamanho das fontes
+# TASK-004 - Ajuste global do tamanho das fontes
 
 ## Contexto
 

@@ -1,4 +1,4 @@
-# Task: Exibir acoes do script apenas ao passar o mouse
+# TASK-006 - Exibir acoes do script apenas ao passar o mouse
 
 ## Contexto
 

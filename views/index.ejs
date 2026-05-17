@@ -120,6 +120,45 @@
             gap: 0.5rem;
         }
 
+        .parameter-fields-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .parameter-fields-header h3 {
+            margin: 0;
+        }
+
+        .parameter-help-btn {
+            width: 2rem;
+            height: 2rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            background-color: var(--bg-light);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            flex: 0 0 auto;
+        }
+
+        .parameter-help-btn.is-visible {
+            display: inline-flex;
+        }
+
+        .parameter-help-btn:hover,
+        .parameter-help-btn:focus {
+            background-color: rgba(37, 99, 235, 0.12);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            outline: none;
+        }
+
         .parameter-grid {
             display: grid;
             gap: 0.85rem;
@@ -516,15 +555,26 @@
                         </div>
                     </div>
 
-                    <div id="scriptInfo" class="script-info" style="display: none;">
-                        <div class="info-content">
-                            <h3><i class="fas fa-info-circle"></i> Parâmetros Necessários:</h3>
-                            <div id="paramsList"></div>
-                        </div>
-                    </div>
-
                     <div id="parameterFields" class="parameter-fields" aria-live="polite">
-                        <h3><i class="fas fa-sliders-h"></i> Preenchimento de parâmetros</h3>
+                        <div class="parameter-fields-header">
+                            <h3><i class="fas fa-sliders-h"></i> Preenchimento de parâmetros</h3>
+                            <button type="button"
+                                    id="parameterHelpBtn"
+                                    class="parameter-help-btn"
+                                    title="Mostrar parâmetros necessários"
+                                    aria-label="Mostrar parâmetros necessários"
+                                    aria-expanded="false"
+                                    aria-controls="scriptInfo"
+                                    onclick="toggleParameterInfo()">
+                                <i class="fas fa-question"></i>
+                            </button>
+                        </div>
+                        <div id="scriptInfo" class="script-info" style="display: none;">
+                            <div class="info-content">
+                                <h3><i class="fas fa-info-circle"></i> Parâmetros Necessários:</h3>
+                                <div id="paramsList"></div>
+                            </div>
+                        </div>
                         <div id="parameterGrid" class="parameter-grid"></div>
                     </div>
 
@@ -653,7 +703,6 @@
                     r.classList.remove('is-selected');
                 });
                 selectedParameterDefinitions = [];
-                document.getElementById('scriptInfo').style.display = 'none';
                 clearParameterFields();
             });
         });
@@ -707,8 +756,8 @@
             selectedParameterDefinitions = Array.isArray(scriptData && scriptData.parameters)
                 ? scriptData.parameters
                 : [];
-            showScriptInfoForParams(scriptData);
             renderParameterFields(selectedParameterDefinitions);
+            showScriptInfoForParams(scriptData);
         }
 
         function openScriptSource(event, button) {
@@ -764,15 +813,29 @@
         function showScriptInfoForParams(scriptData) {
             const scriptInfo = document.getElementById('scriptInfo');
             const paramsList = document.getElementById('paramsList');
+            const helpButton = document.getElementById('parameterHelpBtn');
 
             if (!scriptData || !scriptData.content) {
                 scriptInfo.style.display = 'none';
                 paramsList.innerHTML = '';
+                helpButton.classList.remove('is-visible');
+                helpButton.setAttribute('aria-expanded', 'false');
                 return;
             }
 
             paramsList.replaceChildren(createParameterInfoContent(scriptData.content));
-            scriptInfo.style.display = 'block';
+            scriptInfo.style.display = 'none';
+            helpButton.classList.add('is-visible');
+            helpButton.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleParameterInfo() {
+            const scriptInfo = document.getElementById('scriptInfo');
+            const helpButton = document.getElementById('parameterHelpBtn');
+            const isExpanded = scriptInfo.style.display === 'block';
+
+            scriptInfo.style.display = isExpanded ? 'none' : 'block';
+            helpButton.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
         }
 
         function createParameterInfoContent(content) {
@@ -804,7 +867,14 @@
         function clearParameterFields() {
             const container = document.getElementById('parameterFields');
             const grid = document.getElementById('parameterGrid');
+            const scriptInfo = document.getElementById('scriptInfo');
+            const paramsList = document.getElementById('paramsList');
+            const helpButton = document.getElementById('parameterHelpBtn');
             grid.replaceChildren();
+            paramsList.innerHTML = '';
+            scriptInfo.style.display = 'none';
+            helpButton.classList.remove('is-visible');
+            helpButton.setAttribute('aria-expanded', 'false');
             container.classList.remove('is-visible');
         }
 

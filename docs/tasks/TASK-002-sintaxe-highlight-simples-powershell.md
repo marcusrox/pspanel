@@ -1,4 +1,4 @@
-# Task: Destaque de sintaxe simples para scripts PowerShell
+# TASK-002 - Destaque de sintaxe simples para scripts PowerShell
 
 ## Contexto
 
