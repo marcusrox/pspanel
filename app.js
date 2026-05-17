@@ -55,7 +55,7 @@ app.use((req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history', '/settings', '/schedules'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
