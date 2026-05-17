@@ -310,6 +310,17 @@
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
+        }
+
+        .scripts-table tbody tr:hover .script-action-buttons,
+        .scripts-table tbody tr:focus-within .script-action-buttons {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
 
         .source-view-btn,
