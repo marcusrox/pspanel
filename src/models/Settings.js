@@ -21,12 +21,13 @@ class Settings {
                 const defaults = {
                     'scripts.directory': 'C:\\Scripts',
                     'scripts.max_execution_time': '3600',
-                    'scripts.log_directory': 'C:\\Scripts\\Logs'
+                    'scripts.log_directory': 'C:\\Scripts\\Logs',
+                    'ui.font_scale': '100'
                 };
 
                 // Inserir configurações padrão se não existirem
                 for (const [key, value] of Object.entries(defaults)) {
-                    await this.set(key, value);
+                    await this.setDefault(key, value);
                 }
 
                 resolve();
@@ -50,6 +51,21 @@ class Settings {
         return new Promise((resolve, reject) => {
             db.run(`
                 INSERT OR REPLACE INTO settings (key, value)
+                VALUES (?, ?)
+            `, [key, value], (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+
+    static async setDefault(key, value) {
+        return new Promise((resolve, reject) => {
+            db.run(`
+                INSERT OR IGNORE INTO settings (key, value)
                 VALUES (?, ?)
             `, [key, value], (err) => {
                 if (err) {

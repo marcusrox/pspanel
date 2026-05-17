@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configurações - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
     <style>
@@ -38,7 +39,8 @@
         }
 
         .form-group input[type="text"],
-        .form-group input[type="number"] {
+        .form-group input[type="number"],
+        .form-group select {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border-color);
@@ -48,7 +50,8 @@
         }
 
         .form-group input[type="text"]:focus,
-        .form-group input[type="number"]:focus {
+        .form-group input[type="number"]:focus,
+        .form-group select:focus {
             border-color: var(--primary-color);
             outline: none;
         }
@@ -134,15 +137,15 @@
         </header>
 
         <div class="settings-container">
-            <% if (success) { %>
+            <% if (success && success.length) { %>
                 <div class="alert alert-success">
-                    <%= success %>
+                    <%= success[0] %>
                 </div>
             <% } %>
 
-            <% if (error) { %>
+            <% if (error && error.length) { %>
                 <div class="alert alert-danger">
-                    <%= error %>
+                    <%= error[0] %>
                 </div>
             <% } %>
 
@@ -183,6 +186,22 @@
                                name="scripts.max_execution_time"
                                value="<%= settings.scripts?.max_execution_time || '3600' %>"
                                min="1">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>
+                        <i class="fas fa-font"></i>
+                        Aparência
+                    </h2>
+                    <div class="form-group">
+                        <label for="ui.font_scale">Tamanho da fonte</label>
+                        <select id="ui.font_scale" name="ui.font_scale">
+                            <option value="85" <%= settings.ui?.font_scale === '85' ? 'selected' : '' %>>Super Compacto</option>
+                            <option value="90" <%= settings.ui?.font_scale === '90' ? 'selected' : '' %>>Compacto</option>
+                            <option value="100" <%= !settings.ui?.font_scale || settings.ui?.font_scale === '100' ? 'selected' : '' %>>Normal</option>
+                            <option value="110" <%= settings.ui?.font_scale === '110' ? 'selected' : '' %>>Grande</option>
+                        </select>
                     </div>
                 </div>
 

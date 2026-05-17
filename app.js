@@ -51,6 +51,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Preferencias visuais globais
+app.use(async (req, res, next) => {
+  try {
+    const fontScale = await Settings.get('ui.font_scale');
+    res.locals.ui = {
+      fontScale: ['85', '90', '100', '110'].includes(fontScale) ? fontScale : '100'
+    };
+    next();
+  } catch (error) {
+    res.locals.ui = { fontScale: '100' };
+    next();
+  }
+});
+
 // Rotas de autenticação
 app.use('/', authRoutes);
 

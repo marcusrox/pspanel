@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Scripts - Administração</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
@@ -299,12 +300,20 @@
         }
 
         .scripts-table .script-actions-cell {
-            width: 3.5rem;
+            width: 6rem;
             text-align: center;
             vertical-align: middle;
         }
 
-        .source-view-btn {
+        .script-action-buttons {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .source-view-btn,
+        .rename-script-btn {
             width: 2.25rem;
             height: 2.25rem;
             display: inline-flex;
@@ -319,7 +328,9 @@
         }
 
         .source-view-btn:hover,
-        .source-view-btn:focus {
+        .source-view-btn:focus,
+        .rename-script-btn:hover,
+        .rename-script-btn:focus {
             background-color: rgba(37, 99, 235, 0.12);
             border-color: var(--primary-color);
             color: var(--primary-color);
@@ -467,14 +478,25 @@
                                                 <% } %>
                                             </td>
                                             <td class="script-actions-cell">
-                                                <button type="button"
-                                                        class="source-view-btn"
-                                                        title="Visualizar codigo fonte"
-                                                        aria-label="Visualizar codigo fonte de <%= script.name %>"
-                                                        data-source-url="/scripts/<%= encodeURIComponent(script.name) %>/source"
-                                                        onclick="openScriptSource(event, this)">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
+                                                <div class="script-action-buttons">
+                                                    <button type="button"
+                                                            class="source-view-btn"
+                                                            title="Visualizar codigo fonte"
+                                                            aria-label="Visualizar codigo fonte de <%= script.name %>"
+                                                            data-source-url="/scripts/<%= encodeURIComponent(script.name) %>/source"
+                                                            onclick="openScriptSource(event, this)">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button type="button"
+                                                            class="rename-script-btn"
+                                                            title="Alterar nome do script"
+                                                            aria-label="Alterar nome de <%= script.name %>"
+                                                            data-script-name="<%= script.name %>"
+                                                            data-rename-url="/scripts/<%= encodeURIComponent(script.name) %>/rename"
+                                                            onclick="renameScript(event, this)">
+                                                        <i class="fas fa-pen"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     <% }); %>
@@ -684,6 +706,48 @@
 
             const url = button.getAttribute('data-source-url');
             window.open(url, 'scriptSource', 'width=1000,height=700,scrollbars=yes,resizable=yes');
+        }
+
+        async function renameScript(event, button) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const currentName = button.getAttribute('data-script-name');
+            const renameUrl = button.getAttribute('data-rename-url');
+            const newScriptName = prompt('Novo nome do script:', currentName);
+
+            if (newScriptName === null) {
+                return;
+            }
+
+            const trimmedName = newScriptName.trim();
+            if (!trimmedName || trimmedName === currentName) {
+                return;
+            }
+
+            button.disabled = true;
+
+            try {
+                const response = await fetch(renameUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newScriptName: trimmedName })
+                });
+
+                const data = await response.json().catch(() => null);
+
+                if (!response.ok) {
+                    alert(data && data.error ? data.error : 'Nao foi possivel renomear o script.');
+                    return;
+                }
+
+                window.location.reload();
+            } catch (error) {
+                console.error('Erro ao renomear script:', error);
+                alert('Nao foi possivel renomear o script.');
+            } finally {
+                button.disabled = false;
+            }
         }
 
         function showScriptInfoForParams(scriptData) {

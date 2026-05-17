@@ -301,6 +301,21 @@ function resolveScriptPath(scriptName) {
     return scriptPath;
 }
 
+function normalizeScriptName(scriptName) {
+    if (!scriptName || typeof scriptName !== 'string') {
+        return null;
+    }
+
+    const normalized = scriptName.trim();
+    if (!normalized) {
+        return null;
+    }
+
+    return normalized.toLowerCase().endsWith('.ps1')
+        ? normalized
+        : `${normalized}.ps1`;
+}
+
 // Rota principal
 router.get('/', async (req, res) => {
     if (!req.session.user) {
@@ -413,6 +428,45 @@ router.get('/scripts/:scriptName/source', async (req, res) => {
                 ? 'Script nao encontrado.'
                 : 'Nao foi possivel ler o codigo fonte do script.'
         });
+    }
+});
+
+router.post('/scripts/:scriptName/rename', async (req, res) => {
+    const currentScriptName = req.params.scriptName;
+    const newScriptName = normalizeScriptName(req.body && req.body.newScriptName);
+    const currentScriptPath = resolveScriptPath(currentScriptName);
+    const newScriptPath = resolveScriptPath(newScriptName);
+
+    if (!currentScriptPath || !newScriptPath) {
+        return res.status(400).json({ error: 'Nome de script invalido.' });
+    }
+
+    if (currentScriptName === newScriptName) {
+        return res.status(400).json({ error: 'Informe um nome diferente do atual.' });
+    }
+
+    try {
+        await fs.access(currentScriptPath);
+    } catch (error) {
+        return res.status(404).json({ error: 'Script original nao encontrado.' });
+    }
+
+    try {
+        await fs.access(newScriptPath);
+        return res.status(409).json({ error: 'Ja existe um script com esse nome.' });
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            console.error(`Erro ao validar destino da renomeacao ${newScriptPath}:`, error);
+            return res.status(500).json({ error: 'Nao foi possivel validar o novo nome do script.' });
+        }
+    }
+
+    try {
+        await fs.rename(currentScriptPath, newScriptPath);
+        res.json({ success: true, scriptName: newScriptName });
+    } catch (error) {
+        console.error(`Erro ao renomear script ${currentScriptPath} para ${newScriptPath}:`, error);
+        res.status(500).json({ error: 'Nao foi possivel renomear o script.' });
     }
 });
 

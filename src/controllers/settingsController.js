@@ -42,6 +42,13 @@ class SettingsController {
                 }
             }
 
+            if (updates['ui.font_scale']) {
+                const allowedFontScales = ['85', '90', '100', '110'];
+                if (!allowedFontScales.includes(updates['ui.font_scale'])) {
+                    throw new Error('Tamanho da fonte inválido');
+                }
+            }
+
             // Atualizar cada configuração
             for (const [key, value] of Object.entries(updates)) {
                 await Settings.set(key, value);
