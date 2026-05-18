@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const History = require('../models/History');
-const { buildPowerShellCommandArgs } = require('../services/powerShellRunner');
+const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 
 /** Extrai .SYNOPSIS do primeiro bloco de comentário baseado em ajuda (<# ... #>). */
 function parseSynopsisFromContent(content) {
@@ -279,6 +279,15 @@ function formatProvidedParams(parameterDefinitions, providedParams, rawParams) {
     return structuredParams.join(' ');
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function getScriptsDirectory() {
     return path.resolve(process.cwd(), 'scripts-ps');
 }
@@ -533,19 +542,19 @@ router.post("/run-script", async (req, res) => {
     console.log('- Script:', scriptPath);
     console.log('- Argumentos:', args);
 
-    const ps = spawn("powershell.exe", buildPowerShellCommandArgs(scriptPath, args));
+    const ps = spawn(getPowerShellExecutable(), buildPowerShellCommandArgs(scriptPath, args));
 
     let output = "";
     let error = "";
 
     ps.stdout.on("data", (data) => {
-        const newOutput = data.toString();
+        const newOutput = data.toString('utf8');
         console.log('Saída do script:', newOutput);
         output += newOutput;
     });
 
     ps.stderr.on("data", (data) => {
-        const newError = data.toString();
+        const newError = data.toString('utf8');
         console.error('Erro do script:', newError);
         error += newError;
     });
@@ -576,10 +585,11 @@ router.post("/run-script", async (req, res) => {
         }
 
         const result = `Script ${script} executado com código ${code}`;
+        res.set('Content-Type', 'text/html; charset=utf-8');
         if (code === 0) {
-            res.send(`<pre>${output}</pre><br />${result}`);
+            res.send(`<pre>${escapeHtml(output)}</pre><br />${escapeHtml(result)}`);
         } else {
-            res.send(`<pre>Erro: ${error}</pre><br />${result}`);
+            res.send(`<pre>Erro: ${escapeHtml(error)}</pre><br />${escapeHtml(result)}`);
         }
     });
 });

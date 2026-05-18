@@ -14,6 +14,7 @@ const mainRoutes = require('./src/routes/mainRoutes');
 const historyRoutes = require('./src/routes/historyRoutes');
 const scheduleRoutes = require('./src/routes/scheduleRoutes');
 const Schedule = require('./src/models/Schedule');
+const History = require('./src/models/History');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,16 +78,25 @@ app.use('/history', historyRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/schedules', scheduleRoutes);
 
-// Inicializar configurações
-Settings.initialize().catch(console.error);
-Schedule.initialize().catch(console.error);
+async function start() {
+  try {
+    await History.initialize();
+    await Settings.initialize();
+    await Schedule.initialize();
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`URL: http://localhost:${PORT}`);
-  console.log(`Iniciando servidor em ambiente: ${process.env.NODE_ENV}`);
-  console.log(`Data e hora: ${new Date().toLocaleString()}`);
-});
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`URL: http://localhost:${PORT}`);
+      console.log(`Iniciando servidor em ambiente: ${process.env.NODE_ENV}`);
+      console.log(`Data e hora: ${new Date().toLocaleString()}`);
+    });
+  } catch (error) {
+    console.error('Erro ao inicializar banco de dados:', error);
+    process.exit(1);
+  }
+}
+
+start();
 
 module.exports = app;
 

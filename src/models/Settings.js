@@ -1,103 +1,67 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const db = new sqlite3.Database(path.join(__dirname, '../../database/settings.sqlite'));
+const database = require('../database/connection');
+const schema = require('../database/schema');
+
+let initialized = false;
 
 class Settings {
     static async initialize() {
-        return new Promise((resolve, reject) => {
-            db.run(`
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT,
-                    description TEXT
-                )
-            `, async (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+        if (initialized) return;
 
-                // Configurações padrão
-                const defaults = {
-                    'scripts.directory': 'C:\\Scripts',
-                    'scripts.max_execution_time': '3600',
-                    'scripts.log_directory': 'C:\\Scripts\\Logs',
-                    'ui.font_scale': '100'
-                };
+        await schema.initialize();
 
-                // Inserir configurações padrão se não existirem
-                for (const [key, value] of Object.entries(defaults)) {
-                    await this.setDefault(key, value);
-                }
+        // Configurações padrão
+        const defaults = {
+            'scripts.directory': 'C:\\Scripts',
+            'scripts.max_execution_time': '3600',
+            'scripts.log_directory': 'C:\\Scripts\\Logs',
+            'ui.font_scale': '100'
+        };
 
-                resolve();
-            });
-        });
+        // Inserir configurações padrão se não existirem
+        for (const [key, value] of Object.entries(defaults)) {
+            await this.setDefault(key, value);
+        }
+
+        initialized = true;
     }
 
     static async get(key) {
-        return new Promise((resolve, reject) => {
-            db.get('SELECT value FROM settings WHERE key = ?', [key], (err, row) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(row ? row.value : null);
-            });
-        });
+        await Settings.initialize();
+        const row = await database.get('SELECT value FROM settings WHERE key = ?', [key]);
+        return row ? row.value : null;
     }
 
     static async set(key, value) {
-        return new Promise((resolve, reject) => {
-            db.run(`
-                INSERT OR REPLACE INTO settings (key, value)
-                VALUES (?, ?)
-            `, [key, value], (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            });
-        });
+        await Settings.initialize();
+        await database.run(`
+            INSERT OR REPLACE INTO settings (key, value)
+            VALUES (?, ?)
+        `, [key, value]);
     }
 
     static async setDefault(key, value) {
-        return new Promise((resolve, reject) => {
-            db.run(`
-                INSERT OR IGNORE INTO settings (key, value)
-                VALUES (?, ?)
-            `, [key, value], (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            });
-        });
+        await schema.initialize();
+        await database.run(`
+            INSERT OR IGNORE INTO settings (key, value)
+            VALUES (?, ?)
+        `, [key, value]);
     }
 
     static async getAll() {
-        return new Promise((resolve, reject) => {
-            db.all('SELECT * FROM settings', (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                
-                // Converter array em objeto
-                const settings = {};
-                rows.forEach(row => {
-                    const [category, name] = row.key.split('.');
-                    if (!settings[category]) {
-                        settings[category] = {};
-                    }
-                    settings[category][name] = row.value;
-                });
-                
-                resolve(settings);
-            });
+        await Settings.initialize();
+        const rows = await database.all('SELECT * FROM settings');
+
+        // Converter array em objeto
+        const settings = {};
+        rows.forEach(row => {
+            const [category, name] = row.key.split('.');
+            if (!settings[category]) {
+                settings[category] = {};
+            }
+            settings[category][name] = row.value;
         });
+
+        return settings;
     }
 }
 

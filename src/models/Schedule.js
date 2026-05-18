@@ -1,17 +1,10 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const History = require('./History');
-const { buildPowerShellCommandArgs } = require('../services/powerShellRunner');
-
-const dbPath = path.join(__dirname, '../../database/schedules.sqlite');
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-}
-
-const db = new sqlite3.Database(dbPath);
+const database = require('../database/connection');
+const schema = require('../database/schema');
+const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 
 const SCHEDULE_RUN_USERNAME = 'Agendamento (worker)';
 const LOCK_MS = 30 * 60 * 1000;
@@ -25,11 +18,11 @@ function nowIso() {
 
 function runPowerShell(scriptPath, argList) {
     return new Promise((resolve, reject) => {
-        const ps = spawn('powershell.exe', buildPowerShellCommandArgs(scriptPath, argList, { executionPolicy: 'Bypass' }));
+        const ps = spawn(getPowerShellExecutable(), buildPowerShellCommandArgs(scriptPath, argList, { executionPolicy: 'Bypass' }));
         let stdout = '';
         let stderr = '';
-        ps.stdout.on('data', (d) => { stdout += d.toString(); });
-        ps.stderr.on('data', (d) => { stderr += d.toString(); });
+        ps.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
+        ps.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
         ps.on('error', reject);
         ps.on('close', (code) => {
             resolve({ code, stdout, stderr });
@@ -39,187 +32,108 @@ function runPowerShell(scriptPath, argList) {
 
 class Schedule {
     static async initialize() {
-        return new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.run(`CREATE TABLE IF NOT EXISTS schedules (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    script_name TEXT NOT NULL,
-                    parameters TEXT,
-                    enabled INTEGER NOT NULL DEFAULT 1,
-                    next_run_at TEXT NOT NULL,
-                    repeat_interval_minutes INTEGER,
-                    worker_lock_until TEXT,
-                    last_run_at TEXT,
-                    last_run_exit_code INTEGER,
-                    last_run_output TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    created_by TEXT
-                )`, (e1) => {
-                    if (e1) return reject(e1);
-                    db.run(`CREATE TABLE IF NOT EXISTS schedule_audit (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        schedule_id INTEGER,
-                        action TEXT NOT NULL,
-                        username TEXT,
-                        details TEXT,
-                        created_at TEXT NOT NULL
-                    )`, (e2) => {
-                        if (e2) return reject(e2);
-                        db.run(`CREATE INDEX IF NOT EXISTS idx_schedules_due ON schedules (enabled, next_run_at)`, (e3) => {
-                            if (e3) return reject(e3);
-                            db.run(`CREATE INDEX IF NOT EXISTS idx_schedule_audit_created ON schedule_audit (created_at)`, (e4) => {
-                                if (e4) return reject(e4);
-                                resolve();
-                            });
-                        });
-                    });
-                });
-            });
-        });
+        await schema.initialize();
     }
 
     static async appendAudit(scheduleId, action, username, detailsObj) {
+        await Schedule.initialize();
         const details = detailsObj == null ? null : JSON.stringify(detailsObj);
-        return new Promise((resolve, reject) => {
-            db.run(
-                `INSERT INTO schedule_audit (schedule_id, action, username, details, created_at) VALUES (?, ?, ?, ?, ?)`,
-                [scheduleId, action, username || null, details, nowIso()],
-                (err) => (err ? reject(err) : resolve())
-            );
-        });
+        await database.run(
+            `INSERT INTO schedule_audit (schedule_id, action, username, details, created_at) VALUES (?, ?, ?, ?, ?)`,
+            [scheduleId, action, username || null, details, nowIso()]
+        );
     }
 
     static async findAll() {
-        return new Promise((resolve, reject) => {
-            db.all(
-                `SELECT * FROM schedules ORDER BY enabled DESC, next_run_at ASC`,
-                [],
-                (err, rows) => (err ? reject(err) : resolve(rows || []))
-            );
-        });
+        await Schedule.initialize();
+        return database.all(`SELECT * FROM schedules ORDER BY enabled DESC, next_run_at ASC`);
     }
 
     static async findById(id) {
-        return new Promise((resolve, reject) => {
-            db.get(`SELECT * FROM schedules WHERE id = ?`, [id], (err, row) => (err ? reject(err) : resolve(row)));
-        });
+        await Schedule.initialize();
+        return database.get(`SELECT * FROM schedules WHERE id = ?`, [id]);
     }
 
     static async listAudit(limit = 200) {
-        return new Promise((resolve, reject) => {
-            db.all(
-                `SELECT * FROM schedule_audit ORDER BY datetime(created_at) DESC LIMIT ?`,
-                [limit],
-                (err, rows) => (err ? reject(err) : resolve(rows || []))
-            );
-        });
+        await Schedule.initialize();
+        return database.all(
+            `SELECT * FROM schedule_audit ORDER BY datetime(created_at) DESC LIMIT ?`,
+            [limit]
+        );
     }
 
     static async create({ script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_by }) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
         const repeat = repeat_interval_minutes == null || repeat_interval_minutes === '' ? null : Number(repeat_interval_minutes);
-        return new Promise((resolve, reject) => {
-            db.run(
-                `INSERT INTO schedules (script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_at, updated_at, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [script_name, parameters || null, en, next_run_at, repeat, ts, ts, created_by || null],
-                function (err) {
-                    if (err) return reject(err);
-                    const id = this.lastID;
-                    Schedule.appendAudit(id, 'CREATE', created_by, { script_name, next_run_at, repeat_interval_minutes: repeat })
-                        .then(() => resolve(id))
-                        .catch(reject);
-                }
-            );
-        });
+        await Schedule.initialize();
+        const result = await database.run(
+            `INSERT INTO schedules (script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_at, updated_at, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [script_name, parameters || null, en, next_run_at, repeat, ts, ts, created_by || null]
+        );
+        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, { script_name, next_run_at, repeat_interval_minutes: repeat });
+        return result.lastID;
     }
 
     static async update(id, { script_name, parameters, enabled, next_run_at, repeat_interval_minutes }, username) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
         const repeat = repeat_interval_minutes == null || repeat_interval_minutes === '' ? null : Number(repeat_interval_minutes);
-        return new Promise((resolve, reject) => {
-            db.run(
-                `UPDATE schedules SET script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, repeat_interval_minutes = ?, updated_at = ?
-                 WHERE id = ?`,
-                [script_name, parameters || null, en, next_run_at, repeat, ts, id],
-                async function (err) {
-                    if (err) return reject(err);
-                    try {
-                        await Schedule.appendAudit(id, 'UPDATE', username, { script_name, next_run_at, repeat_interval_minutes: repeat, enabled: !!en });
-                        resolve(this.changes);
-                    } catch (e) {
-                        reject(e);
-                    }
-                }
-            );
-        });
+        await Schedule.initialize();
+        const result = await database.run(
+            `UPDATE schedules SET script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, repeat_interval_minutes = ?, updated_at = ?
+             WHERE id = ?`,
+            [script_name, parameters || null, en, next_run_at, repeat, ts, id]
+        );
+        await Schedule.appendAudit(id, 'UPDATE', username, { script_name, next_run_at, repeat_interval_minutes: repeat, enabled: !!en });
+        return result.changes;
     }
 
     static async delete(id, username) {
         const row = await Schedule.findById(id);
-        return new Promise((resolve, reject) => {
-            db.run(`DELETE FROM schedules WHERE id = ?`, [id], async function (err) {
-                if (err) return reject(err);
-                try {
-                    await Schedule.appendAudit(null, 'DELETE', username, { deleted_schedule_id: id, snapshot: row });
-                    resolve(this.changes);
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        });
+        const result = await database.run(`DELETE FROM schedules WHERE id = ?`, [id]);
+        await Schedule.appendAudit(null, 'DELETE', username, { deleted_schedule_id: id, snapshot: row });
+        return result.changes;
     }
 
     static async clearStaleLocks() {
         const threshold = new Date(Date.now() - STALE_LOCK_MS).toISOString();
-        return new Promise((resolve, reject) => {
-            db.run(
-                `UPDATE schedules SET worker_lock_until = NULL WHERE worker_lock_until IS NOT NULL AND worker_lock_until < ?`,
-                [threshold],
-                (err) => (err ? reject(err) : resolve())
-            );
-        });
+        await Schedule.initialize();
+        await database.run(
+            `UPDATE schedules SET worker_lock_until = NULL WHERE worker_lock_until IS NOT NULL AND worker_lock_until < ?`,
+            [threshold]
+        );
     }
 
     static async findDueCandidates() {
-        return new Promise((resolve, reject) => {
-            db.all(`SELECT * FROM schedules WHERE enabled = 1`, [], (err, rows) => {
-                if (err) return reject(err);
-                const now = Date.now();
-                const due = (rows || []).filter((r) => {
-                    if (r.worker_lock_until && new Date(r.worker_lock_until).getTime() > now) return false;
-                    return new Date(r.next_run_at).getTime() <= now;
-                });
-                resolve(due);
-            });
+        await Schedule.initialize();
+        const rows = await database.all(`SELECT * FROM schedules WHERE enabled = 1`);
+        const now = Date.now();
+        return rows.filter((r) => {
+            if (r.worker_lock_until && new Date(r.worker_lock_until).getTime() > now) return false;
+            return new Date(r.next_run_at).getTime() <= now;
         });
     }
 
     static async setLock(id, untilIso) {
-        return new Promise((resolve, reject) => {
-            db.run(`UPDATE schedules SET worker_lock_until = ?, updated_at = ? WHERE id = ?`, [untilIso, nowIso(), id], (err) => (err ? reject(err) : resolve()));
-        });
+        await Schedule.initialize();
+        await database.run(`UPDATE schedules SET worker_lock_until = ?, updated_at = ? WHERE id = ?`, [untilIso, nowIso(), id]);
     }
 
     static async clearLock(id) {
-        return new Promise((resolve, reject) => {
-            db.run(`UPDATE schedules SET worker_lock_until = NULL, updated_at = ? WHERE id = ?`, [nowIso(), id], (err) => (err ? reject(err) : resolve()));
-        });
+        await Schedule.initialize();
+        await database.run(`UPDATE schedules SET worker_lock_until = NULL, updated_at = ? WHERE id = ?`, [nowIso(), id]);
     }
 
     static async recordRunResult(id, { last_run_at, last_run_exit_code, last_run_output, next_run_at, enabled }) {
+        await Schedule.initialize();
         const out = last_run_output == null ? null : String(last_run_output).slice(0, OUTPUT_MAX);
-        return new Promise((resolve, reject) => {
-            db.run(
-                `UPDATE schedules SET last_run_at = ?, last_run_exit_code = ?, last_run_output = ?, next_run_at = ?, enabled = ?, worker_lock_until = NULL, updated_at = ?
-                 WHERE id = ?`,
-                [last_run_at, last_run_exit_code, out, next_run_at, enabled ? 1 : 0, nowIso(), id],
-                (err) => (err ? reject(err) : resolve())
-            );
-        });
+        await database.run(
+            `UPDATE schedules SET last_run_at = ?, last_run_exit_code = ?, last_run_output = ?, next_run_at = ?, enabled = ?, worker_lock_until = NULL, updated_at = ?
+             WHERE id = ?`,
+            [last_run_at, last_run_exit_code, out, next_run_at, enabled ? 1 : 0, nowIso(), id]
+        );
     }
 
     /**

@@ -46,3 +46,4 @@ scripts-ps/*.log
 scripts-ps/output/ 
 database/*.sqlite
 database/*.sqlite-*
+database/backups/

@@ -10,7 +10,7 @@ A aplicacao segue uma arquitetura monolitica simples:
 
 - **Backend web** em Node.js com Express.
 - **Views server-side** em EJS.
-- **Persistencia local** em arquivos SQLite.
+- **Persistencia local** em SQLite.
 - **Execucao de automacao** via `powershell.exe`.
 - **Autenticacao** local por variaveis de ambiente ou LDAP/Active Directory.
 - **Worker de agendamento** separado, acionado por `npm run schedule-worker` ou por uma tarefa externa.
@@ -25,7 +25,7 @@ flowchart LR
     Express --> Auth["Auth service<br/>src/services/"]
     Auth --> LDAP["LDAP / Active Directory"]
     Express --> Models["Models SQLite<br/>src/models/"]
-    Models --> DB["database/*.sqlite"]
+    Models --> DB["database/pspanel.sqlite"]
     Express --> PS["powershell.exe<br/>scripts-ps/*.ps1"]
     Worker["schedule-worker.js"] --> Schedule["Schedule model"]
     Schedule --> DB
@@ -71,7 +71,7 @@ PSPanel/
 │   └── services/             # Autenticacao e LDAP
 ├── scripts-js/               # Utilitarios Node.js e worker de agendamento
 ├── scripts-ps/               # Scripts PowerShell executaveis pela plataforma
-└── database/                 # Bancos SQLite da aplicacao
+└── database/                 # Banco SQLite local da aplicacao
 ```
 
 ## Camadas e Responsabilidades
@@ -103,11 +103,11 @@ A execucao manual de scripts ainda esta diretamente em `mainRoutes.js`, incluind
 
 Os models encapsulam persistencia SQLite:
 
-- `History.js`: registra execucoes manuais e agendadas em `database/history.sqlite`.
-- `Settings.js`: armazena configuracoes chave/valor em `database/settings.sqlite`.
-- `Schedule.js`: armazena agendamentos e auditoria em `database/schedules.sqlite`.
+- `History.js`: registra execucoes manuais e agendadas em `database/pspanel.sqlite`.
+- `Settings.js`: armazena configuracoes chave/valor em `database/pspanel.sqlite`.
+- `Schedule.js`: armazena agendamentos e auditoria em `database/pspanel.sqlite`.
 
-Cada model abre sua propria conexao SQLite. As tabelas sao criadas automaticamente no carregamento/inicializacao.
+Os models usam a conexao central em `src/database/connection.js`. O schema e inicializado por `src/database/schema.js`, com registro em `schema_migrations`.
 
 ### Services
 
@@ -175,7 +175,11 @@ sequenceDiagram
 
 ## Persistencia
 
-### `database/history.sqlite`
+### `database/pspanel.sqlite`
+
+Banco SQLite local da aplicacao.
+
+### `script_history`
 
 Tabela `script_history`:
 
@@ -190,7 +194,7 @@ Tabela `script_history`:
 | `status` | `running`, `success` ou `error`. |
 | `error_message` | Erro retornado pelo PowerShell ou pelo processo. |
 
-### `database/settings.sqlite`
+### `settings`
 
 Tabela `settings`:
 
@@ -208,7 +212,7 @@ Configuracoes padrao inicializadas:
 
 Observacao: o fluxo principal de execucao usa atualmente `scripts-ps/` via `process.cwd()`, nao `scripts.directory`.
 
-### `database/schedules.sqlite`
+### `schedules`
 
 Tabela `schedules`:
 
