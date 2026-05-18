@@ -17,7 +17,7 @@ PS Panel e uma aplicacao monolitica Node.js/Express para executar e agendar scri
 - Scripts executaveis pela aplicacao: `scripts-ps/*.ps1`.
 - Bancos locais: `database/*.sqlite`.
 
-Leia primeiro `docs/patterns.md` para seguir o estilo do projeto. Use `docs/ARCHITECTURE.md` apenas quando precisar entender fluxo, seguranca ou persistencia em mais detalhe.
+Leia primeiro `docs/patterns.md` para seguir o estilo do projeto. Use `docs/architecture.md` apenas quando precisar entender fluxo, seguranca ou persistencia em mais detalhe.
 
 ## Como trabalhar com eficiencia
 

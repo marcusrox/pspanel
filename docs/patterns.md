@@ -1,6 +1,6 @@
 # Patterns do PS Panel
 
-Este guia descreve os padroes observados no codigo atual do PS Panel. Use-o como referencia ao implementar novas rotas, telas, modelos, workers e scripts, preservando o estilo existente enquanto o projeto evolui.
+Este guia pretende descrever COMO o código deve ser escrito. Ele descreve os padroes observados no codigo atual do PS Panel. Use-o como referencia ao implementar novas rotas, telas, modelos, workers e scripts, preservando o estilo existente enquanto o projeto evolui.
 
 ## Organizacao Geral
 

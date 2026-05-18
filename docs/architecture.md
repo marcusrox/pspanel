@@ -1,5 +1,7 @@
 # Arquitetura do PS Panel
 
+Esse documento pretende responder COMO o sistema é organizado
+
 ## Visao Geral
 
 O PS Panel e uma aplicacao web para execucao controlada de scripts PowerShell. A interface permite autenticar usuarios, listar scripts `.ps1`, executar scripts manualmente, consultar historico, configurar parametros globais e criar agendamentos executados por um worker Node.js.
