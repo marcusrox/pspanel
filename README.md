@@ -209,3 +209,5 @@ Agentes devem preferir mudanças pequenas, preservar o trabalho local, evitar re
 ## Licença
 
 Este projeto está sob a licença ISC conforme definido em `package.json`.
+
+Desenvolvido com ❤️ pela equipe de Infraestrutura
