@@ -1,0 +1,40 @@
+<div id="renameScriptModal"
+     class="rename-modal"
+     aria-hidden="true"
+     onclick="handleRenameModalBackdrop(event)">
+    <form class="rename-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="renameScriptTitle"
+          onsubmit="submitRenameScript(event)">
+        <div class="rename-dialog-header">
+            <h2 id="renameScriptTitle"><i class="fas fa-pen"></i> Renomear script</h2>
+            <button type="button"
+                    class="rename-close-btn"
+                    title="Fechar"
+                    aria-label="Fechar"
+                    onclick="closeRenameScriptModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="rename-dialog-body">
+            <p class="rename-current-name">
+                Nome atual: <strong id="renameCurrentName"></strong>
+            </p>
+            <label for="renameScriptInput">Novo nome do script</label>
+            <input type="text"
+                   id="renameScriptInput"
+                   name="newScriptName"
+                   autocomplete="off">
+            <div id="renameScriptError" class="rename-error" role="alert"></div>
+        </div>
+        <div class="rename-dialog-actions">
+            <button type="button" class="secondary-btn" onclick="closeRenameScriptModal()">
+                Cancelar
+            </button>
+            <button type="submit" class="primary-btn" id="renameSubmitBtn">
+                <i class="fas fa-save"></i> Salvar
+            </button>
+        </div>
+    </form>
+</div>

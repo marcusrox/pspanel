@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/css/index/rename-script-modal.css">
     <style>
         .loading-overlay {
             display: none;
@@ -435,6 +436,7 @@
             color: var(--primary-color);
             font-weight: 600;
         }
+
     </style>
 </head>
 
@@ -630,6 +632,9 @@
         </div>
     </main>
 
+    <%- include('partials/rename-script-modal') %>
+
+    <script src="/js/index/rename-script-modal.js"></script>
     <script>
         let selectedParameterDefinitions = [];
 
@@ -639,8 +644,7 @@
             const executeBtn = document.getElementById('executeBtn');
 
             // Reseta o estado inicial
-            status.style.display = 'none';
-            status.className = 'execution-status';
+            clearExecutionStatus();
             executeBtn.disabled = false;
 
             // Antes de enviar o formulário
@@ -703,6 +707,7 @@
                     r.classList.remove('is-selected');
                 });
                 selectedParameterDefinitions = [];
+                clearExecutionStatus();
                 clearParameterFields();
             });
         });
@@ -729,9 +734,7 @@
                     <p>A saída do script será exibida aqui</p>
                 </div>
             `;
-            const status = document.getElementById('executionStatus');
-            status.style.display = 'none';
-            status.className = 'execution-status';
+            clearExecutionStatus();
         }
 
         function decodeParamsFromRow(tr) {
@@ -746,6 +749,7 @@
         }
 
         function selectScriptRow(tr) {
+            clearExecutionStatus();
             document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
                 r.classList.remove('is-selected');
             });
@@ -766,48 +770,6 @@
 
             const url = button.getAttribute('data-source-url');
             window.open(url, 'scriptSource', 'width=1000,height=700,scrollbars=yes,resizable=yes');
-        }
-
-        async function renameScript(event, button) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const currentName = button.getAttribute('data-script-name');
-            const renameUrl = button.getAttribute('data-rename-url');
-            const newScriptName = prompt('Novo nome do script:', currentName);
-
-            if (newScriptName === null) {
-                return;
-            }
-
-            const trimmedName = newScriptName.trim();
-            if (!trimmedName || trimmedName === currentName) {
-                return;
-            }
-
-            button.disabled = true;
-
-            try {
-                const response = await fetch(renameUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ newScriptName: trimmedName })
-                });
-
-                const data = await response.json().catch(() => null);
-
-                if (!response.ok) {
-                    alert(data && data.error ? data.error : 'Nao foi possivel renomear o script.');
-                    return;
-                }
-
-                window.location.reload();
-            } catch (error) {
-                console.error('Erro ao renomear script:', error);
-                alert('Nao foi possivel renomear o script.');
-            } finally {
-                button.disabled = false;
-            }
         }
 
         function showScriptInfoForParams(scriptData) {
@@ -1003,6 +965,13 @@
             status.className = 'execution-status error';
             status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
             status.style.display = 'block';
+        }
+
+        function clearExecutionStatus() {
+            const status = document.getElementById('executionStatus');
+            status.style.display = 'none';
+            status.className = 'execution-status';
+            status.innerHTML = '';
         }
     </script>
 </body>

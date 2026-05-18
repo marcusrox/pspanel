@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const History = require('./History');
+const { buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 
 const dbPath = path.join(__dirname, '../../database/schedules.sqlite');
 const dbDir = path.dirname(dbPath);
@@ -24,7 +25,7 @@ function nowIso() {
 
 function runPowerShell(scriptPath, argList) {
     return new Promise((resolve, reject) => {
-        const ps = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...argList]);
+        const ps = spawn('powershell.exe', buildPowerShellCommandArgs(scriptPath, argList, { executionPolicy: 'Bypass' }));
         let stdout = '';
         let stderr = '';
         ps.stdout.on('data', (d) => { stdout += d.toString(); });

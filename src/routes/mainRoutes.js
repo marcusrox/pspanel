@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const History = require('../models/History');
+const { buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 
 /** Extrai .SYNOPSIS do primeiro bloco de comentário baseado em ajuda (<# ... #>). */
 function parseSynopsisFromContent(content) {
@@ -532,7 +533,7 @@ router.post("/run-script", async (req, res) => {
     console.log('- Script:', scriptPath);
     console.log('- Argumentos:', args);
 
-    const ps = spawn("powershell.exe", ["-File", scriptPath, ...args]);
+    const ps = spawn("powershell.exe", buildPowerShellCommandArgs(scriptPath, args));
 
     let output = "";
     let error = "";
