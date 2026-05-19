@@ -154,5 +154,6 @@ Ao concluir, responda de forma breve:
 - comportamento implementado ou corrigido;
 - validacoes executadas;
 - riscos ou pendencias relevantes.
+- ao concluir a implementação de uma task md, informe de forma alarmante ao usuário a necessidadede fazer o git commit
 
 Nao cole trechos longos de codigo se o arquivo ja foi alterado no workspace.

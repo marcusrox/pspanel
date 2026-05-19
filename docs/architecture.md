@@ -232,7 +232,9 @@ Tabela `schedule_audit`:
 
 | Campo | Uso |
 | --- | --- |
+| `id` | Identificador do evento de auditoria. |
 | `schedule_id` | Agendamento relacionado, quando aplicavel. |
+| `script_name` | Script `.ps1` relacionado ao evento, quando conhecido. |
 | `action` | `CREATE`, `UPDATE`, `DELETE`, `EXECUTE_START`, `EXECUTE_ERROR`, `EXECUTE_FINISH`. |
 | `username` | Usuario ou worker. |
 | `details` | JSON textual com contexto. |

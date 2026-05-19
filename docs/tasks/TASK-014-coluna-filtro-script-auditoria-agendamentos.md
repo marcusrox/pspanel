@@ -1,21 +1,21 @@
-# TASK-013 - Coluna e filtro por script na auditoria de agendamentos
+# TASK-014 - Coluna e filtro por script na auditoria de agendamentos
 
 ## Contexto
 
 A tela de Auditoria de agendamentos (`/schedules/audit`) lista registros da tabela `schedule_audit` com data, acao, ID do agendamento, usuario e detalhes.
 
-Hoje o nome do script nao aparece como coluna propria. Em alguns eventos ele pode estar dentro do JSON textual de `details`, como em auditorias de criacao, atualizacao ou inicio de execucao, mas isso dificulta leitura, comparacao e busca operacional.
+A TASK-013 deve criar e preencher a coluna `schedule_audit.script_name` nos novos eventos de auditoria. Com esse campo persistido, a tela pode exibir o script e filtrar os registros por ele sem depender de `JOIN` com `schedules` nem de parsing do JSON textual de `details`.
 
-Para investigar eventos de um script especifico, o usuario precisa procurar manualmente no campo `Detalhes`, quando a informacao existe. A tela deve expor `script_name` diretamente e permitir filtrar a auditoria por esse nome de forma opcional.
+Para investigar eventos de um script especifico, o usuario deve conseguir usar um filtro direto em `/schedules/audit`.
 
 ## Objetivo
 
-Adicionar uma coluna `Script` na tela `/schedules/audit`, exibindo o nome do script associado ao registro de auditoria quando disponivel, e permitir filtrar opcionalmente os registros pelo nome do script.
+Adicionar uma coluna `Script` na tela `/schedules/audit`, exibindo `schedule_audit.script_name` quando disponivel, e permitir filtrar opcionalmente os registros pelo nome do script.
 
 ## Escopo
 
 - Exibir uma nova coluna `Script` na tabela de `views/schedule-audit.ejs`.
-- Obter `script_name` para cada registro de auditoria de forma confiavel quando possivel.
+- Obter `script_name` da coluna `schedule_audit.script_name`.
 - Permitir filtro opcional por nome de script na tela `/schedules/audit`.
 - Manter a listagem atual funcionando quando nenhum filtro for informado.
 - Preservar limite de resultados da auditoria, hoje chamado como `Schedule.listAudit(300)`.
@@ -24,9 +24,9 @@ Adicionar uma coluna `Script` na tela `/schedules/audit`, exibindo o nome do scr
 
 ## Fora de escopo
 
-- Alterar regras de execucao de agendamentos.
-- Alterar worker de agendamentos, salvo se a implementacao identificar uma lacuna pequena e necessaria na auditoria de `script_name`.
-- Recriar ou limpar dados existentes em `database/schedules.sqlite`.
+- Criar a coluna `schedule_audit.script_name`; isso pertence a TASK-013.
+- Alterar worker de agendamentos.
+- Recriar ou limpar dados existentes em `database/`.
 - Migrar historico antigo para preencher `script_name`.
 - Criar paginacao completa na auditoria.
 - Criar busca por periodo, usuario, acao ou ID do agendamento.
@@ -95,7 +95,7 @@ Detalhes
 ## Requisitos funcionais
 
 1. A tabela de `/schedules/audit` deve exibir uma coluna `Script`.
-2. A coluna `Script` deve mostrar o nome do script associado ao evento quando a informacao estiver disponivel.
+2. A coluna `Script` deve mostrar `entry.script_name` quando a informacao estiver disponivel.
 3. Quando o nome do script nao puder ser determinado, a coluna deve exibir fallback visual, por exemplo `—`.
 4. A tela deve ter um filtro opcional por nome de script.
 5. Quando o filtro estiver vazio, a tela deve exibir a auditoria recente como hoje.
@@ -118,8 +118,8 @@ Detalhes
 - Atualizar `Schedule.listAudit` para aceitar filtros opcionais sem quebrar chamadas existentes.
 - Usar placeholders `?` em todas as queries SQLite.
 - Nao concatenar `script_name` diretamente no SQL.
-- Considerar `JOIN` com `schedules` por `schedule_audit.schedule_id = schedules.id` para obter `schedules.script_name` quando o agendamento ainda existir.
-- Considerar extrair `script_name` de `details` apenas como fallback, porque eventos como `DELETE` podem ter `schedule_id` nulo ou apontar para um registro removido.
+- Usar `schedule_audit.script_name` como fonte primaria do filtro.
+- Considerar fallback de `details` somente para exibir registros antigos sem `script_name`, se isso for util e simples.
 - Se extrair de `details`, tratar JSON invalido com seguranca e sem derrubar a tela.
 - Nao modificar dados locais do banco como parte da implementacao.
 - Usar `<%= ... %>` na view para escapar `script_name` e demais valores.
@@ -139,20 +139,11 @@ Detalhes
 static async listAudit(limit = 200, filters = {})
 ```
 
-2. Montar a query com `LEFT JOIN schedules s ON s.id = a.schedule_id`.
-3. Selecionar os campos de auditoria e um campo calculado/alias para script:
-
-```text
-a.*
-s.script_name AS schedule_script_name
-```
-
-4. Apos buscar as linhas, normalizar cada entrada para expor `entry.script_name`:
-   - primeiro usar `schedule_script_name`;
-   - se ausente, tentar ler `details.script_name`;
-   - se for evento de exclusao, tentar `details.snapshot.script_name`.
-5. Aplicar filtro por script no SQL quando o nome vier do `JOIN`.
-6. Para registros sem agendamento atual, se necessario, aplicar filtro complementar em memoria apos extrair fallback de `details`.
+2. Consultar `schedule_audit` usando alias, por exemplo `schedule_audit a`.
+3. Selecionar os campos de auditoria incluindo `a.script_name`.
+4. Aplicar filtro por script no SQL usando `a.script_name`.
+5. Para registros antigos sem `script_name`, avaliar fallback complementar em memoria somente se necessario.
+6. Se extrair fallback de `details`, tratar JSON invalido com seguranca e sem derrubar a tela.
 7. Em `scheduleController.audit`, ler `req.query.script_name`, normalizar e chamar:
 
 ```js

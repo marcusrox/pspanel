@@ -41,6 +41,7 @@ const migrations = [
             await database.run(`CREATE TABLE IF NOT EXISTS schedule_audit (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schedule_id INTEGER,
+                script_name TEXT,
                 action TEXT NOT NULL,
                 username TEXT,
                 details TEXT,
@@ -49,6 +50,19 @@ const migrations = [
 
             await database.run(`CREATE INDEX IF NOT EXISTS idx_schedules_due ON schedules (enabled, next_run_at)`);
             await database.run(`CREATE INDEX IF NOT EXISTS idx_schedule_audit_created ON schedule_audit (created_at)`);
+        }
+    },
+    {
+        id: '002_add_script_name_to_schedule_audit',
+        up: async () => {
+            const columns = await database.all('PRAGMA table_info(schedule_audit)');
+            const hasScriptName = columns.some((column) => column.name === 'script_name');
+
+            if (!hasScriptName) {
+                await database.run('ALTER TABLE schedule_audit ADD COLUMN script_name TEXT');
+            }
+
+            await database.run('CREATE INDEX IF NOT EXISTS idx_schedule_audit_script_name ON schedule_audit (script_name)');
         }
     }
 ];

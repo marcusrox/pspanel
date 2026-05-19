@@ -16,6 +16,23 @@ function nowIso() {
     return new Date().toISOString();
 }
 
+function getAuditScriptName(row) {
+    if (!row || row.script_name) return row ? row.script_name : null;
+    if (!row.details) return null;
+
+    try {
+        const details = JSON.parse(row.details);
+        if (details && typeof details.script_name === 'string') return details.script_name;
+        if (details && details.snapshot && typeof details.snapshot.script_name === 'string') {
+            return details.snapshot.script_name;
+        }
+    } catch (e) {
+        return null;
+    }
+
+    return null;
+}
+
 function runPowerShell(scriptPath, argList) {
     return new Promise((resolve, reject) => {
         const ps = spawn(getPowerShellExecutable(), buildPowerShellCommandArgs(scriptPath, argList, { executionPolicy: 'Bypass' }));
@@ -35,12 +52,13 @@ class Schedule {
         await schema.initialize();
     }
 
-    static async appendAudit(scheduleId, action, username, detailsObj) {
+    static async appendAudit(scheduleId, action, username, detailsObj, scriptName = null) {
         await Schedule.initialize();
         const details = detailsObj == null ? null : JSON.stringify(detailsObj);
         await database.run(
-            `INSERT INTO schedule_audit (schedule_id, action, username, details, created_at) VALUES (?, ?, ?, ?, ?)`,
-            [scheduleId, action, username || null, details, nowIso()]
+            `INSERT INTO schedule_audit (schedule_id, script_name, action, username, details, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [scheduleId, scriptName || null, action, username || null, details, nowIso()]
         );
     }
 
@@ -54,12 +72,33 @@ class Schedule {
         return database.get(`SELECT * FROM schedules WHERE id = ?`, [id]);
     }
 
-    static async listAudit(limit = 200) {
+    static async listAudit(limit = 200, filters = {}) {
         await Schedule.initialize();
-        return database.all(
-            `SELECT * FROM schedule_audit ORDER BY datetime(created_at) DESC LIMIT ?`,
-            [limit]
+        const params = [];
+        const where = [];
+        const safeLimit = Number.isInteger(Number(limit)) && Number(limit) > 0 ? Number(limit) : 200;
+        const scriptName = filters && typeof filters.script_name === 'string' ? filters.script_name.trim() : '';
+
+        if (scriptName) {
+            where.push('script_name LIKE ?');
+            params.push(`%${scriptName}%`);
+        }
+
+        params.push(safeLimit);
+
+        const rows = await database.all(
+            `SELECT *
+             FROM schedule_audit
+             ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+             ORDER BY datetime(created_at) DESC
+             LIMIT ?`,
+            params
         );
+
+        return rows.map((row) => ({
+            ...row,
+            script_name: getAuditScriptName(row)
+        }));
     }
 
     static async create({ script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_by }) {
@@ -72,7 +111,7 @@ class Schedule {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [script_name, parameters || null, en, next_run_at, repeat, ts, ts, created_by || null]
         );
-        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, { script_name, next_run_at, repeat_interval_minutes: repeat });
+        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, { script_name, next_run_at, repeat_interval_minutes: repeat }, script_name);
         return result.lastID;
     }
 
@@ -86,14 +125,14 @@ class Schedule {
              WHERE id = ?`,
             [script_name, parameters || null, en, next_run_at, repeat, ts, id]
         );
-        await Schedule.appendAudit(id, 'UPDATE', username, { script_name, next_run_at, repeat_interval_minutes: repeat, enabled: !!en });
+        await Schedule.appendAudit(id, 'UPDATE', username, { script_name, next_run_at, repeat_interval_minutes: repeat, enabled: !!en }, script_name);
         return result.changes;
     }
 
     static async delete(id, username) {
         const row = await Schedule.findById(id);
         const result = await database.run(`DELETE FROM schedules WHERE id = ?`, [id]);
-        await Schedule.appendAudit(null, 'DELETE', username, { deleted_schedule_id: id, snapshot: row });
+        await Schedule.appendAudit(null, 'DELETE', username, { deleted_schedule_id: id, snapshot: row }, row ? row.script_name : null);
         return result.changes;
     }
 
@@ -148,11 +187,11 @@ class Schedule {
         for (const row of due) {
             const lockUntil = new Date(Date.now() + LOCK_MS).toISOString();
             await Schedule.setLock(row.id, lockUntil);
-            await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, { script_name: row.script_name });
+            await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, { script_name: row.script_name }, row.script_name);
 
             const scriptPath = path.join(scriptsDir, row.script_name);
             if (!fs.existsSync(scriptPath) || !row.script_name.endsWith('.ps1') || row.script_name.includes('..')) {
-                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Script inválido ou inexistente' });
+                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Script inválido ou inexistente' }, row.script_name);
                 const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
                 await Schedule.recordRunResult(row.id, {
                     last_run_at: nowIso(),
@@ -223,7 +262,7 @@ class Schedule {
                 success: ok,
                 next_run_at: nextRun,
                 enabled
-            });
+            }, row.script_name);
 
             results.push({ id: row.id, ok, exitCode: proc.code });
         }

@@ -37,17 +37,27 @@ exports.list = async (req, res) => {
 };
 
 exports.audit = async (req, res) => {
+    const scriptNameFilter = typeof req.query.script_name === 'string'
+        ? req.query.script_name.trim().slice(0, 255)
+        : '';
+
     try {
-        const entries = await Schedule.listAudit(300);
+        const entries = await Schedule.listAudit(300, { script_name: scriptNameFilter });
         res.render('schedule-audit', {
             user: req.session.user,
             entries,
+            filters: { script_name: scriptNameFilter },
             messages: res.locals.messages
         });
     } catch (e) {
         console.error(e);
         req.flash('error', 'Erro ao carregar auditoria.');
-        res.render('schedule-audit', { user: req.session.user, entries: [], messages: res.locals.messages });
+        res.render('schedule-audit', {
+            user: req.session.user,
+            entries: [],
+            filters: { script_name: scriptNameFilter },
+            messages: res.locals.messages
+        });
     }
 };
 
