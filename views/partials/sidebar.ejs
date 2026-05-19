@@ -1,0 +1,31 @@
+<% const currentMenu = typeof activeMenu !== 'undefined' ? activeMenu : ''; %>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <a href="/" style="text-decoration: none; color: inherit;">
+            <i class="fas fa-terminal"></i>
+            <h2>PS Panel</h2>
+        </a>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="/" class="<%= currentMenu === 'scripts' ? 'active' : '' %>"><i class="fas fa-code"></i> Scripts</a>
+        <a href="/schedules" class="<%= currentMenu === 'schedules' ? 'active' : '' %>"><i class="fas fa-clock"></i> Agendamentos</a>
+        <a href="/history" class="<%= currentMenu === 'history' ? 'active' : '' %>"><i class="fas fa-history"></i> Histórico</a>
+        <a href="/settings" class="<%= currentMenu === 'settings' ? 'active' : '' %>"><i class="fas fa-cog"></i> Configurações</a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-info">
+            <% if (user.displayName) { %>
+                <span class="user-info1"><i class="fas fa-user"></i> <%= user.displayName %></span>
+                <% if (user.email) { %>
+                    <span class="user-info2"><%= user.email %></span>
+                <% } %>
+            <% } else { %>
+                <span class="user-info1"><i class="fas fa-user"></i> <%= user.username %></span>
+            <% } %>
+        </div>
+        <a href="/logout" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i> Sair
+        </a>
+    </div>
+</div>
