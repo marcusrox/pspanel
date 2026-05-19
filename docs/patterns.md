@@ -298,12 +298,12 @@ Algumas views antigas usam `success` e `error` separados. Em telas novas, prefir
 
 ## Views EJS
 
-As views seguem HTML completo por pagina, sem layout compartilhado efetivo.
+As views seguem HTML completo por pagina, sem layout compartilhado efetivo. Componentes pequenos e repetidos podem usar partials EJS, como ocorre com a sidebar em `views/partials/sidebar.ejs`.
 
 Padroes visuais:
 
 - Idioma `pt-BR`.
-- Sidebar repetida com links para Scripts, Agendamentos, Historico e Configuracoes.
+- Sidebar via partial com links para Scripts, Agendamentos, Historico e Configuracoes.
 - Header principal com titulo, subtitulo e, em algumas telas, `logo.png`.
 - CSS global em `/styles.css`.
 - CSS especifico da pagina em `<style>` dentro da view.
@@ -320,8 +320,8 @@ Padroes EJS:
 
 Ao criar uma view autenticada, inclua:
 
-- Sidebar com usuario e logout.
-- Link ativo correspondente.
+- Sidebar pelo partial `views/partials/sidebar.ejs`, passando `user` e `activeMenu`.
+- Link ativo correspondente via `activeMenu`.
 - `main.main-content`.
 - Alerts de `messages`.
 

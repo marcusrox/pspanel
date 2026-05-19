@@ -63,6 +63,7 @@ PSPanel/
 ├── package.json              # Dependencias e scripts npm
 ├── public/                   # CSS, imagens e assets servidos pelo Express
 ├── views/                    # Templates EJS
+│   └── partials/             # Partials EJS reutilizaveis, como a sidebar
 ├── src/
 │   ├── controllers/          # Logica de tela/formulario para settings e schedules
 │   ├── middleware/           # Middleware de autenticacao
@@ -117,6 +118,17 @@ Os services concentram autenticacao:
 - `ldapService.js`: cria cliente LDAP, faz bind e busca usuarios.
 
 A autenticacao local compara `ADMIN_USER` e `ADMIN_PASSWORD` diretamente do ambiente. Embora exista `ADMIN_PASSWORD_HASH` no `.env.example`, o fluxo atual nao usa hash na validacao local.
+
+### Views e partials
+
+As views autenticadas continuam sendo templates EJS completos por pagina, mas o menu lateral foi centralizado em `views/partials/sidebar.ejs`.
+
+As telas autenticadas incluem esse partial com `<%- include('partials/sidebar', { activeMenu, user }) %>` ou chamada equivalente, passando:
+
+- `user`: dados do usuario autenticado para o rodape da sidebar.
+- `activeMenu`: chave do item ativo, como `scripts`, `schedules`, `history` ou `settings`.
+
+Com isso, links, destaque do item ativo, dados do usuario e logout do menu lateral ficam em um unico partial compartilhado. Ajustes no menu devem priorizar esse partial e o CSS global em `public/styles.css`, evitando voltar a duplicar a sidebar dentro de cada view.
 
 ## Fluxos Principais
 

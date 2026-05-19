@@ -2,16 +2,28 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <a href="/" style="text-decoration: none; color: inherit;">
+        <a href="/" style="text-decoration: none; color: inherit;" title="PS Panel" aria-label="PS Panel">
             <i class="fas fa-terminal"></i>
             <h2>PS Panel</h2>
         </a>
     </div>
     <nav class="sidebar-nav">
-        <a href="/" class="<%= currentMenu === 'scripts' ? 'active' : '' %>"><i class="fas fa-code"></i> Scripts</a>
-        <a href="/schedules" class="<%= currentMenu === 'schedules' ? 'active' : '' %>"><i class="fas fa-clock"></i> Agendamentos</a>
-        <a href="/history" class="<%= currentMenu === 'history' ? 'active' : '' %>"><i class="fas fa-history"></i> Histórico</a>
-        <a href="/settings" class="<%= currentMenu === 'settings' ? 'active' : '' %>"><i class="fas fa-cog"></i> Configurações</a>
+        <a href="/" class="<%= currentMenu === 'scripts' ? 'active' : '' %>" title="Scripts" aria-label="Scripts">
+            <i class="fas fa-code"></i>
+            <span>Scripts</span>
+        </a>
+        <a href="/schedules" class="<%= currentMenu === 'schedules' ? 'active' : '' %>" title="Agendamentos" aria-label="Agendamentos">
+            <i class="fas fa-clock"></i>
+            <span>Agendamentos</span>
+        </a>
+        <a href="/history" class="<%= currentMenu === 'history' ? 'active' : '' %>" title="Histórico" aria-label="Histórico">
+            <i class="fas fa-history"></i>
+            <span>Histórico</span>
+        </a>
+        <a href="/settings" class="<%= currentMenu === 'settings' ? 'active' : '' %>" title="Configurações" aria-label="Configurações">
+            <i class="fas fa-cog"></i>
+            <span>Configurações</span>
+        </a>
     </nav>
     <div class="sidebar-footer">
         <div class="user-info">
@@ -24,8 +36,9 @@
                 <span class="user-info1"><i class="fas fa-user"></i> <%= user.username %></span>
             <% } %>
         </div>
-        <a href="/logout" class="logout-btn">
-            <i class="fas fa-sign-out-alt"></i> Sair
+        <a href="/logout" class="logout-btn" title="Sair" aria-label="Sair">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Sair</span>
         </a>
     </div>
 </div>

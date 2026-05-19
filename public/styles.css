@@ -371,11 +371,37 @@ button {
 
     .sidebar-header h2,
     .sidebar-nav a span,
-    .sidebar-footer span {
+    .sidebar-footer .user-info,
+    .logout-btn span {
         display: none;
+    }
+
+    .sidebar-header,
+    .sidebar-header a,
+    .sidebar-nav a,
+    .logout-btn {
+        justify-content: center;
+    }
+
+    .sidebar-header,
+    .sidebar-nav a,
+    .logout-btn {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .sidebar-nav a i {
+        width: auto;
+        font-size: 1.1rem;
+    }
+
+    .sidebar-footer {
+        padding: 1rem 0;
+        align-items: center;
     }
 
     .main-content {
         margin-left: 64px;
+        padding: 1rem;
     }
 }
