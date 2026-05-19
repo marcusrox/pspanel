@@ -5,6 +5,12 @@ const History = require('./History');
 const database = require('../database/connection');
 const schema = require('../database/schema');
 const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
+const {
+    parseScriptParametersFromContent,
+    getMissingRequiredParameters,
+    parseRawNamedParameters,
+    tokenizePowerShellArgs
+} = require('../services/powerShellParameters');
 
 const SCHEDULE_RUN_USERNAME = 'Agendamento (worker)';
 const LOCK_MS = 30 * 60 * 1000;
@@ -45,6 +51,15 @@ function runPowerShell(scriptPath, argList) {
             resolve({ code, stdout, stderr });
         });
     });
+}
+
+async function recordHistoryFailure(scriptName, parameters, message) {
+    try {
+        const historyId = await History.addEntry(scriptName, parameters || '', SCHEDULE_RUN_USERNAME);
+        await History.updateEntry(historyId, message, 'error', message);
+    } catch (e) {
+        console.error('History validation failure:', e);
+    }
 }
 
 class Schedule {
@@ -190,7 +205,13 @@ class Schedule {
             await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, { script_name: row.script_name }, row.script_name);
 
             const scriptPath = path.join(scriptsDir, row.script_name);
-            if (!fs.existsSync(scriptPath) || !row.script_name.endsWith('.ps1') || row.script_name.includes('..')) {
+            if (
+                !fs.existsSync(scriptPath)
+                || !row.script_name.endsWith('.ps1')
+                || row.script_name.includes('..')
+                || row.script_name.includes('/')
+                || row.script_name.includes('\\')
+            ) {
                 await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Script inválido ou inexistente' }, row.script_name);
                 const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
                 await Schedule.recordRunResult(row.id, {
@@ -204,8 +225,47 @@ class Schedule {
                 continue;
             }
 
-            const args = row.parameters ? String(row.parameters).split(/\s+/) : [];
-            const filteredArgs = args.filter((a) => a.length > 0);
+            let parameterDefinitions = [];
+            try {
+                const source = fs.readFileSync(scriptPath, 'utf8');
+                const parameterInfo = parseScriptParametersFromContent(source);
+                parameterDefinitions = parameterInfo && Array.isArray(parameterInfo.parameters)
+                    ? parameterInfo.parameters
+                    : [];
+            } catch (e) {
+                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Não foi possível validar parâmetros do script' }, row.script_name);
+                await recordHistoryFailure(row.script_name, row.parameters || '', 'Não foi possível validar parâmetros do script antes da execução.');
+                const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
+                await Schedule.recordRunResult(row.id, {
+                    last_run_at: nowIso(),
+                    last_run_exit_code: -1,
+                    last_run_output: 'Não foi possível validar parâmetros do script antes da execução.',
+                    next_run_at: retryAt,
+                    enabled: row.enabled
+                });
+                results.push({ id: row.id, ok: false, reason: 'parameter_validation_error' });
+                continue;
+            }
+
+            const providedParamValues = parseRawNamedParameters(row.parameters, parameterDefinitions);
+            const missingRequiredParameters = getMissingRequiredParameters(parameterDefinitions, providedParamValues);
+            if (missingRequiredParameters.length) {
+                const message = `Informe os parâmetros obrigatórios: ${missingRequiredParameters.join(', ')}.`;
+                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: message }, row.script_name);
+                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
+                await Schedule.recordRunResult(row.id, {
+                    last_run_at: nowIso(),
+                    last_run_exit_code: -1,
+                    last_run_output: message,
+                    next_run_at: retryAt,
+                    enabled: row.enabled
+                });
+                results.push({ id: row.id, ok: false, reason: 'missing_required_parameters', missing: missingRequiredParameters });
+                continue;
+            }
+
+            const filteredArgs = tokenizePowerShellArgs(row.parameters);
 
             let historyId;
             try {
