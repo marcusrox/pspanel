@@ -28,6 +28,7 @@ Leia primeiro `docs/patterns.md` para seguir o estilo do projeto. Use `docs/arch
 - Nao reescreva views, CSS ou rotas inteiras quando um patch localizado resolve.
 - Nao atualize dependencias, `package-lock.json` ou formato global do projeto sem pedido explicito.
 - Nao altere arquivos SQLite versionados/localizados em `database/` ou `src/database/` salvo quando a tarefa for especificamente sobre dados locais ou migracao.
+- Quando criar uma Task MD em um prompt, não execute a task automaticamente. Espere a solicitação ou confirmação do usuário
 
 ## Comandos uteis
 
@@ -136,8 +137,10 @@ Apos alterar codigo:
 - Se mexer em rotas/controllers, valide tambem o arquivo de rota ou controller alterado.
 - Se mexer no worker, rode `node --check scripts-js\schedule-worker.js` e, quando seguro, `npm run schedule-worker`.
 - Para views/CSS, abra a tela afetada quando houver servidor disponivel ou descreva que a validacao visual nao foi executada.
+- Se precisar validar visualmente no navegador e a rota local exigir login, efetuar login com os dados contidos no arquivo `.env`
 
 Se uma validacao nao puder ser executada, informe isso claramente junto com o motivo.
+
 
 ## Git e preservacao do trabalho local
 
@@ -154,6 +157,6 @@ Ao concluir, responda de forma breve:
 - comportamento implementado ou corrigido;
 - validacoes executadas;
 - riscos ou pendencias relevantes.
-- ao concluir a implementação de uma task md, informe de forma alarmante ao usuário a necessidadede fazer o git commit
+- ao concluir a implementação de uma task md, informe de forma alarmante ao usuário a necessidadede fazer o `git commit`
 
 Nao cole trechos longos de codigo se o arquivo ja foi alterado no workspace.
