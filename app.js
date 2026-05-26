@@ -3,10 +3,13 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const session = require("express-session");
 const flash = require('connect-flash');
+const { installConsoleFileLogger } = require('./src/services/webLogger');
 const Settings = require('./src/models/Settings');
 const settingsRoutes = require('./src/routes/settingsRoutes');
 const { isAuthenticated } = require('./src/middleware/authMiddleware');
 require("dotenv").config();
+
+installConsoleFileLogger();
 
 // Importar rotas
 const authRoutes = require('./src/routes/authRoutes');
