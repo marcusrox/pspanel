@@ -371,16 +371,15 @@ try {
 Configuracoes persistentes usam chaves pontuadas:
 
 ```text
-scripts.directory
 scripts.max_execution_time
-scripts.log_directory
+ui.font_scale
 ```
 
 `Settings.getAll()` transforma essas chaves em objeto agrupado:
 
 ```js
-settings.scripts.directory
 settings.scripts.max_execution_time
+settings.ui.font_scale
 ```
 
 Ao adicionar configuracoes:
@@ -416,7 +415,6 @@ Antes de alterar comportamento, observe estes pontos do codigo atual:
 - `/list-scripts` e `/render-scripts` nao tem protecao propria hoje.
 - A senha local usa `ADMIN_PASSWORD`, nao `ADMIN_PASSWORD_HASH`.
 - `LDAP_SEARCH_FILTER` existe no `.env.example`, mas nao e usado pelo service atual.
-- `scripts.directory` existe em settings, mas execucao e agendamento usam `scripts-ps/`.
 - Arquivos SQLite em `database/` contem estado local e podem aparecer modificados no git.
 
 Ao corrigir qualquer um desses pontos, prefira fazer em mudanca pequena e documentada, porque eles podem estar acoplados a operacao atual.
