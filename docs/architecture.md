@@ -2,6 +2,8 @@
 
 Esse documento pretende responder COMO o sistema é organizado
 
+Este documento descreve a estrutura e os fluxos atuais do sistema. Regras de implementacao ficam em `docs/patterns.md`.
+
 ## Visao Geral
 
 O PS Panel e uma aplicacao web para execucao controlada de scripts PowerShell. A interface permite autenticar usuarios, listar scripts `.ps1`, executar scripts manualmente, consultar historico, configurar parametros globais e criar agendamentos executados por um worker Node.js.
@@ -121,14 +123,12 @@ A autenticacao local compara `ADMIN_USER` e `ADMIN_PASSWORD` diretamente do ambi
 
 ### Views e partials
 
-As views autenticadas continuam sendo templates EJS completos por pagina, mas o menu lateral foi centralizado em `views/partials/sidebar.ejs`.
+As views autenticadas continuam sendo templates EJS completos por pagina. O menu lateral compartilhado fica em `views/partials/sidebar.ejs`.
 
-As telas autenticadas incluem esse partial com `<%- include('partials/sidebar', { activeMenu, user }) %>` ou chamada equivalente, passando:
+As telas autenticadas passam para esse partial:
 
 - `user`: dados do usuario autenticado para o rodape da sidebar.
 - `activeMenu`: chave do item ativo, como `scripts`, `schedules`, `history` ou `settings`.
-
-Com isso, links, destaque do item ativo, dados do usuario e logout do menu lateral ficam em um unico partial compartilhado. Ajustes no menu devem priorizar esse partial e o CSS global em `public/styles.css`, evitando voltar a duplicar a sidebar dentro de cada view.
 
 ## Fluxos Principais
 

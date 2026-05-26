@@ -2,17 +2,21 @@
 
 Este guia pretende descrever COMO o código deve ser escrito. Ele descreve os padroes observados no codigo atual do PS Panel. Use-o como referencia ao implementar novas rotas, telas, modelos, workers e scripts, preservando o estilo existente enquanto o projeto evolui.
 
+Este documento descreve padroes para implementar mudancas. Descricao arquitetural e fluxos completos ficam em `docs/architecture.md`.
+
 ## Organizacao Geral
 
-- O bootstrap principal da aplicacao fica em `app.js` na raiz.
-- Rotas Express ficam em `src/routes/`.
-- Controllers ficam em `src/controllers/` quando a rota tem fluxo de formulario ou mais de uma acao relacionada.
-- Models ficam em `src/models/` e encapsulam acesso SQLite.
-- Services ficam em `src/services/` para integracoes ou regras reutilizaveis fora de HTTP.
-- Views EJS ficam em `views/`.
-- Assets publicos ficam em `public/`.
-- Scripts PowerShell executaveis pela plataforma ficam em `scripts-ps/`.
-- Scripts Node auxiliares ou batch ficam em `scripts-js/`.
+A estrutura completa do projeto esta descrita em `docs/architecture.md`. Para implementar mudancas, use estes pontos de entrada:
+
+- `app.js`: bootstrap principal da aplicacao web.
+- `src/routes/`: rotas Express.
+- `src/controllers/`: fluxos de tela/formulario e acoes relacionadas.
+- `src/models/`: acesso SQLite e regras de persistencia.
+- `src/services/`: integracoes e regras reutilizaveis fora de HTTP.
+- `views/`: templates EJS.
+- `public/`: assets publicos.
+- `scripts-ps/`: scripts PowerShell executaveis pela plataforma.
+- `scripts-js/`: worker e utilitarios Node.js.
 
 Ao adicionar uma funcionalidade nova, prefira seguir esta divisao:
 
@@ -56,7 +60,7 @@ app.use('/feature', isAuthenticated);
 app.use('/feature', featureRoutes);
 ```
 
-Padroes observados:
+Ao alterar o bootstrap:
 
 - `dotenv` e carregado no inicio do bootstrap.
 - EJS e configurado com `app.set('view engine', 'ejs')`.
@@ -143,7 +147,7 @@ class Feature {
 module.exports = Feature;
 ```
 
-Padroes existentes:
+Para detalhes de tabelas e persistencia atual, consulte `docs/architecture.md`. Ao implementar models:
 
 - O caminho do banco fica em `database/*.sqlite`.
 - O diretorio `database/` e criado se nao existir.
@@ -368,18 +372,16 @@ try {
 
 ## Configuracoes
 
-Configuracoes persistentes usam chaves pontuadas:
+As configuracoes existentes ficam descritas em `docs/architecture.md`. Ao adicionar ou alterar configuracoes persistentes, use chaves pontuadas no formato:
 
 ```text
-scripts.max_execution_time
-ui.font_scale
+categoria.nome
 ```
 
-`Settings.getAll()` transforma essas chaves em objeto agrupado:
+`Settings.getAll()` transforma chaves pontuadas em objeto agrupado:
 
 ```js
-settings.scripts.max_execution_time
-settings.ui.font_scale
+settings.categoria.nome
 ```
 
 Ao adicionar configuracoes:
