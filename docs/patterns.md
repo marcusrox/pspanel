@@ -6,17 +6,7 @@ Este documento descreve padroes para implementar mudancas. Descricao arquitetura
 
 ## Organizacao Geral
 
-A estrutura completa do projeto esta descrita em `docs/architecture.md`. Para implementar mudancas, use estes pontos de entrada:
-
-- `app.js`: bootstrap principal da aplicacao web.
-- `src/routes/`: rotas Express.
-- `src/controllers/`: fluxos de tela/formulario e acoes relacionadas.
-- `src/models/`: acesso SQLite e regras de persistencia.
-- `src/services/`: integracoes e regras reutilizaveis fora de HTTP.
-- `views/`: templates EJS.
-- `public/`: assets publicos.
-- `scripts-ps/`: scripts PowerShell executaveis pela plataforma.
-- `scripts-js/`: worker e utilitarios Node.js.
+A estrutura completa do projeto esta descrita em `docs/architecture.md`.
 
 Ao adicionar uma funcionalidade nova, prefira seguir esta divisao:
 
@@ -411,12 +401,12 @@ Estilo de codigo:
 
 ## Cuidados ao Evoluir
 
-Antes de alterar comportamento, observe estes pontos do codigo atual:
+Antes de alterar comportamento, consulte os pontos de atencao completos em `docs/architecture.md` e aplique estes cuidados praticos:
 
-- `app.js` da raiz e o bootstrap ativo; `src/app.js` parece legado.
-- `/list-scripts` e `/render-scripts` nao tem protecao propria hoje.
-- A senha local usa `ADMIN_PASSWORD`, nao `ADMIN_PASSWORD_HASH`.
-- `LDAP_SEARCH_FILTER` existe no `.env.example`, mas nao e usado pelo service atual.
-- Arquivos SQLite em `database/` contem estado local e podem aparecer modificados no git.
+- Ao alterar bootstrap, confirme que o ponto de entrada ativo e `app.js`.
+- Ao alterar rotas auxiliares, confira explicitamente a protecao de sessao.
+- Ao tocar autenticacao local, nao assuma que `ADMIN_PASSWORD_HASH` ja esta ativo.
+- Ao tocar LDAP, nao assuma que `LDAP_SEARCH_FILTER` ja e aplicado pelo service.
+- Ao ver arquivos SQLite em `database/` no status do Git, trate-os como estado local e preserve o trabalho existente.
 
 Ao corrigir qualquer um desses pontos, prefira fazer em mudanca pequena e documentada, porque eles podem estar acoplados a operacao atual.

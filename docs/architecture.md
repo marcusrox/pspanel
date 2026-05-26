@@ -1,7 +1,5 @@
 # Arquitetura do PS Panel
 
-Esse documento pretende responder COMO o sistema é organizado
-
 Este documento descreve a estrutura e os fluxos atuais do sistema. Regras de implementacao ficam em `docs/patterns.md`.
 
 ## Visao Geral
@@ -124,11 +122,6 @@ A autenticacao local compara `ADMIN_USER` e `ADMIN_PASSWORD` diretamente do ambi
 ### Views e partials
 
 As views autenticadas continuam sendo templates EJS completos por pagina. O menu lateral compartilhado fica em `views/partials/sidebar.ejs`.
-
-As telas autenticadas passam para esse partial:
-
-- `user`: dados do usuario autenticado para o rodape da sidebar.
-- `activeMenu`: chave do item ativo, como `scripts`, `schedules`, `history` ou `settings`.
 
 ## Fluxos Principais
 
