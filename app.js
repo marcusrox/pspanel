@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
 const session = require("express-session");
-const flash = require('connect-flash');
 const Settings = require('./src/models/Settings');
 const settingsRoutes = require('./src/routes/settingsRoutes');
 const { isAuthenticated } = require('./src/middleware/authMiddleware');
@@ -40,7 +39,28 @@ app.use(session({
 }));
 
 // Configuração do Flash
-app.use(flash());
+app.use((req, res, next) => {
+  req.flash = (type, message) => {
+    req.session.flash = req.session.flash || {};
+
+    if (message === undefined) {
+      const messages = req.session.flash[type] || [];
+      delete req.session.flash[type];
+      return messages;
+    }
+
+    req.session.flash[type] = req.session.flash[type] || [];
+    if (Array.isArray(message)) {
+      req.session.flash[type].push(...message);
+    } else {
+      req.session.flash[type].push(message);
+    }
+
+    return req.session.flash[type].length;
+  };
+
+  next();
+});
 
 // Middleware para disponibilizar mensagens em todas as views
 app.use((req, res, next) => {
