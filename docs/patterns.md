@@ -2,17 +2,11 @@
 
 Este guia pretende descrever COMO o código deve ser escrito. Ele descreve os padroes observados no codigo atual do PS Panel. Use-o como referencia ao implementar novas rotas, telas, modelos, workers e scripts, preservando o estilo existente enquanto o projeto evolui.
 
+Este documento descreve padroes para implementar mudancas. Descricao arquitetural e fluxos completos ficam em `docs/architecture.md`.
+
 ## Organizacao Geral
 
-- O bootstrap principal da aplicacao fica em `app.js` na raiz.
-- Rotas Express ficam em `src/routes/`.
-- Controllers ficam em `src/controllers/` quando a rota tem fluxo de formulario ou mais de uma acao relacionada.
-- Models ficam em `src/models/` e encapsulam acesso SQLite.
-- Services ficam em `src/services/` para integracoes ou regras reutilizaveis fora de HTTP.
-- Views EJS ficam em `views/`.
-- Assets publicos ficam em `public/`.
-- Scripts PowerShell executaveis pela plataforma ficam em `scripts-ps/`.
-- Scripts Node auxiliares ou batch ficam em `scripts-js/`.
+A estrutura completa do projeto esta descrita em `docs/architecture.md`.
 
 Ao adicionar uma funcionalidade nova, prefira seguir esta divisao:
 
@@ -56,7 +50,7 @@ app.use('/feature', isAuthenticated);
 app.use('/feature', featureRoutes);
 ```
 
-Padroes observados:
+Ao alterar o bootstrap:
 
 - `dotenv` e carregado no inicio do bootstrap.
 - EJS e configurado com `app.set('view engine', 'ejs')`.
@@ -143,7 +137,7 @@ class Feature {
 module.exports = Feature;
 ```
 
-Padroes existentes:
+Para detalhes de tabelas e persistencia atual, consulte `docs/architecture.md`. Ao implementar models:
 
 - O caminho do banco fica em `database/*.sqlite`.
 - O diretorio `database/` e criado se nao existir.
@@ -368,19 +362,16 @@ try {
 
 ## Configuracoes
 
-Configuracoes persistentes usam chaves pontuadas:
+As configuracoes existentes ficam descritas em `docs/architecture.md`. Ao adicionar ou alterar configuracoes persistentes, use chaves pontuadas no formato:
 
 ```text
-scripts.directory
-scripts.max_execution_time
-scripts.log_directory
+categoria.nome
 ```
 
-`Settings.getAll()` transforma essas chaves em objeto agrupado:
+`Settings.getAll()` transforma chaves pontuadas em objeto agrupado:
 
 ```js
-settings.scripts.directory
-settings.scripts.max_execution_time
+settings.categoria.nome
 ```
 
 Ao adicionar configuracoes:
@@ -410,13 +401,12 @@ Estilo de codigo:
 
 ## Cuidados ao Evoluir
 
-Antes de alterar comportamento, observe estes pontos do codigo atual:
+Antes de alterar comportamento, consulte os pontos de atencao completos em `docs/architecture.md` e aplique estes cuidados praticos:
 
-- `app.js` da raiz e o bootstrap ativo; `src/app.js` parece legado.
-- `/list-scripts` e `/render-scripts` nao tem protecao propria hoje.
-- A senha local usa `ADMIN_PASSWORD`, nao `ADMIN_PASSWORD_HASH`.
-- `LDAP_SEARCH_FILTER` existe no `.env.example`, mas nao e usado pelo service atual.
-- `scripts.directory` existe em settings, mas execucao e agendamento usam `scripts-ps/`.
-- Arquivos SQLite em `database/` contem estado local e podem aparecer modificados no git.
+- Ao alterar bootstrap, confirme que o ponto de entrada ativo e `app.js`.
+- Ao alterar rotas auxiliares, confira explicitamente a protecao de sessao.
+- Ao tocar autenticacao local, nao assuma que `ADMIN_PASSWORD_HASH` ja esta ativo.
+- Ao tocar LDAP, nao assuma que `LDAP_SEARCH_FILTER` ja e aplicado pelo service.
+- Ao ver arquivos SQLite em `database/` no status do Git, trate-os como estado local e preserve o trabalho existente.
 
 Ao corrigir qualquer um desses pontos, prefira fazer em mudanca pequena e documentada, porque eles podem estar acoplados a operacao atual.

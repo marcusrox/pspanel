@@ -249,8 +249,8 @@ router.post("/run-script", async (req, res) => {
     console.log('\n=== Iniciando execução de script ===');
     const { script, params, paramValues } = req.body;
     console.log('Script solicitado:', script);
-    console.log('Parâmetros:', params);
-    console.log('Parâmetros estruturados:', paramValues);
+    console.log('Parâmetros informados:', params ? 'sim' : 'não');
+    console.log('Parâmetros estruturados informados:', paramValues && typeof paramValues === 'object' ? Object.keys(paramValues) : []);
 
     const scriptPath = resolveScriptPath(script);
     console.log('Caminho completo do script:', scriptPath);
@@ -292,7 +292,7 @@ router.post("/run-script", async (req, res) => {
 
     const args = buildPowerShellArgs(parameterDefinitions, paramValues, params);
     const parameterSummary = formatProvidedParams(parameterDefinitions, paramValues, params);
-    console.log('Argumentos processados:', args);
+    console.log('Argumentos processados:', args.length);
 
     // Criar registro no histórico
     let historyId;
@@ -305,7 +305,7 @@ router.post("/run-script", async (req, res) => {
 
     console.log('Iniciando execução do PowerShell com os seguintes parâmetros:');
     console.log('- Script:', scriptPath);
-    console.log('- Argumentos:', args);
+    console.log('- Total de argumentos:', args.length);
 
     const ps = spawn(getPowerShellExecutable(), buildPowerShellCommandArgs(scriptPath, args));
 

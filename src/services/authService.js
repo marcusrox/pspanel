@@ -11,11 +11,11 @@ async function authenticateLocal(username, password) {
   console.log('\n=== Iniciando autenticação Local ===');
 
   console.log('Configurações:');
-  console.log('Admin User:', process.env.ADMIN_USER);
-  console.log('Admin Password:', process.env.ADMIN_PASSWORD);
+  console.log('Admin User configurado:', process.env.ADMIN_USER ? 'sim' : 'não');
+  console.log('Admin Password configurado:', process.env.ADMIN_PASSWORD ? 'sim' : 'não');
 
   console.log('Usuário tentando autenticar:', username);
-  console.log('Senha fornecida:', password);
+  console.log('Senha fornecida:', password ? '[REDACTED]' : '[vazia]');
 
   if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
     console.log('✓ Autenticação Local bem sucedida!');
@@ -34,9 +34,9 @@ async function authenticateLocal(username, password) {
 async function authenticateLDAP(username, password) {
   console.log('\n=== Iniciando autenticação LDAP ===');
   console.log('Configurações:');
-  console.log('URL:', process.env.LDAP_URL);
-  console.log('Bind DN:', process.env.LDAP_BIND_DN);
-  console.log('Search Base:', process.env.LDAP_SEARCH_BASE);
+  console.log('URL LDAP configurada:', process.env.LDAP_URL ? 'sim' : 'não');
+  console.log('Bind DN configurado:', process.env.LDAP_BIND_DN ? 'sim' : 'não');
+  console.log('Search Base configurado:', process.env.LDAP_SEARCH_BASE ? 'sim' : 'não');
   console.log('Usuário tentando autenticar:', username);
 
   const client = createLDAPClient();

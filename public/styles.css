@@ -202,10 +202,12 @@ button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    text-decoration: none;
 }
 
 .primary-btn:hover {
     background-color: var(--primary-hover);
+    text-decoration: none;
 }
 
 .secondary-btn {
@@ -218,10 +220,12 @@ button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    text-decoration: none;
 }
 
 .secondary-btn:hover {
     opacity: 0.9;
+    text-decoration: none;
 }
 
 .icon-btn {

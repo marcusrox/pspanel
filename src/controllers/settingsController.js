@@ -19,20 +19,13 @@ class SettingsController {
 
     static async updateSettings(req, res) {
         try {
-            const updates = req.body;
-            
-            // Validar diretórios
-            if (updates['scripts.directory']) {
-                if (!updates['scripts.directory'].trim()) {
-                    throw new Error('O diretório de scripts não pode estar vazio');
-                }
-            }
-
-            if (updates['scripts.log_directory']) {
-                if (!updates['scripts.log_directory'].trim()) {
-                    throw new Error('O diretório de logs não pode estar vazio');
-                }
-            }
+            const allowedSettings = [
+                'scripts.max_execution_time',
+                'ui.font_scale'
+            ];
+            const updates = Object.fromEntries(
+                Object.entries(req.body).filter(([key]) => allowedSettings.includes(key))
+            );
 
             // Validar tempo máximo de execução
             if (updates['scripts.max_execution_time']) {

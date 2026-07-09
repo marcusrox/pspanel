@@ -1,6 +1,6 @@
 # Arquitetura do PS Panel
 
-Esse documento pretende responder COMO o sistema é organizado
+Este documento descreve a estrutura e os fluxos atuais do sistema. Regras de implementacao ficam em `docs/patterns.md`.
 
 ## Visao Geral
 
@@ -121,14 +121,7 @@ A autenticacao local compara `ADMIN_USER` e `ADMIN_PASSWORD` diretamente do ambi
 
 ### Views e partials
 
-As views autenticadas continuam sendo templates EJS completos por pagina, mas o menu lateral foi centralizado em `views/partials/sidebar.ejs`.
-
-As telas autenticadas incluem esse partial com `<%- include('partials/sidebar', { activeMenu, user }) %>` ou chamada equivalente, passando:
-
-- `user`: dados do usuario autenticado para o rodape da sidebar.
-- `activeMenu`: chave do item ativo, como `scripts`, `schedules`, `history` ou `settings`.
-
-Com isso, links, destaque do item ativo, dados do usuario e logout do menu lateral ficam em um unico partial compartilhado. Ajustes no menu devem priorizar esse partial e o CSS global em `public/styles.css`, evitando voltar a duplicar a sidebar dentro de cada view.
+As views autenticadas continuam sendo templates EJS completos por pagina. O menu lateral compartilhado fica em `views/partials/sidebar.ejs`.
 
 ## Fluxos Principais
 
@@ -212,17 +205,14 @@ Tabela `settings`:
 
 | Campo | Uso |
 | --- | --- |
-| `key` | Chave como `scripts.directory`. |
+| `key` | Chave pontuada como `scripts.max_execution_time`. |
 | `value` | Valor textual. |
 | `description` | Campo previsto, mas pouco usado no codigo atual. |
 
 Configuracoes padrao inicializadas:
 
-- `scripts.directory`: `C:\Scripts`
 - `scripts.max_execution_time`: `3600`
-- `scripts.log_directory`: `C:\Scripts\Logs`
-
-Observacao: o fluxo principal de execucao usa atualmente `scripts-ps/` via `process.cwd()`, nao `scripts.directory`.
+- `ui.font_scale`: `100`
 
 ### `schedules`
 
@@ -342,7 +332,6 @@ Em Windows, a intencao aparente e chamar `scripts-ps/Invoke-ScheduleWorker.ps1` 
 - O projeto nao possui testes automatizados configurados; `npm test` apenas retorna erro.
 - Existem arquivos SQLite versionados/modificados no workspace, o que pode misturar estado local com codigo.
 - O README menciona HTMX e Font Awesome, mas essas dependencias nao aparecem no `package.json`; podem estar carregadas pelas views/CDN ou ser documentacao desatualizada.
-- A configuracao `scripts.directory` existe em banco, mas a aplicacao usa `scripts-ps/` fixo nos fluxos principais.
 - O model `Schedule` concentra tanto persistencia quanto execucao de PowerShell. Isso funciona para o tamanho atual, mas dificulta testar isoladamente a regra de agendamento.
 
 ## Recomendacoes de Evolucao
@@ -352,6 +341,5 @@ Em Windows, a intencao aparente e chamar `scripts-ps/Invoke-ScheduleWorker.ps1` 
 3. Extrair execucao de PowerShell para um service compartilhado entre execucao manual e agendada.
 4. Padronizar validacao de nomes de scripts nos fluxos manual e agendado.
 5. Escapar saida de scripts antes de renderizar HTML.
-6. Decidir se `scripts.directory` sera usado de fato ou removido das configuracoes.
-7. Adicionar testes focados para parsing de scripts, validacao de agendamentos e calculo de proxima execucao.
-8. Avaliar se arquivos SQLite devem permanecer versionados ou ser tratados como dados locais/ambiente.
+6. Adicionar testes focados para parsing de scripts, validacao de agendamentos e calculo de proxima execucao.
+7. Avaliar se arquivos SQLite devem permanecer versionados ou ser tratados como dados locais/ambiente.

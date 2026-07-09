@@ -11,9 +11,7 @@ class Settings {
 
         // Configurações padrão
         const defaults = {
-            'scripts.directory': 'C:\\Scripts',
             'scripts.max_execution_time': '3600',
-            'scripts.log_directory': 'C:\\Scripts\\Logs',
             'ui.font_scale': '100'
         };
 
