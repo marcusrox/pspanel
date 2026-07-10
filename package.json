@@ -22,6 +22,7 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.1",
     "ldapjs": "^3.0.7",
+    "nodemailer": "^9.0.3",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

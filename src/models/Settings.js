@@ -12,7 +12,17 @@ class Settings {
         // Configurações padrão
         const defaults = {
             'scripts.max_execution_time': '3600',
-            'ui.font_scale': '100'
+            'ui.font_scale': '100',
+            'email.smtp_host': '',
+            'email.smtp_port': '587',
+            'email.smtp_user': '',
+            'email.smtp_pass': '',
+            'email.smtp_secure': '0',
+            'email.from_address': '',
+            'email.daily_summary_recipient': '',
+            'email.daily_summary_enabled': '0',
+            'email.daily_summary_last_sent_date': '',
+            'email.daily_summary_last_sent_at': ''
         };
 
         // Inserir configurações padrão se não existirem

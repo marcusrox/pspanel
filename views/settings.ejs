@@ -40,6 +40,8 @@
 
         .form-group input[type="text"],
         .form-group input[type="number"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
         .form-group select {
             width: 100%;
             padding: 0.75rem;
@@ -51,9 +53,60 @@
 
         .form-group input[type="text"]:focus,
         .form-group input[type="number"]:focus,
+        .form-group input[type="email"]:focus,
+        .form-group input[type="password"]:focus,
         .form-group select:focus {
             border-color: var(--primary-color);
             outline: none;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .checkbox-field {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .field-hint {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 0.35rem;
+        }
+
+        .summary-status {
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+
+        .summary-status-label {
+            color: var(--text-secondary);
+            display: block;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .summary-status-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        @media (max-width: 640px) {
+            .summary-status {
+                align-items: stretch;
+                flex-direction: column;
+            }
         }
 
         .form-actions {
@@ -155,6 +208,108 @@
                     </div>
                 </div>
 
+                <div class="settings-section">
+                    <h2>
+                        <i class="fas fa-envelope"></i>
+                        Email - Resumo diário
+                    </h2>
+
+                    <div class="form-group">
+                        <label class="checkbox-field">
+                            <input type="checkbox"
+                                   name="email.daily_summary_enabled"
+                                   value="1"
+                                   <%= settings.email?.daily_summary_enabled === '1' ? 'checked' : '' %>>
+                            <span>Enviar resumo diário dos agendamentos</span>
+                        </label>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="email.smtp_host">Host SMTP</label>
+                            <input type="text"
+                                   id="email.smtp_host"
+                                   name="email.smtp_host"
+                                   value="<%= settings.email?.smtp_host || '' %>">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email.smtp_port">Porta SMTP</label>
+                            <input type="number"
+                                   id="email.smtp_port"
+                                   name="email.smtp_port"
+                                   value="<%= settings.email?.smtp_port || '587' %>"
+                                   min="1"
+                                   max="65535">
+                        </div>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="email.smtp_user">Usuário SMTP</label>
+                            <input type="text"
+                                   id="email.smtp_user"
+                                   name="email.smtp_user"
+                                   value="<%= settings.email?.smtp_user || '' %>"
+                                   autocomplete="username">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email.smtp_pass">Senha SMTP</label>
+                            <input type="password"
+                                   id="email.smtp_pass"
+                                   name="email.smtp_pass"
+                                   value=""
+                                   placeholder="<%= settings.email?.smtp_pass ? 'Senha configurada' : '' %>"
+                                   autocomplete="new-password">
+                            <p class="field-hint">Deixe em branco para manter a senha atual.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="email.from_address">Email remetente</label>
+                            <input type="email"
+                                   id="email.from_address"
+                                   name="email.from_address"
+                                   value="<%= settings.email?.from_address || '' %>">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email.daily_summary_recipient">Destinatário do resumo</label>
+                            <input type="email"
+                                   id="email.daily_summary_recipient"
+                                   name="email.daily_summary_recipient"
+                                   value="<%= settings.email?.daily_summary_recipient || '' %>">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-field">
+                            <input type="checkbox"
+                                   name="email.smtp_secure"
+                                   value="1"
+                                   <%= settings.email?.smtp_secure === '1' ? 'checked' : '' %>>
+                            <span>Usar SSL/TLS direto</span>
+                        </label>
+                        <p class="field-hint">Marque apenas para SMTP SSL/TLS direto, normalmente porta 465. Para porta 587 com STARTTLS, deixe desmarcado.</p>
+                    </div>
+
+                    <div class="summary-status">
+                        <div>
+                            <span class="summary-status-label">Último envio</span>
+                            <span class="summary-status-value"><%= dailySummaryStatus?.displayText || 'Nunca enviado' %></span>
+                        </div>
+                        <button type="submit"
+                                form="send-daily-summary-form"
+                                class="secondary-btn"
+                                onclick="return confirm('Enviar o resumo diário agora?');">
+                            <i class="fas fa-paper-plane"></i>
+                            Enviar resumo agora
+                        </button>
+                    </div>
+                </div>
+
                 <div class="form-actions">
                     <button type="reset" class="secondary-btn">
                         <i class="fas fa-undo"></i>
@@ -166,6 +321,7 @@
                     </button>
                 </div>
             </form>
+            <form id="send-daily-summary-form" action="/settings/daily-summary/send-now" method="POST"></form>
         </div>
     </main>
 </body>
