@@ -164,15 +164,16 @@
         </header>
 
         <div class="settings-container">
-            <% if (success && success.length) { %>
+            <% const pageMessages = typeof messages !== 'undefined' ? messages : { success: [], error: [] }; %>
+            <% if (pageMessages.success && pageMessages.success.length) { %>
                 <div class="alert alert-success">
-                    <%= success[0] %>
+                    <%= pageMessages.success[0] %>
                 </div>
             <% } %>
 
-            <% if (error && error.length) { %>
+            <% if (pageMessages.error && pageMessages.error.length) { %>
                 <div class="alert alert-danger">
-                    <%= error[0] %>
+                    <%= pageMessages.error[0] %>
                 </div>
             <% } %>
 

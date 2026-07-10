@@ -51,8 +51,7 @@ class SettingsController {
                 settings,
                 dailySummaryStatus: getDailySummaryStatus(settings),
                 user: req.session.user,
-                success: req.flash('success'),
-                error: req.flash('error')
+                messages: res.locals.messages
             });
         } catch (error) {
             console.error('Erro ao carregar configurações:', error);
