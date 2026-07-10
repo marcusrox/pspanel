@@ -1,4 +1,4 @@
-# TASK-025 - Corrigir alinhamento de checkboxes na tela Configuracoes
+# TASK-028 - Corrigir alinhamento de checkboxes na tela Configuracoes
 
 ## Contexto
 
@@ -7,9 +7,13 @@ Na tela Configuracoes (`/settings`, view `views/settings.ejs`), dois campos do t
 1. **Enviar resumo diario dos agendamentos** (campo `email.daily_summary_enabled`) - o texto do label fica muito distante do checkbox.
 2. **Usar SSL/TLS direto** (campo `email.smtp_secure`) - mesmo problema.
 
-## Causa raiz
+## Diagnostico inicial
 
-No CSS inline da view (`views/settings.ejs` linha 10-150), a regra `.form-group label` define `display: block`, o que força quebra de linha e ocupa largura total. As classes `.checkbox-field` (usada nos labels dos checkboxes) e `.field-hint` (usada nas dicas) sao referenciadas no HTML mas **nao existem no CSS**, entao nao aplicam o `inline-flex` necessario para alinhar checkbox + texto na mesma linha.
+No CSS inline da view, a regra `.form-group label` define `display: block`, o que força labels comuns a ocuparem a largura total.
+
+As classes `.checkbox-field` e `.field-hint` ja existem no CSS atual da view, mas `.checkbox-field` usa seletor simples. Como `.form-group label` tem especificidade maior que `.checkbox-field`, a propriedade `display: block` pode vencer `display: inline-flex`, deixando checkbox e texto desalinhados ou distantes.
+
+A correcao deve, portanto, aumentar a especificidade do seletor do checkbox, sem reescrever a tela.
 
 ## Objetivo
 
@@ -23,7 +27,7 @@ Corrigir o CSS para que:
 ## Escopo
 
 - Apenas ajustes no CSS inline de `views/settings.ejs` (linhas 10-150).
-- Nao alterar HTML/EJS, apenas adicionar/ajustar regras CSS.
+- Nao alterar HTML/EJS, salvo se for estritamente necessario apos validacao visual.
 - Nao mexer em `public/styles.css` nem em outras views.
 
 ## Fora de escopo
@@ -40,25 +44,23 @@ views/settings.ejs
 
 ## Requisitos funcionais
 
-1. Adicionar regra `.checkbox-field` com:
+1. Ajustar a regra do checkbox com seletor mais especifico, por exemplo `.form-group label.checkbox-field`, garantindo:
    - `display: inline-flex`
    - `align-items: center`
    - `gap: 0.5rem` (ou similar)
    - `cursor: pointer`
    - `color: var(--text-secondary)` (herdar cor do label)
-   - Garantir que sobrescreva o `display: block` do `.form-group label`.
+   - prioridade sobre o `display: block` de `.form-group label`.
 
-2. Adicionar regra `.field-hint` com:
+2. Revisar a regra `.field-hint`, que ja existe, e ajustar se necessario:
    - `color: var(--text-secondary)`
    - `font-size: 0.875rem` (ou `0.8125rem`)
    - `margin-top: 0.35rem`
    - `margin-bottom: 0` (para nao criar espaco extra excessivo)
 
-3. Ajustar seletor para que `.checkbox-field` tenha prioridade sobre `.form-group label`. Opcoes:
-   - Usar `.form-group label.checkbox-field` (especificidade maior)
-   - Ou `.form-group .checkbox-field` (ja que esta dentro do form-group)
+3. Se necessario, adicionar regra para o input dentro do label, por exemplo `.form-group label.checkbox-field input[type="checkbox"]`, apenas para manter tamanho/alinhamento consistente.
 
-4. Garantir que o checkbox em si tenha tamanho adequado (ja definido pelo browser, mas pode ajustar `width: 1rem; height: 1rem;` se necessario).
+4. Garantir que o checkbox em si tenha tamanho adequado (ja definido pelo browser, mas pode ajustar `width: 1rem; height: 1rem;` se a validacao visual mostrar necessidade).
 
 5. Testar visualmente em desktop e mobile (largura < 640px) - o checkbox nao deve quebrar layout.
 
@@ -70,13 +72,14 @@ views/settings.ejs
   - Clicar no texto marca/desmarca o checkbox (label funcional).
   - Dicas (ex: "Deixe em branco para manter a senha atual.") aparecem abaixo do campo, fonte menor, cor secundaria.
   - Layout nao quebra em mobile (testar redimensionando janela).
-- `node --check app.js` passa (nao altera JS).
+- Nao ha alteracao de comportamento no backend.
 - Validacao manual visual confirmada.
 
 ## Validacao esperada
 
-- Iniciar aplicacao: `npm start` ou `npm run dev`.
+- Iniciar aplicacao: `npm start` ou `npm run dev`, se for pratico e houver ambiente/login disponivel.
 - Acessar `http://localhost:3000/settings` (com login).
 - Inspecionar os dois campos checkbox mencionados.
 - Confirmar alinhamento horizontal, espacamento, cor, cursor pointer.
 - Redimensionar para largura mobile (< 640px) e confirmar que nao ha overflow nem quebra feia.
+- Como a alteracao esperada e apenas EJS/CSS, `node --check app.js` e opcional como sanity check, nao validacao principal.

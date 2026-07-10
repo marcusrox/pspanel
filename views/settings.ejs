@@ -66,18 +66,27 @@
             gap: 1rem;
         }
 
-        .checkbox-field {
+        .form-group label.checkbox-field {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
             color: var(--text-secondary);
             cursor: pointer;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group label.checkbox-field input[type="checkbox"] {
+            flex: 0 0 auto;
+            margin: 0;
+            padding: 0;
+            width: auto;
         }
 
         .field-hint {
             color: var(--text-secondary);
             font-size: 0.875rem;
             margin-top: 0.35rem;
+            margin-bottom: 0;
         }
 
         .summary-status {
