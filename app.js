@@ -14,6 +14,7 @@ const historyRoutes = require('./src/routes/historyRoutes');
 const scheduleRoutes = require('./src/routes/scheduleRoutes');
 const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
+const release = require('./src/config/release');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,6 +70,7 @@ app.use((req, res, next) => {
     success: req.flash('success'),
     info: req.flash('info')
   };
+  res.locals.release = release;
   next();
 });
 

@@ -109,6 +109,8 @@
                 </div>
             </form>
         </div>
+
+        <%- include('partials/app-footer') %>
     </main>
     <script>
         const scriptsData = <%- JSON.stringify(scripts || []).replace(/</g, '\\u003c') %>;

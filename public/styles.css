@@ -186,6 +186,26 @@ body {
     object-fit: contain;
 }
 
+.app-footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+}
+
+.app-footer-heart {
+    color: var(--danger-color);
+}
+
+.app-footer-release {
+    white-space: nowrap;
+}
+
 /* Button Styles */
 button {
     cursor: pointer;
@@ -407,5 +427,9 @@ button {
     .main-content {
         margin-left: 64px;
         padding: 1rem;
+    }
+
+    .app-footer-release {
+        white-space: normal;
     }
 }

@@ -15,17 +15,53 @@
         .settings-section {
             background-color: var(--bg-light);
             border-radius: 0.5rem;
-            padding: 1.5rem;
             margin-bottom: 1.5rem;
+            overflow: hidden;
         }
 
         .settings-section h2 {
+            margin: 0;
+        }
+
+        .settings-accordion-toggle {
+            width: 100%;
+            border: 0;
+            background: transparent;
             color: var(--text-primary);
             font-size: 1.25rem;
-            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            justify-content: space-between;
+            padding: 1.5rem;
+            text-align: left;
+        }
+
+        .settings-accordion-toggle:hover,
+        .settings-accordion-toggle:focus-visible {
+            background-color: rgba(255, 255, 255, 0.03);
+            outline: none;
+        }
+
+        .settings-accordion-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+
+        .settings-accordion-chevron {
+            color: var(--text-secondary);
+            flex: 0 0 auto;
+            transition: transform 0.2s ease;
+        }
+
+        .settings-accordion-toggle[aria-expanded="true"] .settings-accordion-chevron {
+            transform: rotate(90deg);
+        }
+
+        .settings-accordion-content {
+            padding: 0 1.5rem 1.5rem;
         }
 
         .form-group {
@@ -116,6 +152,15 @@
                 align-items: stretch;
                 flex-direction: column;
             }
+
+            .settings-accordion-toggle {
+                align-items: flex-start;
+                padding: 1rem;
+            }
+
+            .settings-accordion-content {
+                padding: 0 1rem 1rem;
+            }
         }
 
         .form-actions {
@@ -187,42 +232,88 @@
             <% } %>
 
             <form action="/settings/update" method="POST">
-                <div class="settings-section">
+                <div class="settings-section" data-section-key="execution">
                     <h2>
-                        <i class="fas fa-clock"></i>
-                        Execução
+                        <button
+                            type="button"
+                            id="settings-section-execution-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="true"
+                            aria-controls="settings-section-execution-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-clock"></i>
+                                Execução
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
                     </h2>
-                    <div class="form-group">
-                        <label for="scripts.max_execution_time">Tempo Máximo de Execução (segundos)</label>
-                        <input type="number" 
-                               id="scripts.max_execution_time" 
-                               name="scripts.max_execution_time"
-                               value="<%= settings.scripts?.max_execution_time || '3600' %>"
-                               min="1">
+                    <div
+                        id="settings-section-execution-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-execution-title">
+                        <div class="form-group">
+                            <label for="scripts.max_execution_time">Tempo Máximo de Execução (segundos)</label>
+                            <input type="number"
+                                   id="scripts.max_execution_time"
+                                   name="scripts.max_execution_time"
+                                   value="<%= settings.scripts?.max_execution_time || '3600' %>"
+                                   min="1">
+                        </div>
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-section-key="appearance">
                     <h2>
-                        <i class="fas fa-font"></i>
-                        Aparência
+                        <button
+                            type="button"
+                            id="settings-section-appearance-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="true"
+                            aria-controls="settings-section-appearance-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-font"></i>
+                                Aparência
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
                     </h2>
-                    <div class="form-group">
-                        <label for="ui.font_scale">Tamanho da fonte</label>
-                        <select id="ui.font_scale" name="ui.font_scale">
-                            <option value="85" <%= settings.ui?.font_scale === '85' ? 'selected' : '' %>>Super Compacto</option>
-                            <option value="90" <%= settings.ui?.font_scale === '90' ? 'selected' : '' %>>Compacto</option>
-                            <option value="100" <%= !settings.ui?.font_scale || settings.ui?.font_scale === '100' ? 'selected' : '' %>>Normal</option>
-                            <option value="110" <%= settings.ui?.font_scale === '110' ? 'selected' : '' %>>Grande</option>
-                        </select>
+                    <div
+                        id="settings-section-appearance-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-appearance-title">
+                        <div class="form-group">
+                            <label for="ui.font_scale">Tamanho da fonte</label>
+                            <select id="ui.font_scale" name="ui.font_scale">
+                                <option value="85" <%= settings.ui?.font_scale === '85' ? 'selected' : '' %>>Super Compacto</option>
+                                <option value="90" <%= settings.ui?.font_scale === '90' ? 'selected' : '' %>>Compacto</option>
+                                <option value="100" <%= !settings.ui?.font_scale || settings.ui?.font_scale === '100' ? 'selected' : '' %>>Normal</option>
+                                <option value="110" <%= settings.ui?.font_scale === '110' ? 'selected' : '' %>>Grande</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-section-key="emailDailySummary">
                     <h2>
-                        <i class="fas fa-envelope"></i>
-                        Email - Resumo diário
+                        <button
+                            type="button"
+                            id="settings-section-email-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="false"
+                            aria-controls="settings-section-email-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-envelope"></i>
+                                Email - Resumo diário
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
                     </h2>
+
+                    <div
+                        id="settings-section-email-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-email-title"
+                        hidden>
 
                     <div class="form-group">
                         <label class="checkbox-field">
@@ -318,6 +409,7 @@
                             Enviar resumo agora
                         </button>
                     </div>
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -333,6 +425,68 @@
             </form>
             <form id="send-daily-summary-form" action="/settings/daily-summary/send-now" method="POST"></form>
         </div>
+
+        <%- include('partials/app-footer') %>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const storageKey = 'pspanel.settings.accordion';
+            const defaultState = {
+                execution: true,
+                appearance: true,
+                emailDailySummary: false
+            };
+
+            function readStoredState() {
+                try {
+                    const rawState = localStorage.getItem(storageKey);
+                    if (!rawState) {
+                        return {};
+                    }
+
+                    const parsedState = JSON.parse(rawState);
+                    return parsedState && typeof parsedState === 'object' ? parsedState : {};
+                } catch (error) {
+                    return {};
+                }
+            }
+
+            function writeStoredState(state) {
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(state));
+                } catch (error) {
+                    // A preferencia visual e opcional; falhas de storage nao devem bloquear a tela.
+                }
+            }
+
+            function setSectionState(section, isOpen) {
+                const toggle = section.querySelector('.settings-accordion-toggle');
+                const content = section.querySelector('.settings-accordion-content');
+
+                toggle.setAttribute('aria-expanded', String(isOpen));
+                content.hidden = !isOpen;
+                section.classList.toggle('is-collapsed', !isOpen);
+            }
+
+            const storedState = readStoredState();
+            const accordionState = Object.assign({}, defaultState, storedState);
+
+            document.querySelectorAll('.settings-section[data-section-key]').forEach(function (section) {
+                const sectionKey = section.dataset.sectionKey;
+                const toggle = section.querySelector('.settings-accordion-toggle');
+                const isOpen = Boolean(accordionState[sectionKey]);
+
+                setSectionState(section, isOpen);
+
+                toggle.addEventListener('click', function () {
+                    const nextState = toggle.getAttribute('aria-expanded') !== 'true';
+                    accordionState[sectionKey] = nextState;
+                    setSectionState(section, nextState);
+                    writeStoredState(accordionState);
+                });
+            });
+        });
+    </script>
 </body>
 </html> 

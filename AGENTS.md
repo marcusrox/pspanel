@@ -31,6 +31,33 @@ Leia primeiro `docs/patterns.md` para seguir o estilo do projeto. Use `docs/arch
 - Nao altere `.env`, dados SQLite, `node_modules` ou arquivos gerados.
 - Nao altere arquivos SQLite em `database/` ou `src/database/`, salvo quando a tarefa for especificamente sobre dados locais ou migracao.
 - Quando criar uma Task MD em um prompt, nao execute a task automaticamente. Espere solicitacao ou confirmacao do usuario.
+- Ao concluir a implementacao de uma Task MD, atualize o controle de release em `src/config/release.js`, usando a data/hora atual do ambiente e incrementando em 1 o numero sequencial no formato `Release DD/MM/YYYY HH:mm - NNN`.
+
+### Assinatura em Task MD
+
+Ao criar ou alterar arquivos `docs/tasks/TASK-*.md`, adicione ao final do arquivo uma assinatura da LLM responsavel pela criacao ou atualizacao da task.
+
+Formato obrigatorio:
+
+```md
+---
+
+## Assinatura da LLM
+
+- Data: YYYY-MM-DD
+- Modelo: nome-do-modelo
+- Versao: versao-do-modelo-quando-disponivel
+- Acao: criacao | atualizacao
+```
+
+Regras:
+
+- Use a data atual do ambiente.
+- Informe o nome do modelo de linguagem usado quando estiver disponivel no ambiente ou na conversa.
+- Se a versao exata do modelo nao estiver disponivel, use `nao informado`.
+- Nao adicionar assinatura em arquivos de codigo-fonte, views, scripts, configs ou documentacao que nao seja task MD.
+- Ao atualizar uma task existente, preserve assinaturas anteriores e adicione uma nova assinatura ao final.
+- Nao usar essa assinatura como substituto de commit Git ou changelog.
 
 ## Padrões do projeto
 

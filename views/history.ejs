@@ -81,29 +81,71 @@
 
         .pagination {
             display: flex;
+            align-items: center;
             justify-content: center;
+            flex-wrap: wrap;
             gap: 0.5rem;
             margin-top: 2rem;
         }
 
-        .pagination button {
+        .pagination-summary {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .pagination .page-link,
+        .pagination .page-button,
+        .pagination .page-ellipsis {
+            min-width: 2.5rem;
+            min-height: 2.5rem;
             padding: 0.5rem 1rem;
             border: 1px solid var(--border-color);
             background-color: var(--bg-darker);
             color: var(--text-secondary);
             border-radius: 0.375rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            line-height: 1;
+        }
+
+        .pagination .page-link,
+        .pagination .page-button {
             cursor: pointer;
         }
 
-        .pagination button:hover {
+        .pagination .page-link:hover {
             background-color: var(--bg-light);
             color: var(--text-primary);
         }
 
-        .pagination button.active {
+        .pagination .page-link.active {
             background-color: var(--primary-color);
             color: white;
             border-color: var(--primary-color);
+        }
+
+        .pagination .page-button.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-ellipsis {
+            border-color: transparent;
+            background-color: transparent;
+            cursor: default;
+            min-width: 1.5rem;
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        .empty-history-row td {
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 2rem 1rem;
         }
 
         .details-modal {
@@ -194,7 +236,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <% history.forEach(entry => { %>
+                    <% if (history.length) { %>
+                        <% history.forEach(entry => { %>
                         <tr>
                             <td><%= entry.script_name %></td>
                             <td><%= entry.parameters %></td>
@@ -216,22 +259,75 @@
                                 </button>
                             </td>
                         </tr>
-                    <% }); %>
+                        <% }); %>
+                    <% } else { %>
+                        <tr class="empty-history-row">
+                            <td colspan="6">Nenhum registro encontrado.</td>
+                        </tr>
+                    <% } %>
                 </tbody>
             </table>
 
-            <div class="pagination">
-                <% if (currentPage > 1) { %>
-                    <a href="/history?page=<%= currentPage - 1 %>&search=<%= search %>" class="icon-btn">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
+            <% if (totalItems > 0) { %>
+                <div class="pagination-summary">
+                    Página <%= currentPage %> de <%= totalPages %> · <%= totalItems %> registro<%= totalItems === 1 ? '' : 's' %>
+                </div>
+
+                <% if (totalPages > 1) { %>
+                    <% const historyPageUrl = page => `/history?page=${page}${search ? `&search=${encodeURIComponent(search)}` : ''}`; %>
+                    <div class="pagination" aria-label="Paginação do histórico">
+                        <% if (currentPage > 1) { %>
+                            <a href="<%= historyPageUrl(1) %>" class="page-link" title="Primeira página" aria-label="Primeira página">
+                                <i class="fas fa-angles-left"></i>
+                            </a>
+                            <a href="<%= historyPageUrl(currentPage - 1) %>" class="page-link" title="Página anterior" aria-label="Página anterior">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        <% } else { %>
+                            <span class="page-button disabled" title="Primeira página" aria-disabled="true">
+                                <i class="fas fa-angles-left"></i>
+                            </span>
+                            <span class="page-button disabled" title="Página anterior" aria-disabled="true">
+                                <i class="fas fa-chevron-left"></i>
+                            </span>
+                        <% } %>
+
+                        <% paginationPages.forEach(item => { %>
+                            <% if (item === 'ellipsis') { %>
+                                <span class="page-ellipsis" aria-hidden="true">...</span>
+                            <% } else { %>
+                                <a
+                                    href="<%= historyPageUrl(item) %>"
+                                    class="page-link <%= item === currentPage ? 'active' : '' %>"
+                                    aria-label="Página <%= item %>"
+                                    <% if (item === currentPage) { %>aria-current="page"<% } %>
+                                >
+                                    <%= item %>
+                                </a>
+                            <% } %>
+                        <% }); %>
+
+                        <% if (currentPage < totalPages) { %>
+                            <a href="<%= historyPageUrl(currentPage + 1) %>" class="page-link" title="Próxima página" aria-label="Próxima página">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                            <a href="<%= historyPageUrl(totalPages) %>" class="page-link" title="Última página" aria-label="Última página">
+                                <i class="fas fa-angles-right"></i>
+                            </a>
+                        <% } else { %>
+                            <span class="page-button disabled" title="Próxima página" aria-disabled="true">
+                                <i class="fas fa-chevron-right"></i>
+                            </span>
+                            <span class="page-button disabled" title="Última página" aria-disabled="true">
+                                <i class="fas fa-angles-right"></i>
+                            </span>
+                        <% } %>
+                    </div>
                 <% } %>
-                <button class="active"><%= currentPage %></button>
-                <a href="/history?page=<%= currentPage + 1 %>&search=<%= search %>" class="icon-btn">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-            </div>
+            <% } %>
         </div>
+
+        <%- include('partials/app-footer') %>
     </main>
 
     <div id="detailsModal" class="details-modal">

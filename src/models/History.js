@@ -36,6 +36,12 @@ class History {
         );
     }
 
+    static async countHistory() {
+        await History.initialize();
+        const row = await database.get('SELECT COUNT(*) AS total FROM script_history');
+        return row.total;
+    }
+
     static async getEntryById(id) {
         await History.initialize();
         return database.get('SELECT * FROM script_history WHERE id = ?', [id]);
@@ -53,6 +59,19 @@ class History {
             LIMIT ? OFFSET ?`,
             [searchTerm, searchTerm, searchTerm, limit, offset]
         );
+    }
+
+    static async countSearchHistory(query) {
+        await History.initialize();
+        const searchTerm = `%${query}%`;
+        const row = await database.get(
+            `SELECT COUNT(*) AS total FROM script_history
+            WHERE script_name LIKE ?
+            OR parameters LIKE ?
+            OR username LIKE ?`,
+            [searchTerm, searchTerm, searchTerm]
+        );
+        return row.total;
     }
 
     static async findScheduledRunsByDate(date) {
