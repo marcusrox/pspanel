@@ -72,16 +72,18 @@ body {
     border-radius: 0.25rem;
 }
 
-.sidebar-brand-icon {
-    color: #d8ffe3;
+.sidebar-brand-icon,
+.login-brand-icon {
+    color: #ffffff;
     text-shadow:
         -0.075rem 0 0 #ff2bd6,
         0.075rem 0 0 #28f06f,
-        0 0 0.85rem rgba(40, 240, 111, 0.45);
+        0 0 0.85rem rgba(255, 255, 255, 0.45);
     animation: sidebar-brand-icon-pulse 4s steps(2, end) infinite;
 }
 
-.sidebar-header .sidebar-brand-title {
+.sidebar-header .sidebar-brand-title,
+.login-brand-title {
     position: relative;
     display: inline-block;
     font-size: 1.42rem;
@@ -91,16 +93,18 @@ body {
     text-transform: uppercase;
     color: transparent;
     background:
-        linear-gradient(90deg, #f8fafc, #8cffad, #28f06f, #f8fafc, #28f06f);
+        linear-gradient(90deg, #ffffff, #dbe4ea, #ffffff, #f8fafc, #ffffff);
     background-size: 240% 100%;
     background-clip: text;
     -webkit-background-clip: text;
-    filter: drop-shadow(0 0 0.7rem rgba(40, 240, 111, 0.35));
+    filter: drop-shadow(0 0 0.7rem rgba(255, 255, 255, 0.35));
     animation: sidebar-brand-flow 4s linear infinite;
 }
 
 .sidebar-brand-title::before,
-.sidebar-brand-title::after {
+.sidebar-brand-title::after,
+.login-brand-title::before,
+.login-brand-title::after {
     content: attr(data-text);
     position: absolute;
     inset: 0;
@@ -108,7 +112,8 @@ body {
     mix-blend-mode: screen;
 }
 
-.sidebar-brand-title::before {
+.sidebar-brand-title::before,
+.login-brand-title::before {
     color: #ff2bd6;
     opacity: 0.36;
     text-shadow:
@@ -120,7 +125,8 @@ body {
     animation: sidebar-brand-glitch-left 1.6s steps(2, end) infinite;
 }
 
-.sidebar-brand-title::after {
+.sidebar-brand-title::after,
+.login-brand-title::after {
     color: #28f06f;
     opacity: 0.34;
     text-shadow:
@@ -154,7 +160,7 @@ body {
         text-shadow:
             -0.075rem 0 0 #ff2bd6,
             0.075rem 0 0 #28f06f,
-            0 0 0.85rem rgba(40, 240, 111, 0.45);
+            0 0 0.85rem rgba(255, 255, 255, 0.45);
     }
     89%, 92% {
         text-shadow:
@@ -569,9 +575,13 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
     .sidebar-brand-icon,
+    .login-brand-icon,
     .sidebar-header .sidebar-brand-title,
+    .login-brand-title,
     .sidebar-brand-title::before,
-    .sidebar-brand-title::after {
+    .sidebar-brand-title::after,
+    .login-brand-title::before,
+    .login-brand-title::after {
         animation-duration: 12s;
         animation-iteration-count: infinite;
     }
@@ -583,6 +593,7 @@ button {
     }
 
     .sidebar-header h2,
+    .sidebar-header .sidebar-brand-title,
     .sidebar-nav a span,
     .sidebar-footer .user-info,
     .logout-btn span {
