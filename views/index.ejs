@@ -292,6 +292,81 @@
             flex-wrap: wrap;
         }
 
+        .script-panel-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .script-help-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(15, 23, 42, 0.72);
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .script-help-modal.is-open {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .script-help-content {
+            position: relative;
+            width: min(760px, 100%);
+            max-height: 85vh;
+            overflow-y: auto;
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        }
+
+        .script-help-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .script-help-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .script-help-body {
+            display: grid;
+            gap: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .script-help-body h3 {
+            margin: 0 0 0.35rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .script-help-body p,
+        .script-help-body ul {
+            margin: 0;
+        }
+
+        .script-help-body ul {
+            padding-left: 1.25rem;
+        }
+
+        .script-help-body code {
+            color: var(--text-primary);
+        }
+
         #executeBtn {
             max-width: 100%;
         }
@@ -464,11 +539,8 @@
                 <p>Execute e gerencie seus scripts PowerShell</p>
             </div>
             <div class="header-actions">
-                <button class="refresh-btn" title="Atualizar Lista">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-                <button class="help-btn" title="Ajuda">
-                    <i class="fas fa-question-circle"></i>
+                <button type="button" class="icon-btn" title="Ajuda" aria-label="Ajuda" onclick="openScriptHelpModal()">
+                    <i class="fas fa-circle-question"></i>
                 </button>
                 <img src="/logo.png" alt="Logo" class="header-logo">
             </div>
@@ -478,6 +550,11 @@
             <div class="script-panel">
                 <div class="panel-header">
                     <h2><i class="fas fa-play-circle"></i> Executar Script</h2>
+                    <div class="script-panel-actions">
+                        <button type="button" class="icon-btn" title="Atualizar lista de scripts" aria-label="Atualizar lista de scripts" onclick="window.location.reload()">
+                            <i class="fas fa-arrows-rotate"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <form class="script-form" 
@@ -625,6 +702,43 @@
 
     <%- include('partials/rename-script-modal') %>
 
+    <div id="scriptHelpModal" class="script-help-modal" role="dialog" aria-modal="true" aria-labelledby="scriptHelpTitle">
+        <div class="script-help-content">
+            <div class="script-help-header">
+                <h2 id="scriptHelpTitle"><i class="fas fa-circle-question"></i> Ajuda do Painel de Scripts</h2>
+                <button type="button" class="icon-btn" title="Fechar ajuda" aria-label="Fechar ajuda" onclick="closeScriptHelpModal()">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div class="script-help-body">
+                <section>
+                    <h3>Como executar</h3>
+                    <p>Selecione um script na lista, preencha os parâmetros exigidos e clique em <strong>Executar</strong>. O nome do script selecionado aparece no próprio botão para confirmar o que será enviado.</p>
+                </section>
+                <section>
+                    <h3>Parâmetros</h3>
+                    <ul>
+                        <li>Parâmetros declarados no bloco <code>param(...)</code> do PowerShell aparecem como campos individuais.</li>
+                        <li>Campos obrigatórios precisam ser preenchidos antes da execução.</li>
+                        <li>Use <strong>Parâmetros adicionais</strong> apenas para opções extras, como <code>-Verbose</code> ou flags específicas.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Saída e erros</h3>
+                    <p>A saída do script é exibida no painel à direita. Erros de execução também ficam registrados no histórico e nos logs da aplicação quando o script retorna código de falha.</p>
+                </section>
+                <section>
+                    <h3>Ações úteis</h3>
+                    <ul>
+                        <li>Use o ícone de atualizar no cabeçalho <strong>Executar Script</strong> para recarregar a lista após criar, remover ou renomear scripts.</li>
+                        <li>Use o ícone de olho na linha do script para visualizar o código fonte.</li>
+                        <li>Use o ícone de caneta para renomear um script.</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/index/rename-script-modal.js"></script>
     <script>
         let selectedParameterDefinitions = [];
@@ -695,7 +809,28 @@
             form.addEventListener('reset', function () {
                 clearScriptSelectionState();
             });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeScriptHelpModal();
+                }
+            });
+
+            const scriptHelpModal = document.getElementById('scriptHelpModal');
+            scriptHelpModal.addEventListener('click', function (event) {
+                if (event.target === scriptHelpModal) {
+                    closeScriptHelpModal();
+                }
+            });
         });
+
+        function openScriptHelpModal() {
+            document.getElementById('scriptHelpModal').classList.add('is-open');
+        }
+
+        function closeScriptHelpModal() {
+            document.getElementById('scriptHelpModal').classList.remove('is-open');
+        }
 
         function copyOutput() {
             const output = document.getElementById('output').innerText;
