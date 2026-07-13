@@ -45,14 +45,39 @@
             to { transform: rotate(360deg); }
         }
 
-        .script-panel {
+        .script-layout {
+            display: block;
+        }
+
+        .script-form {
+            position: relative;
+            padding: 0;
+        }
+
+        .script-workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            align-items: stretch;
+            gap: 2rem;
+        }
+
+        .script-panel,
+        .parameters-panel {
             position: relative;
             min-height: 200px;
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+
+        .panel-body {
+            padding: 1.5rem;
         }
 
         .output-panel {
             position: relative;
             min-height: 200px;
+            margin-top: 2rem;
         }
 
         .execution-status {
@@ -100,37 +125,32 @@
         }
 
         .parameter-fields {
-            display: none;
-            margin: 1rem 0;
-            padding: 1rem;
+            display: block;
+            margin-bottom: 1.5rem;
+        }
+
+        .parameter-empty-state {
+            min-height: 7rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.25rem;
+            text-align: center;
+            color: var(--text-secondary);
             background-color: var(--bg-darker);
-            border: 1px solid var(--border-color);
+            border: 1px dashed var(--border-color);
             border-radius: 0.5rem;
         }
 
-        .parameter-fields.is-visible {
-            display: block;
+        .parameter-empty-state i {
+            color: var(--primary-color);
+            font-size: 1.5rem;
         }
 
-        .parameter-fields h3 {
-            margin: 0 0 1rem;
-            font-size: 0.95rem;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .parameter-fields-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .parameter-fields-header h3 {
-            margin: 0;
+        .parameter-empty-state[hidden] {
+            display: none;
         }
 
         .parameter-help-btn {
@@ -296,6 +316,12 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .script-workspace {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
 
         .script-help-modal {
@@ -546,85 +572,89 @@
             </div>
         </header>
 
-        <div class="content-wrapper">
-            <div class="script-panel">
-                <div class="panel-header">
-                    <h2><i class="fas fa-play-circle"></i> Executar Script</h2>
-                    <div class="script-panel-actions">
-                        <button type="button" class="icon-btn" title="Atualizar lista de scripts" aria-label="Atualizar lista de scripts" onclick="window.location.reload()">
-                            <i class="fas fa-arrows-rotate"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <form class="script-form" 
-                      hx-post="/run-script" 
-                      hx-target="#output" 
-                      hx-swap="innerHTML"
-                      hx-trigger="submit"
-                      hx-indicator=".loading-overlay"
-                      novalidate>
-                    <input type="hidden" name="script" id="script" value="">
+        <div class="content-wrapper script-layout">
+            <form class="script-form"
+                  hx-post="/run-script"
+                  hx-target="#output"
+                  hx-swap="innerHTML"
+                  hx-trigger="submit"
+                  hx-indicator=".loading-overlay"
+                  novalidate>
+                <input type="hidden" name="script" id="script" value="">
 
-                    <div class="form-group">
-                        <label id="script-table-label">
-                            <i class="fas fa-file-code"></i> Scripts disponíveis - Clique em uma linha para selecionar o script a executar.
-                        </label>
-                        <div class="scripts-table-wrap" role="grid" aria-labelledby="script-table-label">
-                            <table class="scripts-table">
-                                <tbody>
-                                    <% if (!scripts.length) { %>
-                                        <tr><td class="script-synopsis muted">Nenhum arquivo .ps1 encontrado em <code>scripts-ps</code>.</td></tr>
-                                    <% } %>
-                                    <% scripts.forEach(function (script) {
-                                        const paramsB64 = Buffer.from(JSON.stringify(script.parameters || null)).toString('base64');
-                                    %>
-                                        <tr class="script-row"
-                                            data-script-name="<%= script.name %>"
-                                            data-params-b64="<%= paramsB64 %>"
-                                            role="row"
-                                            tabindex="0"
-                                            onclick="selectScriptRow(this)"
-                                            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectScriptRow(this);}">
-                                            <td class="script-name-cell">
-                                                <%= script.name %>
-                                                <% if (script.synopsis) { %>
-                                                    <span class="script-synopsis"><%= script.synopsis %></span>
-                                                <% } else { %>
-                                                    <span class="script-synopsis muted">Sem bloco de ajuda (.SYNOPSIS) no comentário &lt;# #&gt;.</span>
-                                                <% } %>
-                                            </td>
-                                            <td class="script-actions-cell">
-                                                <div class="script-action-buttons">
-                                                    <button type="button"
-                                                            class="source-view-btn"
-                                                            title="Visualizar codigo fonte"
-                                                            aria-label="Visualizar codigo fonte de <%= script.name %>"
-                                                            data-source-url="/scripts/<%= encodeURIComponent(script.name) %>/source"
-                                                            onclick="openScriptSource(event, this)">
-                                                        <i class="fas fa-eye"></i>
-                                                    </button>
-                                                    <button type="button"
-                                                            class="rename-script-btn"
-                                                            title="Alterar nome do script"
-                                                            aria-label="Alterar nome de <%= script.name %>"
-                                                            data-script-name="<%= script.name %>"
-                                                            data-rename-url="/scripts/<%= encodeURIComponent(script.name) %>/rename"
-                                                            onclick="renameScript(event, this)">
-                                                        <i class="fas fa-pen"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <% }); %>
-                                </tbody>
-                            </table>
+                <div class="script-workspace">
+                    <div class="script-panel">
+                        <div class="panel-header">
+                            <h2><i class="fas fa-play-circle"></i> Executar Script</h2>
+                            <div class="script-panel-actions">
+                                <button type="button" class="icon-btn" title="Atualizar lista de scripts" aria-label="Atualizar lista de scripts" onclick="window.location.reload()">
+                                    <i class="fas fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label id="script-table-label">
+                                    <i class="fas fa-file-code"></i> Scripts disponíveis - Clique em uma linha para selecionar o script a executar.
+                                </label>
+                                <div class="scripts-table-wrap" role="grid" aria-labelledby="script-table-label">
+                                    <table class="scripts-table">
+                                        <tbody>
+                                            <% if (!scripts.length) { %>
+                                                <tr><td class="script-synopsis muted">Nenhum arquivo .ps1 encontrado em <code>scripts-ps</code>.</td></tr>
+                                            <% } %>
+                                            <% scripts.forEach(function (script) {
+                                                const paramsB64 = Buffer.from(JSON.stringify(script.parameters || null)).toString('base64');
+                                            %>
+                                                <tr class="script-row"
+                                                    data-script-name="<%= script.name %>"
+                                                    data-params-b64="<%= paramsB64 %>"
+                                                    role="row"
+                                                    tabindex="0"
+                                                    onclick="selectScriptRow(this)"
+                                                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectScriptRow(this);}">
+                                                    <td class="script-name-cell">
+                                                        <%= script.name %>
+                                                        <% if (script.synopsis) { %>
+                                                            <span class="script-synopsis"><%= script.synopsis %></span>
+                                                        <% } else { %>
+                                                            <span class="script-synopsis muted">Sem bloco de ajuda (.SYNOPSIS) no comentário &lt;# #&gt;.</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td class="script-actions-cell">
+                                                        <div class="script-action-buttons">
+                                                            <button type="button"
+                                                                    class="source-view-btn"
+                                                                    title="Visualizar codigo fonte"
+                                                                    aria-label="Visualizar codigo fonte de <%= script.name %>"
+                                                                    data-source-url="/scripts/<%= encodeURIComponent(script.name) %>/source"
+                                                                    onclick="openScriptSource(event, this)">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
+                                                            <button type="button"
+                                                                    class="rename-script-btn"
+                                                                    title="Alterar nome do script"
+                                                                    aria-label="Alterar nome de <%= script.name %>"
+                                                                    data-script-name="<%= script.name %>"
+                                                                    data-rename-url="/scripts/<%= encodeURIComponent(script.name) %>/rename"
+                                                                    onclick="renameScript(event, this)">
+                                                                <i class="fas fa-pen"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <% }); %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div id="parameterFields" class="parameter-fields" aria-live="polite">
-                        <div class="parameter-fields-header">
-                            <h3><i class="fas fa-sliders-h"></i> Preenchimento de parâmetros</h3>
+                    <div class="parameters-panel">
+                        <div class="panel-header">
+                            <h2><i class="fas fa-sliders-h"></i> Parâmetros</h2>
                             <button type="button"
                                     id="parameterHelpBtn"
                                     class="parameter-help-btn"
@@ -636,37 +666,46 @@
                                 <i class="fas fa-question"></i>
                             </button>
                         </div>
-                        <div id="scriptInfo" class="script-info" style="display: none;">
-                            <div class="info-content">
-                                <h3><i class="fas fa-info-circle"></i> Parâmetros Necessários:</h3>
-                                <div id="paramsList"></div>
+
+                        <div class="panel-body">
+                            <div id="parameterFields" class="parameter-fields" aria-live="polite">
+                                <div id="parameterEmptyState" class="parameter-empty-state">
+                                    <i class="fas fa-arrow-pointer"></i>
+                                    <span>Selecione um script para visualizar seus parâmetros.</span>
+                                </div>
+                                <div id="scriptInfo" class="script-info" style="display: none;">
+                                    <div class="info-content">
+                                        <h3><i class="fas fa-info-circle"></i> Parâmetros Necessários:</h3>
+                                        <div id="paramsList"></div>
+                                    </div>
+                                </div>
+                                <div id="parameterGrid" class="parameter-grid"></div>
                             </div>
+
+                            <div class="form-group">
+                                <label for="params">
+                                    <i class="fas fa-terminal"></i> Parâmetros adicionais:
+                                </label>
+                                <input type="text"
+                                       name="params"
+                                       id="params"
+                                       placeholder="Opcional. Ex: -Verbose -Force">
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="secondary-btn" onclick="clearScriptForm()">
+                                    <i class="fas fa-undo"></i> Limpar
+                                </button>
+                                <button type="submit" class="primary-btn" id="executeBtn">
+                                    <i class="fas fa-play"></i>
+                                    <span id="executeBtnText">Executar</span>
+                                </button>
+                            </div>
+
+                            <div class="execution-status" id="executionStatus"></div>
                         </div>
-                        <div id="parameterGrid" class="parameter-grid"></div>
                     </div>
-
-                    <div class="form-group">
-                        <label for="params">
-                            <i class="fas fa-terminal"></i> Parâmetros adicionais:
-                        </label>
-                        <input type="text" 
-                               name="params" 
-                               id="params" 
-                               placeholder="Opcional. Ex: -Verbose -Force">
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="secondary-btn" onclick="clearScriptForm()">
-                            <i class="fas fa-undo"></i> Limpar
-                        </button>
-                        <button type="submit" class="primary-btn" id="executeBtn">
-                            <i class="fas fa-play"></i>
-                            <span id="executeBtnText">Executar</span>
-                        </button>
-                    </div>
-
-                    <div class="execution-status" id="executionStatus"></div>
-                </form>
+                </div>
 
                 <div class="loading-overlay">
                     <div class="loading-content">
@@ -674,7 +713,7 @@
                         <p>Executando script...</p>
                     </div>
                 </div>
-            </div>
+            </form>
 
             <div class="output-panel">
                 <div class="panel-header">
@@ -725,7 +764,7 @@
                 </section>
                 <section>
                     <h3>Saída e erros</h3>
-                    <p>A saída do script é exibida no painel à direita. Erros de execução também ficam registrados no histórico e nos logs da aplicação quando o script retorna código de falha.</p>
+                    <p>A saída do script é exibida no painel abaixo dos cartões de execução e parâmetros. Erros de execução também ficam registrados no histórico e nos logs da aplicação quando o script retorna código de falha.</p>
                 </section>
                 <section>
                     <h3>Ações úteis</h3>
@@ -972,28 +1011,32 @@
         }
 
         function clearParameterFields() {
-            const container = document.getElementById('parameterFields');
             const grid = document.getElementById('parameterGrid');
+            const emptyState = document.getElementById('parameterEmptyState');
             const scriptInfo = document.getElementById('scriptInfo');
             const paramsList = document.getElementById('paramsList');
             const helpButton = document.getElementById('parameterHelpBtn');
             grid.replaceChildren();
+            emptyState.hidden = false;
+            emptyState.querySelector('span').textContent = 'Selecione um script para visualizar seus parâmetros.';
             paramsList.innerHTML = '';
             scriptInfo.style.display = 'none';
             helpButton.classList.remove('is-visible');
             helpButton.setAttribute('aria-expanded', 'false');
-            container.classList.remove('is-visible');
         }
 
         function renderParameterFields(parameters) {
             clearParameterFields();
 
+            const emptyState = document.getElementById('parameterEmptyState');
+
             if (!parameters || !parameters.length) {
+                emptyState.querySelector('span').textContent = 'O script selecionado não possui parâmetros declarados. Você ainda pode informar parâmetros adicionais abaixo.';
                 return;
             }
 
-            const container = document.getElementById('parameterFields');
             const grid = document.getElementById('parameterGrid');
+            emptyState.hidden = true;
 
             parameters.forEach((param) => {
                 const field = document.createElement('div');
@@ -1052,8 +1095,6 @@
 
                 grid.appendChild(field);
             });
-
-            container.classList.add('is-visible');
         }
 
         function getMissingRequiredParameters() {
