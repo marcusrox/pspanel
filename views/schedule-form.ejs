@@ -200,7 +200,7 @@
                 if (input.tagName === 'SELECT') {
                     const emptyOption = document.createElement('option');
                     emptyOption.value = '';
-                    emptyOption.textContent = 'Selecione...';
+                    emptyOption.textContent = param.description || 'Selecione...';
                     input.appendChild(emptyOption);
 
                     param.validateSet.forEach((optionValue) => {
@@ -211,9 +211,9 @@
                     });
                 } else {
                     input.type = 'text';
-                    input.placeholder = param.defaultValue
+                    input.placeholder = param.description || (param.defaultValue
                         ? `Padrão: ${param.defaultValue}`
-                        : `Valor de ${param.name}`;
+                        : `Valor de ${param.name}`);
                 }
 
                 if (initialValues[param.name] !== undefined && initialValues[param.name] !== null) {

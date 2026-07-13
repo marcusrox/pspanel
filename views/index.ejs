@@ -924,7 +924,10 @@
             const b64 = tr.getAttribute('data-params-b64');
             if (!b64) return null;
             try {
-                return JSON.parse(atob(b64));
+                const binary = atob(b64);
+                const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+                const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+                return JSON.parse(json);
             } catch (e) {
                 console.error('Parâmetros do script (base64):', e);
                 return null;
@@ -1064,7 +1067,7 @@
                 if (input.tagName === 'SELECT') {
                     const emptyOption = document.createElement('option');
                     emptyOption.value = '';
-                    emptyOption.textContent = 'Selecione...';
+                    emptyOption.textContent = param.description || 'Selecione...';
                     input.appendChild(emptyOption);
 
                     param.validateSet.forEach((optionValue) => {
@@ -1075,9 +1078,9 @@
                     });
                 } else {
                     input.type = 'text';
-                    input.placeholder = param.defaultValue
+                    input.placeholder = param.description || (param.defaultValue
                         ? `Padrao: ${param.defaultValue}`
-                        : `Valor de ${param.name}`;
+                        : `Valor de ${param.name}`);
                 }
 
                 field.appendChild(label);

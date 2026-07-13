@@ -128,6 +128,53 @@ function parseParameterDefinition(declaration) {
     };
 }
 
+function parseParameterDescriptions(content) {
+    const descriptions = new Map();
+    const helpBlocks = String(content || '').match(/<#([\s\S]*?)#>/g) || [];
+
+    for (const block of helpBlocks) {
+        const lines = block.slice(2, -2).split(/\r?\n/);
+        let parameterName = null;
+        let descriptionLines = [];
+
+        const saveDescription = () => {
+            if (!parameterName) return;
+            const description = descriptionLines
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .join(' ');
+            if (description) {
+                descriptions.set(parameterName.toLowerCase(), description);
+            }
+        };
+
+        for (const line of lines) {
+            const parameterMatch = line.match(/^\s*\.PARAMETER\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/i);
+            if (parameterMatch) {
+                saveDescription();
+                parameterName = parameterMatch[1];
+                descriptionLines = [];
+                continue;
+            }
+
+            if (/^\s*\.[A-Za-z][A-Za-z0-9_-]*(?:\s+.*)?$/i.test(line)) {
+                saveDescription();
+                parameterName = null;
+                descriptionLines = [];
+                continue;
+            }
+
+            if (parameterName) {
+                descriptionLines.push(line);
+            }
+        }
+
+        saveDescription();
+    }
+
+    return descriptions;
+}
+
 function parseScriptParametersFromContent(content) {
     const paramContent = findParamBlock(content);
     if (!paramContent) {
@@ -153,11 +200,18 @@ function parseScriptParametersFromContent(content) {
         })
         .join('\n');
 
+    const parameterDescriptions = parseParameterDescriptions(content);
+    const parameters = splitTopLevelParameterDeclarations(paramContent)
+        .map(parseParameterDefinition)
+        .filter(Boolean)
+        .map((parameter) => ({
+            ...parameter,
+            description: parameterDescriptions.get(parameter.name.toLowerCase()) || null
+        }));
+
     return {
         content: processedContent,
-        parameters: splitTopLevelParameterDeclarations(paramContent)
-            .map(parseParameterDefinition)
-            .filter(Boolean)
+        parameters
     };
 }
 

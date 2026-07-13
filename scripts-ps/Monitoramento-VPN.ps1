@@ -5,19 +5,36 @@
 .DESCRIPTION
     Conecta por SSH (Posh-SSH), executa "get vpn ssl monitor", interpreta a tabela "SSL-VPN sessions"
     (duração em segundos) e, se houver usuários acima do limite configurado, monta um e-mail HTML e envia
-    via System.Net.Mail.SMTPClient. IPs, credenciais, SMTP e limite de horas estão nas variáveis no início.
+    via System.Net.Mail.SMTPClient. O usuário e a senha do FortiGate são recebidos por parâmetros obrigatórios,
+    enquanto o endereço do equipamento pode ser substituído opcionalmente.
 
-.PARAMETER Nenhum
-    Este script não declara param(). Ajuste FortiGateIP, credenciais, SMTP e LimiteHoras no corpo do arquivo.
+.PARAMETER FortiUser
+    Usuário SSH do FortiGate.
+
+.PARAMETER FortiPassword
+    Senha SSH do FortiGate.
+
+.PARAMETER FortiGateIP
+    Endereço IP ou nome do FortiGate. O valor padrão é 10.35.0.1.
 
 .EXAMPLE
-    .\Monitoramento-VPN.ps1
+    .\Monitoramento-VPN.ps1 -FortiUser "usuario" -FortiPassword "senha"
 #>
-# ---------- CONFIGURAÇÕES ----------
-$FortiGateIP   = "10.35.0.1"
-$FortiUser     = "msouza"
-$FortiPassword = "mmdmmd"
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$FortiUser,
 
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$FortiPassword,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$FortiGateIP = "10.35.0.1"
+)
+
+# ---------- CONFIGURAÇÕES ----------
 # SMTP
 $SmtpServer = "mail.desenbahia.ba.gov.br"
 $SmtpPort   = 25
@@ -168,12 +185,37 @@ function Send-MonitoramentoVpnMail {
     }
 }
 
+# Requer o módulo Posh-SSH 4.x prerelease ou superior para compatibilidade SSH com o FortiGate.
+# Instale com: Install-Module -Name Posh-SSH -AllowPrerelease -Force
+$RequiredPoshSshVersion = [version]"4.0.0"
+$InstalledPoshSsh = Get-Module -ListAvailable -Name Posh-SSH |
+    Sort-Object Version -Descending |
+    Select-Object -First 1
+
+if ($null -eq $InstalledPoshSsh -or $InstalledPoshSsh.Version -lt $RequiredPoshSshVersion) {
+    Write-Host "Módulo Posh-SSH 4.x não encontrado. Instalando versão prerelease..."
+    try {
+        Install-Module -Name Posh-SSH -AllowPrerelease -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
+        Write-Host "Módulo Posh-SSH instalado com sucesso."
+    }
+    catch {
+        Write-Error "Erro ao instalar o módulo Posh-SSH: $_"
+        exit 1
+    }
+}
+
+try {
+    Import-Module Posh-SSH -Force -ErrorAction Stop
+}
+catch {
+    Write-Error "Erro ao carregar o módulo Posh-SSH: $_"
+    exit 1
+}
+
 # ---------- CRIA CREDENCIAL SSH ----------
 $SecurePassword = ConvertTo-SecureString $FortiPassword -AsPlainText -Force
 $Credential = New-Object System.Management.Automation.PSCredential ($FortiUser, $SecurePassword)
-
-# ---------- IMPORTA MÓDULO SSH ----------
-Import-Module Posh-SSH
+$SSHSession = $null
 
 try {
 
@@ -182,14 +224,21 @@ try {
         -ComputerName $FortiGateIP `
         -Credential $Credential `
         -AcceptKey `
-        -ConnectionTimeout 30
+        -Force `
+        -ConnectionTimeout 30 `
+        -ErrorAction Stop
+
+    if ($null -eq $SSHSession -or $null -eq $SSHSession.SessionId) {
+        throw "Sessão SSH não foi criada."
+    }
 
     # ---------- EXECUTA COMANDO ----------
     $Command = "get vpn ssl monitor"
 
     $Result = Invoke-SSHCommand `
         -SessionId $SSHSession.SessionId `
-        -Command $Command
+        -Command $Command `
+        -ErrorAction Stop
 
     # Saída pode vir como string multilinha ou coleção de linhas
     $textoSaida = @($Result.Output) -join "`n"
@@ -296,6 +345,6 @@ finally {
 
     # ---------- FECHA SESSÃO SSH ----------
     if ($SSHSession) {
-        Remove-SSHSession -SessionId $SSHSession.SessionId | Out-Null
+        Remove-SSHSession -SessionId $SSHSession.SessionId -ErrorAction SilentlyContinue | Out-Null
     }
 }
