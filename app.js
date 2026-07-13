@@ -5,13 +5,17 @@ const session = require("express-session");
 const Settings = require('./src/models/Settings');
 const settingsRoutes = require('./src/routes/settingsRoutes');
 const { isAuthenticated } = require('./src/middleware/authMiddleware');
+const { installConsoleFileLogger } = require('./src/services/webLogger');
 require("dotenv").config();
+
+installConsoleFileLogger();
 
 // Importar rotas
 const authRoutes = require('./src/routes/authRoutes');
 const mainRoutes = require('./src/routes/mainRoutes');
 const historyRoutes = require('./src/routes/historyRoutes');
 const scheduleRoutes = require('./src/routes/scheduleRoutes');
+const logRoutes = require('./src/routes/logRoutes');
 const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
 const release = require('./src/config/release');
@@ -92,13 +96,14 @@ app.use(async (req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
 app.use('/history', historyRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/schedules', scheduleRoutes);
+app.use('/logs', logRoutes);
 
 async function start() {
   try {

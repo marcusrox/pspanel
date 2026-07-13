@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs Operacionais - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .logs-panel {
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .logs-toolbar {
+            display: grid;
+            grid-template-columns: minmax(14rem, 1.2fr) 8rem minmax(12rem, 1fr) 8rem auto;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logs-field label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .logs-field select,
+        .logs-field input {
+            width: 100%;
+            min-height: 2.75rem;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .logs-field select:focus,
+        .logs-field input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .logs-actions {
+            display: flex;
+            align-items: end;
+            gap: 0.5rem;
+        }
+
+        .logs-actions button {
+            min-height: 2.75rem;
+            white-space: nowrap;
+        }
+
+        .logs-status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .logs-status-bar strong {
+            color: var(--text-primary);
+        }
+
+        .logs-truncated {
+            display: none;
+            margin: 1rem 1rem 0;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--warning-color);
+            border-radius: 0.375rem;
+            color: var(--warning-color);
+            background-color: rgba(234, 179, 8, 0.08);
+        }
+
+        .logs-output {
+            height: min(65vh, 46rem);
+            min-height: 24rem;
+            padding: 1rem;
+            overflow: auto;
+            background-color: var(--bg-darker);
+            color: #dbeafe;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .log-line {
+            min-height: 1.35rem;
+        }
+
+        .log-line-warn {
+            color: var(--warning-color);
+        }
+
+        .log-line-error {
+            color: #fca5a5;
+        }
+
+        .logs-empty {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .logs-empty i {
+            font-size: 2rem;
+        }
+
+        @media (max-width: 1100px) {
+            .logs-toolbar {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .top-header {
+                align-items: flex-start;
+            }
+
+            .logs-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .logs-actions {
+                align-items: stretch;
+            }
+
+            .logs-actions button {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .logs-output {
+                min-height: 20rem;
+                height: 58vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'logs', user: user }) %>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1 id="logsPanelTitle">Logs Operacionais</h1>
+                <p>Acompanhe as mensagens mais recentes da aplicação WEB</p>
+            </div>
+            <div class="header-actions">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <% if (messages.error && messages.error.length) { %>
+            <div class="alert alert-danger"><%= messages.error[0] %></div>
+        <% } %>
+
+        <section class="logs-panel" aria-labelledby="logsPanelTitle">
+            <div class="logs-toolbar">
+                <div class="logs-field">
+                    <label for="logFile">Arquivo</label>
+                    <select id="logFile" <%= files.length ? '' : 'disabled' %>>
+                        <% if (files.length) { %>
+                            <% files.forEach(file => { %>
+                                <option value="<%= file %>" <%= file === selectedFile ? 'selected' : '' %>><%= file %></option>
+                            <% }); %>
+                        <% } else { %>
+                            <option value="">Nenhum arquivo disponível</option>
+                        <% } %>
+                    </select>
+                </div>
+
+                <div class="logs-field">
+                    <label for="lineLimit">Linhas</label>
+                    <select id="lineLimit" <%= files.length ? '' : 'disabled' %>>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="500" selected>500</option>
+                        <option value="1000">1.000</option>
+                        <option value="2000">2.000</option>
+                    </select>
+                </div>
+
+                <div class="logs-field">
+                    <label for="textFilter">Filtrar no trecho carregado</label>
+                    <input id="textFilter" type="search" placeholder="Digite parte da mensagem..." autocomplete="off" <%= files.length ? '' : 'disabled' %>>
+                </div>
+
+                <div class="logs-field">
+                    <label for="levelFilter">Nível</label>
+                    <select id="levelFilter" <%= files.length ? '' : 'disabled' %>>
+                        <option value="ALL">Todos</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARN">WARN</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+
+                <div class="logs-actions">
+                    <button id="refreshButton" type="button" class="primary-btn" <%= files.length ? '' : 'disabled' %>>
+                        <i class="fas fa-rotate" aria-hidden="true"></i>
+                        Atualizar
+                    </button>
+                    <button id="pauseButton" type="button" class="secondary-btn" <%= files.length ? '' : 'disabled' %>>
+                        <i class="fas fa-pause" aria-hidden="true"></i>
+                        <span>Pausar</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="logs-status-bar" aria-live="polite">
+                <span id="updateStatus"><strong>Status:</strong> <%= files.length ? 'Carregando...' : 'Nenhum log disponível' %></span>
+                <span id="lineStatus"><%= files.length ? '0 linhas exibidas' : '' %></span>
+            </div>
+
+            <div id="truncatedWarning" class="logs-truncated" role="status">
+                O trecho foi limitado pelo tamanho máximo de leitura de 1 MiB.
+            </div>
+
+            <div id="logOutput" class="logs-output" tabindex="0" aria-label="Conteúdo do log operacional">
+                <div class="logs-empty">
+                    <i class="fas <%= files.length ? 'fa-spinner fa-spin' : 'fa-file-circle-xmark' %>" aria-hidden="true"></i>
+                    <span><%= files.length ? 'Carregando log operacional...' : 'Nenhum arquivo de log operacional foi encontrado.' %></span>
+                </div>
+            </div>
+        </section>
+
+        <%- include('partials/app-footer') %>
+    </main>
+
+    <script>
+        const logFile = document.getElementById('logFile');
+        const lineLimit = document.getElementById('lineLimit');
+        const textFilter = document.getElementById('textFilter');
+        const levelFilter = document.getElementById('levelFilter');
+        const refreshButton = document.getElementById('refreshButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const logOutput = document.getElementById('logOutput');
+        const updateStatus = document.getElementById('updateStatus');
+        const lineStatus = document.getElementById('lineStatus');
+        const truncatedWarning = document.getElementById('truncatedWarning');
+
+        let rawLines = [];
+        let paused = false;
+        let refreshTimer = null;
+        let activeRequest = null;
+        let hasRendered = false;
+
+        function isOutputAtBottom() {
+            return logOutput.scrollHeight - logOutput.scrollTop - logOutput.clientHeight < 40;
+        }
+
+        function getLineLevel(line) {
+            const match = line.match(/\s(INFO|WARN|ERROR)\s/);
+            return match ? match[1] : '';
+        }
+
+        function showOutputMessage(message, iconClass) {
+            logOutput.replaceChildren();
+            const wrapper = document.createElement('div');
+            const icon = document.createElement('i');
+            const text = document.createElement('span');
+
+            wrapper.className = 'logs-empty';
+            icon.className = `fas ${iconClass}`;
+            icon.setAttribute('aria-hidden', 'true');
+            text.textContent = message;
+            wrapper.append(icon, text);
+            logOutput.appendChild(wrapper);
+        }
+
+        function renderLog(forceBottom = false) {
+            const shouldScroll = forceBottom || !hasRendered || isOutputAtBottom();
+            const query = textFilter.value.trim().toLocaleLowerCase('pt-BR');
+            const selectedLevel = levelFilter.value;
+            const filteredLines = rawLines.filter((line) => {
+                const matchesText = !query || line.toLocaleLowerCase('pt-BR').includes(query);
+                const matchesLevel = selectedLevel === 'ALL' || getLineLevel(line) === selectedLevel;
+                return matchesText && matchesLevel;
+            });
+
+            logOutput.replaceChildren();
+
+            if (!filteredLines.length) {
+                showOutputMessage(rawLines.length ? 'Nenhuma linha corresponde aos filtros.' : 'O arquivo de log está vazio.', 'fa-magnifying-glass');
+            } else {
+                const fragment = document.createDocumentFragment();
+                filteredLines.forEach((line) => {
+                    const lineElement = document.createElement('div');
+                    const level = getLineLevel(line);
+                    lineElement.className = 'log-line';
+                    if (level === 'WARN') lineElement.classList.add('log-line-warn');
+                    if (level === 'ERROR') lineElement.classList.add('log-line-error');
+                    lineElement.textContent = line;
+                    fragment.appendChild(lineElement);
+                });
+                logOutput.appendChild(fragment);
+            }
+
+            lineStatus.textContent = `${filteredLines.length} de ${rawLines.length} linha${rawLines.length === 1 ? '' : 's'} exibida${filteredLines.length === 1 ? '' : 's'}`;
+            hasRendered = true;
+
+            if (shouldScroll) {
+                logOutput.scrollTop = logOutput.scrollHeight;
+            }
+        }
+
+        async function refreshLog(forceBottom = false) {
+            if (!logFile.value) return;
+
+            if (activeRequest) {
+                activeRequest.abort();
+            }
+            const requestController = new AbortController();
+            activeRequest = requestController;
+            const requestedFile = logFile.value;
+
+            refreshButton.disabled = true;
+            updateStatus.innerHTML = '<strong>Status:</strong> Atualizando...';
+
+            try {
+                const params = new URLSearchParams({
+                    file: requestedFile,
+                    lines: lineLimit.value
+                });
+                const response = await fetch(`/logs/content?${params.toString()}`, {
+                    cache: 'no-store',
+                    signal: requestController.signal
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro ao carregar o log operacional.');
+                }
+
+                if (requestedFile !== logFile.value) return;
+
+                rawLines = data.content ? data.content.split(/\r?\n/) : [];
+                truncatedWarning.style.display = data.truncated ? 'block' : 'none';
+                const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleString('pt-BR') : '—';
+                updateStatus.innerHTML = `<strong>Atualizado:</strong> ${updatedAt}${paused ? ' · atualização automática pausada' : ''}`;
+                renderLog(forceBottom);
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+                rawLines = [];
+                truncatedWarning.style.display = 'none';
+                updateStatus.innerHTML = '<strong>Status:</strong> Falha na leitura';
+                lineStatus.textContent = '';
+                showOutputMessage(error.message, 'fa-triangle-exclamation');
+            } finally {
+                if (activeRequest === requestController) {
+                    activeRequest = null;
+                    refreshButton.disabled = false;
+                }
+            }
+        }
+
+        function startRefreshTimer() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => {
+                if (!paused) refreshLog();
+            }, 5000);
+        }
+
+        function resetForSelection() {
+            rawLines = [];
+            hasRendered = false;
+            truncatedWarning.style.display = 'none';
+            showOutputMessage('Carregando log operacional...', 'fa-spinner fa-spin');
+            refreshLog(true);
+        }
+
+        logFile.addEventListener('change', resetForSelection);
+        lineLimit.addEventListener('change', resetForSelection);
+        textFilter.addEventListener('input', () => renderLog());
+        levelFilter.addEventListener('change', () => renderLog());
+        refreshButton.addEventListener('click', () => refreshLog());
+        pauseButton.addEventListener('click', () => {
+            paused = !paused;
+            const icon = pauseButton.querySelector('i');
+            const label = pauseButton.querySelector('span');
+            icon.className = paused ? 'fas fa-play' : 'fas fa-pause';
+            label.textContent = paused ? 'Retomar' : 'Pausar';
+            pauseButton.setAttribute('aria-pressed', String(paused));
+            if (paused) {
+                updateStatus.innerHTML = '<strong>Status:</strong> Atualização automática pausada';
+            } else {
+                refreshLog();
+            }
+        });
+
+        if (logFile.value) {
+            refreshLog(true);
+            startRefreshTimer();
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (refreshTimer) clearInterval(refreshTimer);
+            if (activeRequest) activeRequest.abort();
+        });
+    </script>
+</body>
+</html>
