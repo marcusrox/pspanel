@@ -145,6 +145,7 @@ Para detalhes de tabelas e persistencia atual, consulte `docs/architecture.md`. 
 - Indices sao criados com `CREATE INDEX IF NOT EXISTS` quando ha consultas recorrentes.
 - Queries usam placeholders `?`, nao concatenacao de strings.
 - Datas persistidas por codigo novo tendem a usar ISO string (`new Date().toISOString()`).
+- Evite defaults SQLite como `CURRENT_TIMESTAMP` para datas usadas pela aplicacao, pois eles gravam UTC sem marcador de timezone (`Z`) e podem ser exibidos com deslocamento. Prefira gravar explicitamente ISO com timezone no codigo.
 - Booleanos sao persistidos como inteiro `1`/`0`.
 - Campos opcionais vazios geralmente viram `null`.
 
@@ -308,7 +309,7 @@ Padroes EJS:
 
 - Use `<%= ... %>` para saida escapada.
 - Use `<% ... %>` para controle de fluxo.
-- Formate datas com `new Date(value).toLocaleString('pt-BR')`.
+- Formate datas com helper compartilhado quando o valor puder vir de fontes diferentes. Valores ISO com `Z` podem usar `new Date(value).toLocaleString('pt-BR')`; valores antigos no formato SQLite `YYYY-MM-DD HH:mm:ss` devem ser tratados como UTC antes da exibicao, por exemplo normalizando para `YYYY-MM-DDTHH:mm:ssZ`.
 - Mostre fallback visual com `|| '—'` para campos vazios.
 - Para tabelas, use `forEach`.
 

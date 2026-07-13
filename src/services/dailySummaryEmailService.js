@@ -5,6 +5,10 @@ const {
     getMissingEmailConfig,
     sendMail
 } = require('./emailService');
+const {
+    formatDateTimePtBr,
+    parseDateTime
+} = require('./dateTimeFormatter');
 
 const OUTPUT_SUMMARY_MAX = 1200;
 
@@ -19,19 +23,11 @@ function getYesterdayLocalDateString() {
     return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
 }
 
-function formatDateTime(value) {
-    if (!value) return '-';
-    const normalized = String(value).includes('T') ? String(value) : `${String(value).replace(' ', 'T')}Z`;
-    const date = new Date(normalized);
-    if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString('pt-BR');
-}
-
 function getDurationText(run) {
     if (!run.start_time || !run.end_time) return '-';
-    const start = new Date(String(run.start_time).includes('T') ? run.start_time : `${String(run.start_time).replace(' ', 'T')}Z`);
-    const end = new Date(run.end_time);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
+    const start = parseDateTime(run.start_time);
+    const end = parseDateTime(run.end_time);
+    if (!start || !end) return '-';
     const seconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
@@ -69,8 +65,8 @@ function buildDailySummaryMessage(reportDate, runs) {
 
     const textRows = runs.map((run, index) => [
         `${index + 1}. ${run.script_name}`,
-        `Inicio: ${formatDateTime(run.start_time)}`,
-        `Fim: ${formatDateTime(run.end_time)}`,
+        `Inicio: ${formatDateTimePtBr(run.start_time, '-')}`,
+        `Fim: ${formatDateTimePtBr(run.end_time, '-')}`,
         `Duracao: ${getDurationText(run)}`,
         `Status: ${run.status}`,
         `Resultado: ${summarizeOutput(run)}`
@@ -79,8 +75,8 @@ function buildDailySummaryMessage(reportDate, runs) {
     const htmlRows = runs.map((run) => `
         <tr>
             <td>${escapeHtml(run.script_name)}</td>
-            <td>${escapeHtml(formatDateTime(run.start_time))}</td>
-            <td>${escapeHtml(formatDateTime(run.end_time))}</td>
+            <td>${escapeHtml(formatDateTimePtBr(run.start_time, '-'))}</td>
+            <td>${escapeHtml(formatDateTimePtBr(run.end_time, '-'))}</td>
             <td>${escapeHtml(getDurationText(run))}</td>
             <td>${escapeHtml(run.status)}</td>
             <td>${escapeHtml(summarizeOutput(run))}</td>
@@ -119,7 +115,7 @@ function getDailySummaryStatus(settings) {
         return {
             lastSentAt,
             lastSentDate,
-            displayText: formatDateTime(lastSentAt)
+            displayText: formatDateTimePtBr(lastSentAt, '-')
         };
     }
 

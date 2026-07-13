@@ -35,7 +35,7 @@ Import-Module Posh-SSH -Force
 # === CONFIGURAÇÕES ===
 $FortiHost = "10.35.0.1"       # IP ou hostname do FortiGate
 $FortiUser = "msouza"             # Usuário
-$FortiPassword = "mmdmmd" # Senha
+$FortiPassword = "mmdmmd@06" # Senha
 
 
 # Diretório onde os arquivos serão salvos

@@ -287,6 +287,20 @@
             color: var(--primary-color);
         }
 
+        .script-form .form-actions {
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #executeBtn {
+            max-width: 100%;
+        }
+
+        #executeBtnText {
+            overflow-wrap: anywhere;
+            text-align: left;
+        }
+
         .scripts-table-wrap {
             border: 1px solid var(--border-color);
             border-radius: 0.5rem;
@@ -565,11 +579,12 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="primary-btn" id="executeBtn">
-                            <i class="fas fa-play"></i> Executar
-                        </button>
-                        <button type="reset" class="secondary-btn">
+                        <button type="button" class="secondary-btn" onclick="clearScriptForm()">
                             <i class="fas fa-undo"></i> Limpar
+                        </button>
+                        <button type="submit" class="primary-btn" id="executeBtn">
+                            <i class="fas fa-play"></i>
+                            <span id="executeBtnText">Executar</span>
                         </button>
                     </div>
 
@@ -678,13 +693,7 @@
             });
 
             form.addEventListener('reset', function () {
-                document.getElementById('script').value = '';
-                document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
-                    r.classList.remove('is-selected');
-                });
-                selectedParameterDefinitions = [];
-                clearExecutionStatus();
-                clearParameterFields();
+                clearScriptSelectionState();
             });
         });
 
@@ -713,6 +722,30 @@
             clearExecutionStatus();
         }
 
+        function clearScriptForm() {
+            const form = document.querySelector('.script-form');
+            if (form) {
+                form.reset();
+            }
+            clearScriptSelectionState();
+        }
+
+        function clearScriptSelectionState() {
+            document.getElementById('script').value = '';
+            updateExecuteButtonLabel('');
+            document.querySelectorAll('.script-row.is-selected').forEach(function (r) {
+                r.classList.remove('is-selected');
+            });
+            selectedParameterDefinitions = [];
+            clearExecutionStatus();
+            clearParameterFields();
+        }
+
+        function updateExecuteButtonLabel(scriptName) {
+            const executeBtnText = document.getElementById('executeBtnText');
+            executeBtnText.textContent = scriptName ? `Executar (${scriptName})` : 'Executar';
+        }
+
         function decodeParamsFromRow(tr) {
             const b64 = tr.getAttribute('data-params-b64');
             if (!b64) return null;
@@ -732,6 +765,7 @@
             tr.classList.add('is-selected');
             const name = tr.getAttribute('data-script-name') || '';
             document.getElementById('script').value = name;
+            updateExecuteButtonLabel(name);
             const scriptData = decodeParamsFromRow(tr);
             selectedParameterDefinitions = Array.isArray(scriptData && scriptData.parameters)
                 ? scriptData.parameters

@@ -242,7 +242,7 @@
                             <td><%= entry.script_name %></td>
                             <td><%= entry.parameters %></td>
                             <td><%= entry.username %></td>
-                            <td><%= new Date(entry.start_time).toLocaleString('pt-BR') %></td>
+                            <td><%= entry.formatted_start_time %></td>
                             <td>
                                 <span class="status-badge status-<%= entry.status %>">
                                     <i class="fas fa-<%= entry.status === 'success' ? 'check-circle' : (entry.status === 'error' ? 'times-circle' : 'spinner fa-spin') %>"></i>
@@ -352,8 +352,8 @@
                         <p><strong>Script:</strong> ${data.script_name}</p>
                         <p><strong>Parâmetros:</strong> ${data.parameters || 'Nenhum'}</p>
                         <p><strong>Usuário:</strong> ${data.username}</p>
-                        <p><strong>Início:</strong> ${new Date(data.start_time).toLocaleString('pt-BR')}</p>
-                        <p><strong>Término:</strong> ${data.end_time ? new Date(data.end_time).toLocaleString('pt-BR') : 'Em execução'}</p>
+                        <p><strong>Início:</strong> ${data.formatted_start_time}</p>
+                        <p><strong>Término:</strong> ${data.formatted_end_time}</p>
                         <p><strong>Status:</strong> 
                             <span class="status-badge status-${data.status}">
                                 <i class="fas fa-${data.status === 'success' ? 'check-circle' : (data.status === 'error' ? 'times-circle' : 'spinner fa-spin')}"></i>

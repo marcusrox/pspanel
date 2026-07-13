@@ -9,8 +9,8 @@ const migrations = [
                 script_name TEXT NOT NULL,
                 parameters TEXT,
                 username TEXT NOT NULL,
-                start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                end_time DATETIME,
+                start_time TEXT NOT NULL,
+                end_time TEXT,
                 output TEXT,
                 status TEXT CHECK(status IN ('success', 'error', 'running')) DEFAULT 'running',
                 error_message TEXT

@@ -8,11 +8,11 @@ class History {
         await schema.initialize();
     }
 
-    static async addEntry(scriptName, parameters, username) {
+    static async addEntry(scriptName, parameters, username, startTime = new Date().toISOString()) {
         await History.initialize();
         const result = await database.run(
-            'INSERT INTO script_history (script_name, parameters, username) VALUES (?, ?, ?)',
-            [scriptName, parameters, username]
+            'INSERT INTO script_history (script_name, parameters, username, start_time) VALUES (?, ?, ?, ?)',
+            [scriptName, parameters, username, startTime]
         );
         return result.lastID;
     }
