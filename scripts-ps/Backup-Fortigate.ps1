@@ -5,38 +5,62 @@
 .DESCRIPTION
     Garante o módulo Posh-SSH, conecta ao firewall, executa vários comandos "show" e grava saídas
     em texto em C:\FortiGate-Backup (ou pasta configurada), incluindo full-configuration. Opcionalmente
-    inicializa ou atualiza um repositório Git nessa pasta. Credenciais e host estão nas variáveis no início.
+    inicializa ou atualiza um repositório Git nessa pasta.
 
-.PARAMETER Nenhum
-    Não há parâmetros de linha de comando. Edite FortiHost, FortiUser, FortiPassword e BackupDir no script.
+.PARAMETER FortiUser
+    Usuário SSH do FortiGate.
+
+.PARAMETER FortiPassword
+    Senha SSH do FortiGate.
+
+.PARAMETER FortiHost
+    IP ou hostname do FortiGate. Valor padrão: 10.35.0.1.
 
 .EXAMPLE
-    .\Backup-Fortigate.ps1
+    .\Backup-Fortigate.ps1 -FortiUser admin -FortiPassword "senha"
+
+.EXAMPLE
+    .\Backup-Fortigate.ps1 -FortiHost 10.35.0.2 -FortiUser admin -FortiPassword "senha"
 #>
-# Requer o módulo Posh-SSH
-# Instale com: Install-Module -Name Posh-SSH -Force
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$FortiUser,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FortiPassword,
+
+    [Parameter(Mandatory = $false)]
+    [string]$FortiHost = "10.35.0.1"
+)
+
+# Requer o módulo Posh-SSH 4.x prerelease ou superior para compatibilidade SSH com o FortiGate.
+# Instale com: Install-Module -Name Posh-SSH -AllowPrerelease -Force
 
 # === GARANTE QUE O MÓDULO POSH-SSH ESTEJA INSTALADO E CARREGADO ===
-if (-not (Get-Module -ListAvailable -Name Posh-SSH)) {
-    Write-Host "Módulo Posh-SSH não encontrado. Instalando..."
+$RequiredPoshSshVersion = [version]"4.0.0"
+$InstalledPoshSsh = Get-Module -ListAvailable -Name Posh-SSH |
+    Sort-Object Version -Descending |
+    Select-Object -First 1
+
+if ($null -eq $InstalledPoshSsh -or $InstalledPoshSsh.Version -lt $RequiredPoshSshVersion) {
+    Write-Host "Módulo Posh-SSH 4.x não encontrado. Instalando versão prerelease..."
     try {
-        Install-Module -Name Posh-SSH -Force -Scope CurrentUser -AllowClobber
+        Install-Module -Name Posh-SSH -AllowPrerelease -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
         Write-Host "Módulo Posh-SSH instalado com sucesso."
     }
     catch {
-        Write-Host "Erro ao instalar o módulo Posh-SSH: $_" -ForegroundColor Red
-        exit
+        Write-Error "Erro ao instalar o módulo Posh-SSH: $_"
+        exit 1
     }
 }
 
-Import-Module Posh-SSH -Force
-
-
-# === CONFIGURAÇÕES ===
-$FortiHost = "10.35.0.1"       # IP ou hostname do FortiGate
-$FortiUser = "msouza"             # Usuário
-$FortiPassword = "mmdmmd@06" # Senha
-
+try {
+    Import-Module Posh-SSH -Force -ErrorAction Stop
+}
+catch {
+    Write-Error "Erro ao carregar o módulo Posh-SSH: $_"
+    exit 1
+}
 
 # Diretório onde os arquivos serão salvos
 $BackupDir = "C:\FortiGate-Backup"
@@ -52,12 +76,20 @@ $SecurePassword = ConvertTo-SecureString $FortiPassword -AsPlainText -Force
 $Credential = New-Object System.Management.Automation.PSCredential ($FortiUser, $SecurePassword)
 
 # === CONECTANDO ===
-$session = New-SSHSession -ComputerName $FortiHost -Credential $Credential -AcceptKey
+try {
+    $session = New-SSHSession -ComputerName $FortiHost -Credential $Credential -AcceptKey -Force -ErrorAction Stop
+}
+catch {
+    Write-Error "Erro ao conectar no FortiGate: $_"
+    exit 1
+}
 
 if ($null -eq $session -or $null -eq $session.SessionId) {
-    Write-Host "Erro ao conectar no FortiGate!" -ForegroundColor Red
-    exit
+    Write-Error "Erro ao conectar no FortiGate: sessão SSH não foi criada."
+    exit 1
 }
+
+$SessionId = $session.SessionId
 
 # === LISTA DE BLOCOS PARA EXTRAÇÃO ===
 $blocks = @(
@@ -100,7 +132,7 @@ $blocks = @(
 # === EXTRAÇÃO DE CADA BLOCO ===
 foreach ($block in $blocks) {
     Write-Host "Extraindo: $block..."
-    $output = Invoke-SSHCommand -Index 0 -Command "show $block"
+    $output = Invoke-SSHCommand -SessionId $SessionId -Command "show $block"
     $safeName = $block -replace "\s+", "-"   # Substitui espaços por hífens
     $fileName = "${BackupDir}\$safeName.txt"
     $output.Output | Out-File -FilePath $fileName -Encoding utf8 -Force
@@ -108,12 +140,12 @@ foreach ($block in $blocks) {
 
 # === EXTRAÇÃO DO FULL CONFIGURATION ===
 Write-Host "Extraindo: full-configuration..."
-$fullConfig = Invoke-SSHCommand -Index 0 -Command "show full-configuration"
+$fullConfig = Invoke-SSHCommand -SessionId $SessionId -Command "show full-configuration"
 $fullFileName = "${BackupDir}\full-configuration.txt"
 $fullConfig.Output | Out-File -FilePath $fullFileName -Encoding utf8 -Force
 
 # === FINALIZA SESSÃO ===
-Remove-SSHSession -Index 0
+Remove-SSHSession -SessionId $SessionId
 
 Write-Host "Backup concluído! Arquivos salvos em $BackupDir" -ForegroundColor Green
 
