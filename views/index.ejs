@@ -188,14 +188,92 @@
         .parameter-field {
             display: grid;
             gap: 0.4rem;
+            position: relative;
+        }
+
+        .parameter-label-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
         }
 
         .parameter-field label {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 0.5rem;
             color: var(--text-secondary);
             font-size: 0.875rem;
+        }
+
+        .parameter-field-help-btn {
+            width: 1.65rem;
+            height: 1.65rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            background-color: var(--bg-light);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .parameter-field-help-btn:hover,
+        .parameter-field-help-btn:focus-visible,
+        .parameter-field-help-btn[aria-expanded="true"] {
+            background-color: rgba(37, 99, 235, 0.12);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            outline: none;
+        }
+
+        .parameter-help-wrapper {
+            position: relative;
+            display: inline-flex;
+            flex: 0 0 auto;
+        }
+
+        .parameter-field-help {
+            position: absolute;
+            top: calc(100% + 0.4rem);
+            left: 50%;
+            z-index: 20;
+            width: max-content;
+            min-width: 12rem;
+            max-width: min(24rem, calc(100vw - 2rem));
+            padding: 0.65rem 0.75rem;
+            border: 1px solid var(--primary-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-light);
+            box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.28);
+            color: var(--text-primary);
+            font-size: 0.82rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+            transform: translateX(-50%);
+        }
+
+        .parameter-field-help::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 100%;
+            border: 0.35rem solid transparent;
+            border-bottom-color: var(--primary-color);
+            transform: translateX(-50%);
+        }
+
+        .parameter-field-help[hidden] {
+            display: none;
+        }
+
+        .parameter-field input.restored-password-value {
+            letter-spacing: 0.16em;
         }
 
         .parameter-field input,
@@ -310,6 +388,35 @@
         .script-form .form-actions {
             align-items: center;
             flex-wrap: wrap;
+        }
+
+        .saved-parameters-clear-btn {
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .saved-parameters-clear-btn:hover,
+        .saved-parameters-clear-btn:focus-visible {
+            background: transparent;
+            color: #f87171;
+            outline: 2px solid rgba(239, 68, 68, 0.45);
+            outline-offset: 2px;
+        }
+
+        .saved-parameters-clear-btn:disabled {
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            opacity: 0.4;
         }
 
         .script-panel-actions {
@@ -555,7 +662,7 @@
     </style>
 </head>
 
-<body>
+<body data-storage-user="<%= user && user.username ? user.username : 'anonymous' %>">
     <%- include('partials/sidebar', { activeMenu: 'scripts', user: user }) %>
 
     <main class="main-content">
@@ -700,6 +807,15 @@
                                     <i class="fas fa-play"></i>
                                     <span id="executeBtnText">Executar</span>
                                 </button>
+                                <button type="button"
+                                        class="saved-parameters-clear-btn"
+                                        id="clearSavedParametersBtn"
+                                        title="Remove deste navegador os parâmetros salvos do script selecionado"
+                                        aria-label="Remover deste navegador os parâmetros salvos do script selecionado"
+                                        onclick="clearSavedScriptParameters()"
+                                        disabled>
+                                    <i class="fas fa-trash-can" aria-hidden="true"></i>
+                                </button>
                             </div>
 
                             <div class="execution-status" id="executionStatus"></div>
@@ -780,12 +896,16 @@
 
     <script src="/js/index/rename-script-modal.js"></script>
     <script>
+        const SCRIPT_PARAMETERS_STORAGE_KEY = 'pspanel.scriptParameters.v1';
+        const parameterSaveTimers = new Map();
         let selectedParameterDefinitions = [];
+        let openParameterHelpButton = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.querySelector('.script-form');
             const status = document.getElementById('executionStatus');
             const executeBtn = document.getElementById('executeBtn');
+            const additionalParametersInput = document.getElementById('params');
 
             // Reseta o estado inicial
             clearExecutionStatus();
@@ -849,10 +969,30 @@
                 clearScriptSelectionState();
             });
 
+            additionalParametersInput.addEventListener('input', function () {
+                scheduleCurrentScriptParametersSave();
+            });
+
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
+                    closeOpenParameterDescription(true);
                     closeScriptHelpModal();
                 }
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!openParameterHelpButton) {
+                    return;
+                }
+
+                const helpId = openParameterHelpButton.getAttribute('aria-controls');
+                const helpContent = helpId ? document.getElementById(helpId) : null;
+                if (openParameterHelpButton.contains(event.target)
+                    || (helpContent && helpContent.contains(event.target))) {
+                    return;
+                }
+
+                closeOpenParameterDescription(false);
             });
 
             const scriptHelpModal = document.getElementById('scriptHelpModal');
@@ -913,6 +1053,214 @@
             selectedParameterDefinitions = [];
             clearExecutionStatus();
             clearParameterFields();
+            updateClearSavedParametersButton();
+        }
+
+        function isRecord(value) {
+            return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+        }
+
+        function getParameterStorageUserKey() {
+            return `user:${encodeURIComponent(document.body.dataset.storageUser || 'anonymous')}`;
+        }
+
+        function getParameterStorageScriptKey(scriptName) {
+            return `script:${encodeURIComponent(scriptName)}`;
+        }
+
+        function readScriptParametersStorage() {
+            try {
+                const rawState = localStorage.getItem(SCRIPT_PARAMETERS_STORAGE_KEY);
+                if (!rawState) {
+                    return {};
+                }
+
+                const state = JSON.parse(rawState);
+                return isRecord(state) ? state : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function writeScriptParametersStorage(state) {
+            try {
+                localStorage.setItem(SCRIPT_PARAMETERS_STORAGE_KEY, JSON.stringify(state));
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function getSavedScriptParameters(scriptName) {
+            if (!scriptName) {
+                return null;
+            }
+
+            const state = readScriptParametersStorage();
+            const userState = state[getParameterStorageUserKey()];
+            if (!isRecord(userState)) {
+                return null;
+            }
+
+            const savedState = userState[getParameterStorageScriptKey(scriptName)];
+            if (!isRecord(savedState)) {
+                return null;
+            }
+
+            return {
+                values: isRecord(savedState.values) ? savedState.values : {},
+                additionalParameters: typeof savedState.additionalParameters === 'string'
+                    ? savedState.additionalParameters
+                    : ''
+            };
+        }
+
+        function captureCurrentScriptParameters() {
+            const values = Object.create(null);
+
+            selectedParameterDefinitions.forEach(function (param) {
+                const input = document.getElementById(`param-${param.name}`);
+                if (input) {
+                    values[param.name] = input.value;
+                }
+            });
+
+            return {
+                values,
+                additionalParameters: document.getElementById('params').value
+            };
+        }
+
+        function persistScriptParameters(scriptName, parametersState) {
+            if (!scriptName) {
+                return;
+            }
+
+            const state = readScriptParametersStorage();
+            const userKey = getParameterStorageUserKey();
+            const scriptKey = getParameterStorageScriptKey(scriptName);
+
+            if (!isRecord(state[userKey])) {
+                state[userKey] = {};
+            }
+
+            state[userKey][scriptKey] = parametersState;
+            writeScriptParametersStorage(state);
+
+            if (document.getElementById('script').value === scriptName) {
+                updateClearSavedParametersButton();
+            }
+        }
+
+        function scheduleCurrentScriptParametersSave() {
+            const scriptName = document.getElementById('script').value;
+            if (!scriptName) {
+                return;
+            }
+
+            const parametersState = captureCurrentScriptParameters();
+            const existingTimer = parameterSaveTimers.get(scriptName);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+
+            const timer = setTimeout(function () {
+                parameterSaveTimers.delete(scriptName);
+                persistScriptParameters(scriptName, parametersState);
+            }, 200);
+            parameterSaveTimers.set(scriptName, timer);
+        }
+
+        function isPasswordParameter(param) {
+            const parameterName = String(param && param.name ? param.name : '').toLowerCase();
+            return parameterName.includes('password') || parameterName.includes('senha');
+        }
+
+        function prepareRestoredPasswordForEditing(input) {
+            if (input.dataset.restoredPassword !== 'true') {
+                return;
+            }
+
+            input.value = '';
+            input.type = 'text';
+            input.classList.remove('restored-password-value');
+            input.removeAttribute('title');
+            delete input.dataset.restoredPassword;
+            scheduleCurrentScriptParametersSave();
+        }
+
+        function restoreSavedScriptParameters(scriptName) {
+            const savedState = getSavedScriptParameters(scriptName);
+            const savedValues = savedState ? savedState.values : {};
+
+            selectedParameterDefinitions.forEach(function (param) {
+                const input = document.getElementById(`param-${param.name}`);
+                const savedValue = savedValues[param.name];
+                if (input
+                    && Object.prototype.hasOwnProperty.call(savedValues, param.name)
+                    && typeof savedValue === 'string') {
+                    input.value = savedValue;
+
+                    if (savedValue && input.tagName === 'INPUT' && isPasswordParameter(param)) {
+                        input.type = 'password';
+                        input.classList.add('restored-password-value');
+                        input.dataset.restoredPassword = 'true';
+                        input.title = 'Valor carregado do navegador. Clique para informar uma nova senha.';
+                    }
+                }
+            });
+
+            document.getElementById('params').value = savedState
+                ? savedState.additionalParameters
+                : '';
+            updateClearSavedParametersButton();
+        }
+
+        function updateClearSavedParametersButton() {
+            const button = document.getElementById('clearSavedParametersBtn');
+            const scriptName = document.getElementById('script').value;
+            button.disabled = !scriptName || !getSavedScriptParameters(scriptName);
+        }
+
+        function clearSavedScriptParameters() {
+            const scriptName = document.getElementById('script').value;
+            if (!scriptName || !getSavedScriptParameters(scriptName)) {
+                updateClearSavedParametersButton();
+                return;
+            }
+
+            if (!confirm(`Remover os parâmetros salvos de ${scriptName} neste navegador?`)) {
+                return;
+            }
+
+            const pendingTimer = parameterSaveTimers.get(scriptName);
+            if (pendingTimer) {
+                clearTimeout(pendingTimer);
+                parameterSaveTimers.delete(scriptName);
+            }
+
+            const state = readScriptParametersStorage();
+            const userKey = getParameterStorageUserKey();
+            const scriptKey = getParameterStorageScriptKey(scriptName);
+            const userState = state[userKey];
+
+            if (isRecord(userState)) {
+                delete userState[scriptKey];
+                if (!Object.keys(userState).length) {
+                    delete state[userKey];
+                }
+                writeScriptParametersStorage(state);
+            }
+
+            selectedParameterDefinitions.forEach(function (param) {
+                const input = document.getElementById(`param-${param.name}`);
+                if (input) {
+                    input.value = '';
+                }
+            });
+            document.getElementById('params').value = '';
+            closeOpenParameterDescription(false);
+            updateClearSavedParametersButton();
         }
 
         function updateExecuteButtonLabel(scriptName) {
@@ -948,6 +1296,7 @@
                 ? scriptData.parameters
                 : [];
             renderParameterFields(selectedParameterDefinitions);
+            restoreSavedScriptParameters(name);
             showScriptInfoForParams(scriptData);
         }
 
@@ -1019,6 +1368,7 @@
             const scriptInfo = document.getElementById('scriptInfo');
             const paramsList = document.getElementById('paramsList');
             const helpButton = document.getElementById('parameterHelpBtn');
+            closeOpenParameterDescription(false);
             grid.replaceChildren();
             emptyState.hidden = false;
             emptyState.querySelector('span').textContent = 'Selecione um script para visualizar seus parâmetros.';
@@ -1026,6 +1376,42 @@
             scriptInfo.style.display = 'none';
             helpButton.classList.remove('is-visible');
             helpButton.setAttribute('aria-expanded', 'false');
+        }
+
+        function closeOpenParameterDescription(restoreFocus) {
+            if (!openParameterHelpButton) {
+                return;
+            }
+
+            const helpId = openParameterHelpButton.getAttribute('aria-controls');
+            const helpContent = helpId ? document.getElementById(helpId) : null;
+            openParameterHelpButton.setAttribute('aria-expanded', 'false');
+            if (helpContent) {
+                helpContent.hidden = true;
+            }
+
+            const button = openParameterHelpButton;
+            openParameterHelpButton = null;
+            if (restoreFocus && button.isConnected) {
+                button.focus();
+            }
+        }
+
+        function toggleParameterDescription(button) {
+            const helpId = button.getAttribute('aria-controls');
+            const helpContent = helpId ? document.getElementById(helpId) : null;
+            if (!helpContent) {
+                return;
+            }
+
+            const wasExpanded = button.getAttribute('aria-expanded') === 'true';
+            closeOpenParameterDescription(false);
+
+            if (!wasExpanded) {
+                helpContent.hidden = false;
+                button.setAttribute('aria-expanded', 'true');
+                openParameterHelpButton = button;
+            }
         }
 
         function renderParameterFields(parameters) {
@@ -1041,9 +1427,12 @@
             const grid = document.getElementById('parameterGrid');
             emptyState.hidden = true;
 
-            parameters.forEach((param) => {
+            parameters.forEach((param, index) => {
                 const field = document.createElement('div');
                 field.className = 'parameter-field';
+
+                const labelRow = document.createElement('div');
+                labelRow.className = 'parameter-label-row';
 
                 const label = document.createElement('label');
                 label.setAttribute('for', `param-${param.name}`);
@@ -1054,6 +1443,36 @@
                     badge.className = 'mandatory-badge';
                     badge.textContent = 'Obrigatório';
                     label.appendChild(badge);
+                }
+
+                labelRow.appendChild(label);
+
+                if (param.description) {
+                    const helpId = `parameter-description-${index}`;
+                    const helpWrapper = document.createElement('span');
+                    helpWrapper.className = 'parameter-help-wrapper';
+                    const helpButton = document.createElement('button');
+                    helpButton.type = 'button';
+                    helpButton.className = 'parameter-field-help-btn';
+                    helpButton.setAttribute('aria-label', `Exibir descrição do parâmetro ${param.name}`);
+                    helpButton.setAttribute('aria-expanded', 'false');
+                    helpButton.setAttribute('aria-controls', helpId);
+                    const helpIcon = document.createElement('i');
+                    helpIcon.className = 'fas fa-question';
+                    helpIcon.setAttribute('aria-hidden', 'true');
+                    helpButton.appendChild(helpIcon);
+                    helpButton.addEventListener('click', function () {
+                        toggleParameterDescription(helpButton);
+                    });
+                    helpWrapper.appendChild(helpButton);
+
+                    const fieldHelp = document.createElement('div');
+                    fieldHelp.id = helpId;
+                    fieldHelp.className = 'parameter-field-help';
+                    fieldHelp.hidden = true;
+                    fieldHelp.textContent = param.description;
+                    helpWrapper.appendChild(fieldHelp);
+                    labelRow.appendChild(helpWrapper);
                 }
 
                 const input = Array.isArray(param.validateSet) && param.validateSet.length
@@ -1081,9 +1500,24 @@
                     input.placeholder = param.description || (param.defaultValue
                         ? `Padrao: ${param.defaultValue}`
                         : `Valor de ${param.name}`);
+
+                    if (isPasswordParameter(param)) {
+                        input.addEventListener('pointerdown', function (event) {
+                            if (event.button === 0) {
+                                prepareRestoredPasswordForEditing(input);
+                            }
+                        });
+                        input.addEventListener('beforeinput', function () {
+                            prepareRestoredPasswordForEditing(input);
+                        });
+                    }
                 }
 
-                field.appendChild(label);
+                input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', function () {
+                    scheduleCurrentScriptParametersSave();
+                });
+
+                field.appendChild(labelRow);
                 field.appendChild(input);
 
                 if (param.type || param.defaultValue) {
