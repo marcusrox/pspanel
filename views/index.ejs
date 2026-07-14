@@ -1205,7 +1205,7 @@
                         input.type = 'password';
                         input.classList.add('restored-password-value');
                         input.dataset.restoredPassword = 'true';
-                        input.title = 'Valor carregado do navegador. Clique para informar uma nova senha.';
+                        input.title = 'Valor carregado do navegador. Comece a digitar para substituí-lo.';
                     }
                 }
             });
@@ -1502,11 +1502,6 @@
                         : `Valor de ${param.name}`);
 
                     if (isPasswordParameter(param)) {
-                        input.addEventListener('pointerdown', function (event) {
-                            if (event.button === 0) {
-                                prepareRestoredPasswordForEditing(input);
-                            }
-                        });
                         input.addEventListener('beforeinput', function () {
                             prepareRestoredPasswordForEditing(input);
                         });

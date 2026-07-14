@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const History = require('../models/History');
 const { formatDateTimePtBr } = require('../services/dateTimeFormatter');
+const { maskSensitiveParameterValues } = require('../services/historyParameterMasker');
 
 const HISTORY_PAGE_LIMIT = 20;
 
@@ -40,9 +41,10 @@ const buildPaginationPages = (currentPage, totalPages) => {
         }, []);
 };
 
-function formatHistoryEntryDates(entry) {
+function formatHistoryEntry(entry) {
     return {
         ...entry,
+        parameters: maskSensitiveParameterValues(entry.parameters),
         formatted_start_time: formatDateTimePtBr(entry.start_time),
         formatted_end_time: entry.end_time ? formatDateTimePtBr(entry.end_time) : 'Em execução'
     };
@@ -71,7 +73,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 
         res.render('history', {
             user: req.session.user,
-            history: history.map(formatHistoryEntryDates),
+            history: history.map(formatHistoryEntry),
             currentPage: currentPage,
             totalItems: totalItems,
             totalPages: totalPages,
@@ -95,7 +97,7 @@ router.get('/entry/:id', isAuthenticated, async (req, res) => {
         if (!entry) {
             return res.status(404).json({ error: 'Registro não encontrado' });
         }
-        res.json(formatHistoryEntryDates(entry));
+        res.json(formatHistoryEntry(entry));
     } catch (error) {
         console.error('Error fetching history entry:', error);
         res.status(500).json({ error: 'Erro ao carregar detalhes do registro' });
