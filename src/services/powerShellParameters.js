@@ -232,6 +232,62 @@ function tokenizePowerShellArgs(rawParams) {
         .map((token) => token.replace(/^['"]|['"]$/g, ''));
 }
 
+const SENSITIVE_PARAMETER_MASK = '********';
+const NAMED_PARAMETER_WITH_VALUE_PATTERN = /(-([A-Za-z_][A-Za-z0-9_]*))(\s+)(?:"([^"]*)"|'([^']*)'|((?!-)\S+))/g;
+
+function isSensitiveParameterName(name) {
+    return typeof name === 'string' && /(senha|password)/i.test(name);
+}
+
+function redactSensitiveParameters(rawParams) {
+    if (rawParams == null || !String(rawParams).trim()) {
+        return {
+            maskedParameters: rawParams,
+            sensitiveValues: []
+        };
+    }
+
+    const sensitiveValues = [];
+    const maskedParameters = String(rawParams).replace(
+        NAMED_PARAMETER_WITH_VALUE_PATTERN,
+        (match, parameterToken, parameterName, separator, doubleQuotedValue, singleQuotedValue, unquotedValue) => {
+            if (!isSensitiveParameterName(parameterName)) {
+                return match;
+            }
+
+            const value = doubleQuotedValue !== undefined
+                ? doubleQuotedValue
+                : singleQuotedValue !== undefined
+                    ? singleQuotedValue
+                    : unquotedValue;
+
+            if (value) {
+                sensitiveValues.push(value);
+            }
+
+            return `${parameterToken}${separator}${SENSITIVE_PARAMETER_MASK}`;
+        }
+    );
+
+    return {
+        maskedParameters,
+        sensitiveValues: [...new Set(sensitiveValues)]
+    };
+}
+
+function redactSensitiveText(text, sensitiveValues) {
+    if (text == null || !Array.isArray(sensitiveValues) || !sensitiveValues.length) {
+        return text;
+    }
+
+    return [...new Set(sensitiveValues.filter((value) => typeof value === 'string' && value.length > 0))]
+        .sort((a, b) => b.length - a.length)
+        .reduce(
+            (redactedText, sensitiveValue) => redactedText.split(sensitiveValue).join(SENSITIVE_PARAMETER_MASK),
+            String(text)
+        );
+}
+
 function parseRawNamedParameters(rawParams, parameterDefinitions) {
     const values = {};
     const tokens = tokenizePowerShellArgs(rawParams);
@@ -354,5 +410,8 @@ module.exports = {
     getUnknownPowerShellArgs,
     formatCommandLineArg,
     buildPowerShellArgs,
-    formatProvidedParams
+    formatProvidedParams,
+    isSensitiveParameterName,
+    redactSensitiveParameters,
+    redactSensitiveText
 };

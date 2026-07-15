@@ -8,7 +8,9 @@ const {
     parseRawNamedParameters,
     getUnknownPowerShellArgs,
     formatCommandLineArg,
-    formatProvidedParams
+    formatProvidedParams,
+    redactSensitiveParameters,
+    redactSensitiveText
 } = require('../services/powerShellParameters');
 
 async function listScriptsWithParameters(projectRoot) {
@@ -70,9 +72,24 @@ function buildScheduleFormValues(schedule, parameterDefinitions) {
     };
 }
 
+function buildScheduleListItem(schedule) {
+    const {
+        parameters,
+        last_run_output: lastRunOutput,
+        ...safeSchedule
+    } = schedule;
+    const redactedParameters = redactSensitiveParameters(parameters);
+
+    return {
+        ...safeSchedule,
+        parameters: redactedParameters.maskedParameters,
+        last_run_output: redactSensitiveText(lastRunOutput, redactedParameters.sensitiveValues)
+    };
+}
+
 exports.list = async (req, res) => {
     try {
-        const schedules = await Schedule.findAll();
+        const schedules = (await Schedule.findAll()).map(buildScheduleListItem);
         res.render('schedules', {
             user: req.session.user,
             schedules,
