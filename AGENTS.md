@@ -44,9 +44,9 @@ Formato obrigatorio:
 
 ## Assinatura da LLM
 
-- Data: YYYY-MM-DD
+- Data: (data e hora)
 - Modelo: nome-do-modelo
-- Versao: versao-do-modelo-quando-disponivel
+- Versao: versao-do-modelo-quando-disponivel (se não disponível, omitir essa linha)
 - Acao: criacao | atualizacao
 ```
 
