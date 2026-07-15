@@ -172,6 +172,12 @@
             display: inline-flex;
         }
 
+        .parameters-panel-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
         .parameter-help-btn:hover,
         .parameter-help-btn:focus {
             background-color: rgba(37, 99, 235, 0.12);
@@ -183,6 +189,15 @@
         .parameter-grid {
             display: grid;
             gap: 0.85rem;
+        }
+
+        .parameter-groups {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .parameter-grid[hidden] {
+            display: none;
         }
 
         .parameter-field {
@@ -762,16 +777,28 @@
                     <div class="parameters-panel">
                         <div class="panel-header">
                             <h2><i class="fas fa-sliders-h"></i> Parâmetros</h2>
-                            <button type="button"
-                                    id="parameterHelpBtn"
-                                    class="parameter-help-btn"
-                                    title="Mostrar parâmetros necessários"
-                                    aria-label="Mostrar parâmetros necessários"
-                                    aria-expanded="false"
-                                    aria-controls="scriptInfo"
-                                    onclick="toggleParameterInfo()">
-                                <i class="fas fa-question"></i>
-                            </button>
+                            <div class="parameters-panel-actions">
+                                <button type="button"
+                                        id="parameterHelpBtn"
+                                        class="parameter-help-btn"
+                                        title="Mostrar parâmetros necessários"
+                                        aria-label="Mostrar parâmetros necessários"
+                                        aria-expanded="false"
+                                        aria-controls="scriptInfo"
+                                        onclick="toggleParameterInfo()">
+                                    <i class="fas fa-question"></i>
+                                </button>
+                                <button type="button"
+                                        id="optionalParametersToggleBtn"
+                                        class="parameter-help-btn"
+                                        title="Mostrar parâmetros opcionais"
+                                        aria-label="Mostrar parâmetros opcionais"
+                                        aria-expanded="false"
+                                        aria-controls="optionalParameterGrid"
+                                        onclick="toggleOptionalParameters()">
+                                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="panel-body">
@@ -786,7 +813,10 @@
                                         <div id="paramsList"></div>
                                     </div>
                                 </div>
-                                <div id="parameterGrid" class="parameter-grid"></div>
+                                <div id="parameterGrid" class="parameter-groups">
+                                    <div id="requiredParameterGrid" class="parameter-grid"></div>
+                                    <div id="optionalParameterGrid" class="parameter-grid" hidden></div>
+                                </div>
                             </div>
 
                             <div class="form-group">
@@ -1111,8 +1141,19 @@
                 values: isRecord(savedState.values) ? savedState.values : {},
                 additionalParameters: typeof savedState.additionalParameters === 'string'
                     ? savedState.additionalParameters
-                    : ''
+                    : '',
+                optionalParametersExpanded: savedState.optionalParametersExpanded === true
             };
+        }
+
+        function hasSavedScriptParameterValues(scriptName) {
+            const savedState = getSavedScriptParameters(scriptName);
+            if (!savedState) {
+                return false;
+            }
+
+            return savedState.additionalParameters !== ''
+                || Object.values(savedState.values).some((value) => typeof value === 'string' && value !== '');
         }
 
         function captureCurrentScriptParameters() {
@@ -1144,7 +1185,15 @@
                 state[userKey] = {};
             }
 
-            state[userKey][scriptKey] = parametersState;
+            const savedState = state[userKey][scriptKey];
+            state[userKey][scriptKey] = {
+                values: isRecord(parametersState.values) ? parametersState.values : {},
+                additionalParameters: typeof parametersState.additionalParameters === 'string'
+                    ? parametersState.additionalParameters
+                    : '',
+                optionalParametersExpanded: isRecord(savedState)
+                    && savedState.optionalParametersExpanded === true
+            };
             writeScriptParametersStorage(state);
 
             if (document.getElementById('script').value === scriptName) {
@@ -1219,12 +1268,12 @@
         function updateClearSavedParametersButton() {
             const button = document.getElementById('clearSavedParametersBtn');
             const scriptName = document.getElementById('script').value;
-            button.disabled = !scriptName || !getSavedScriptParameters(scriptName);
+            button.disabled = !scriptName || !hasSavedScriptParameterValues(scriptName);
         }
 
         function clearSavedScriptParameters() {
             const scriptName = document.getElementById('script').value;
-            if (!scriptName || !getSavedScriptParameters(scriptName)) {
+            if (!scriptName || !hasSavedScriptParameterValues(scriptName)) {
                 updateClearSavedParametersButton();
                 return;
             }
@@ -1245,7 +1294,16 @@
             const userState = state[userKey];
 
             if (isRecord(userState)) {
-                delete userState[scriptKey];
+                const savedState = userState[scriptKey];
+                if (isRecord(savedState) && savedState.optionalParametersExpanded === true) {
+                    userState[scriptKey] = {
+                        values: {},
+                        additionalParameters: '',
+                        optionalParametersExpanded: true
+                    };
+                } else {
+                    delete userState[scriptKey];
+                }
                 if (!Object.keys(userState).length) {
                     delete state[userKey];
                 }
@@ -1297,6 +1355,7 @@
                 : [];
             renderParameterFields(selectedParameterDefinitions);
             restoreSavedScriptParameters(name);
+            applySavedOptionalParametersPreference(name);
             showScriptInfoForParams(scriptData);
         }
 
@@ -1363,19 +1422,93 @@
         }
 
         function clearParameterFields() {
-            const grid = document.getElementById('parameterGrid');
+            const requiredGrid = document.getElementById('requiredParameterGrid');
+            const optionalGrid = document.getElementById('optionalParameterGrid');
             const emptyState = document.getElementById('parameterEmptyState');
             const scriptInfo = document.getElementById('scriptInfo');
             const paramsList = document.getElementById('paramsList');
             const helpButton = document.getElementById('parameterHelpBtn');
             closeOpenParameterDescription(false);
-            grid.replaceChildren();
+            requiredGrid.replaceChildren();
+            optionalGrid.replaceChildren();
             emptyState.hidden = false;
             emptyState.querySelector('span').textContent = 'Selecione um script para visualizar seus parâmetros.';
             paramsList.innerHTML = '';
             scriptInfo.style.display = 'none';
             helpButton.classList.remove('is-visible');
             helpButton.setAttribute('aria-expanded', 'false');
+            resetOptionalParametersToggle();
+        }
+
+        function updateOptionalParametersVisibility(expanded) {
+            const optionalGrid = document.getElementById('optionalParameterGrid');
+            const toggleButton = document.getElementById('optionalParametersToggleBtn');
+            const icon = toggleButton.querySelector('i');
+            const isExpanded = expanded === true;
+
+            if (!isExpanded && openParameterHelpButton && optionalGrid.contains(openParameterHelpButton)) {
+                closeOpenParameterDescription(false);
+            }
+
+            optionalGrid.hidden = !isExpanded;
+            toggleButton.setAttribute('aria-expanded', String(isExpanded));
+            toggleButton.title = isExpanded ? 'Ocultar parâmetros opcionais' : 'Mostrar parâmetros opcionais';
+            toggleButton.setAttribute('aria-label', toggleButton.title);
+            icon.className = isExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+        }
+
+        function resetOptionalParametersToggle() {
+            const toggleButton = document.getElementById('optionalParametersToggleBtn');
+            toggleButton.classList.remove('is-visible');
+            updateOptionalParametersVisibility(false);
+        }
+
+        function persistOptionalParametersPreference(scriptName, expanded) {
+            if (!scriptName) {
+                return;
+            }
+
+            const state = readScriptParametersStorage();
+            const userKey = getParameterStorageUserKey();
+            const scriptKey = getParameterStorageScriptKey(scriptName);
+
+            if (!isRecord(state[userKey])) {
+                state[userKey] = {};
+            }
+
+            const savedState = state[userKey][scriptKey];
+            state[userKey][scriptKey] = {
+                values: isRecord(savedState) && isRecord(savedState.values) ? savedState.values : {},
+                additionalParameters: isRecord(savedState) && typeof savedState.additionalParameters === 'string'
+                    ? savedState.additionalParameters
+                    : '',
+                optionalParametersExpanded: expanded === true
+            };
+            writeScriptParametersStorage(state);
+            updateClearSavedParametersButton();
+        }
+
+        function applySavedOptionalParametersPreference(scriptName) {
+            const savedState = getSavedScriptParameters(scriptName);
+            const toggleButton = document.getElementById('optionalParametersToggleBtn');
+            const canToggleOptionalParameters = toggleButton.classList.contains('is-visible');
+            updateOptionalParametersVisibility(Boolean(
+                canToggleOptionalParameters
+                && savedState
+                && savedState.optionalParametersExpanded
+            ));
+        }
+
+        function toggleOptionalParameters() {
+            const toggleButton = document.getElementById('optionalParametersToggleBtn');
+            const scriptName = document.getElementById('script').value;
+            if (!scriptName || !toggleButton.classList.contains('is-visible')) {
+                return;
+            }
+
+            const expanded = toggleButton.getAttribute('aria-expanded') !== 'true';
+            updateOptionalParametersVisibility(expanded);
+            persistOptionalParametersPreference(scriptName, expanded);
         }
 
         function closeOpenParameterDescription(restoreFocus) {
@@ -1424,8 +1557,14 @@
                 return;
             }
 
-            const grid = document.getElementById('parameterGrid');
+            const requiredGrid = document.getElementById('requiredParameterGrid');
+            const optionalGrid = document.getElementById('optionalParameterGrid');
+            const optionalToggleButton = document.getElementById('optionalParametersToggleBtn');
             emptyState.hidden = true;
+
+            if (parameters.some((param) => !param.mandatory)) {
+                optionalToggleButton.classList.add('is-visible');
+            }
 
             parameters.forEach((param, index) => {
                 const field = document.createElement('div');
@@ -1525,7 +1664,8 @@
                     field.appendChild(meta);
                 }
 
-                grid.appendChild(field);
+                const targetGrid = param.mandatory ? requiredGrid : optionalGrid;
+                targetGrid.appendChild(field);
             });
         }
 
