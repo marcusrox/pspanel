@@ -14,7 +14,7 @@
     Endereco IP ou nome do FortiGate.
 
 .PARAMETER FortiGatePort
-    Porta HTTPS administrativa do FortiGate.
+    Porta HTTPS administrativa do FortiGate. O valor padrao e 4443.
 
 .PARAMETER Vdom
     VDOM consultado. O valor padrao e root.
@@ -26,7 +26,7 @@
     Caminho da Log API. Pode ser ajustado conforme a versao do FortiOS.
 
 .PARAMETER ValidacaoCertificado
-    Use Validar em producao. Ignorar deve ser usado apenas com certificado interno previamente verificado.
+    O valor padrao e Ignorar, destinado ao certificado interno previamente verificado.
 
 .EXAMPLE
     .\Relatorio-VPN-IPSec-Historico.ps1 -FortiApiToken "token-ficticio"
@@ -45,7 +45,7 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 65535)]
-    [int]$FortiGatePort = 443,
+    [int]$FortiGatePort = 4443,
 
     [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
@@ -61,7 +61,7 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('Validar', 'Ignorar')]
-    [string]$ValidacaoCertificado = 'Validar'
+    [string]$ValidacaoCertificado = 'Ignorar'
 )
 
 Set-StrictMode -Version 2.0
