@@ -49,17 +49,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
 
 # ---------- CONFIGURACOES ----------
-$SmtpServer = 'mail.desenbahia.ba.gov.br'
-$SmtpPort = 25
-$MailFrom = 'fortigate@desenbahia.ba.gov.br'
 $MailTo = 'analistasusi@desenbahia.ba.gov.br'
-$SmtpUseSsl = $false
-$SmtpIgnoreCertificateErrors = $false
-$SmtpUseCredential = $false
-$SmtpUser = 'usuario_smtp'
-$SmtpPassword = 'senha_smtp'
 $ApiTimeoutSeconds = 90
 
 function Encode-Html {
@@ -273,53 +266,13 @@ function New-ActiveSessionsReportHtml {
     return $builder.ToString()
 }
 
-function Send-ReportMail {
-    param([string]$Subject, [string]$BodyHtml)
-
-    $mail = New-Object System.Net.Mail.MailMessage
-    try {
-        $mail.From = New-Object System.Net.Mail.MailAddress($MailFrom)
-        foreach ($address in ($MailTo -split '[;,]\s*' | Where-Object { $_ })) { $mail.To.Add($address.Trim()) }
-        if ($mail.To.Count -eq 0) { throw 'Nenhum destinatario de e-mail valido foi configurado.' }
-        $mail.Subject = $Subject
-        $mail.Body = $BodyHtml
-        $mail.IsBodyHtml = $true
-        $mail.BodyEncoding = [System.Text.UTF8Encoding]::new($false)
-        $mail.SubjectEncoding = [System.Text.UTF8Encoding]::new($false)
-
-        $client = New-Object System.Net.Mail.SmtpClient($SmtpServer, $SmtpPort)
-        try {
-            $client.EnableSsl = $SmtpUseSsl
-            if ($SmtpUseCredential) {
-                $client.Credentials = (New-Object System.Management.Automation.PSCredential(
-                    $SmtpUser,
-                    (ConvertTo-SecureString $SmtpPassword -AsPlainText -Force)
-                )).GetNetworkCredential()
-            }
-            $previousCallback = $null
-            $callbackChanged = $false
-            if ($SmtpIgnoreCertificateErrors) {
-                $previousCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-                $callbackChanged = $true
-            }
-            try { $client.Send($mail) }
-            finally {
-                if ($callbackChanged) { [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previousCallback }
-            }
-        }
-        finally { $client.Dispose() }
-    }
-    finally { $mail.Dispose() }
-}
-
 try {
     $collectedAt = Get-Date
     Write-Host 'Consultando sessoes atuais VPN IPsec pela API...'
     $response = Get-ActiveIpsecApiResponse
     $rows = @(ConvertTo-ActiveSessionRows -Response $response -CollectedAt $collectedAt)
     $html = New-ActiveSessionsReportHtml -Rows $rows -CollectedAt $collectedAt
-    Send-ReportMail -Subject "[PSPanel] Sessões atuais na VPN IPsec - $($collectedAt.ToString('dd/MM/yyyy'))" -BodyHtml $html
+    Send-PSPanelEmail -To $MailTo -Subject "[PSPanel] Sessões atuais na VPN IPsec - $($collectedAt.ToString('dd/MM/yyyy'))" -Body $html -BodyAsHtml
     Write-Host "Relatorio de sessoes atuais enviado com sucesso. Sessoes: $($rows.Count)."
     exit 0
 }

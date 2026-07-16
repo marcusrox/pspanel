@@ -5,7 +5,7 @@
 .DESCRIPTION
     Conecta por SSH (Posh-SSH), executa "get vpn ssl monitor", interpreta a tabela "SSL-VPN sessions"
     (duração em segundos) e, se houver usuários acima do limite configurado, monta um e-mail HTML e envia
-    via System.Net.Mail.SMTPClient. O usuário e a senha do FortiGate são recebidos por parâmetros obrigatórios,
+    pelo modulo compartilhado PSPanel.Email. O usuário e a senha do FortiGate são recebidos por parâmetros obrigatórios,
     enquanto o endereço do equipamento pode ser substituído opcionalmente.
 
 .PARAMETER FortiUser
@@ -35,23 +35,10 @@ param(
 )
 
 # ---------- CONFIGURAÇÕES ----------
-# SMTP
-$SmtpServer = "mail.desenbahia.ba.gov.br"
-$SmtpPort   = 25
-#$SmtpPort   = 587
-$MailFrom   = "fortigate@desenbahia.ba.gov.br"
 $MailTo     = "analistasusi@desenbahia.ba.gov.br"
 #$MailTo     = "msouza@desenbahia.ba.gov.br"
 
-# Porta 25 em relay interno: em geral sem TLS (EnableSsl = false).
-# Para 587 com STARTTLS, use $true. Se o certificado for interno/inválido, só então avalie $SmtpIgnoreCertificateErrors.
-$SmtpUseSsl = $false
-$SmtpIgnoreCertificateErrors = $false
-
-# Credenciais SMTP (só necessário se o servidor exigir autenticação)
-$SmtpUser     = "usuario_smtp"
-$SmtpPassword = "senha_smtp"
-$SmtpUseCredential = $false
+Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
 
 # Limite em horas
 $LimiteHoras = 1
@@ -129,60 +116,6 @@ function New-VpnAlertEmailHtml {
     [void]$sb.Append("<p style=""margin-top:16px;color:#4a5568;font-size:13px;"">Data/hora: <strong>$(Encode-Html ($Quando.ToString('yyyy-MM-dd HH:mm:ss')))</strong><br>Firewall: <strong>$(Encode-Html $FortiIp)</strong></p>")
     [void]$sb.Append('</body></html>')
     return $sb.ToString()
-}
-
-# Envio via System.Net.Mail (evita Send-MailMessage, obsoleto no PowerShell 7+).
-function Send-MonitoramentoVpnMail {
-    param(
-        [string]$From,
-        [string]$To,
-        [string]$Subject,
-        [string]$BodyText,
-        [string]$SmtpHost,
-        [int]$SmtpPortNumber,
-        [bool]$UseSsl,
-        [bool]$IgnoreCertificateErrors,
-        [pscredential]$MailCredential = $null,
-        [bool]$UseCredential = $false,
-        [bool]$IsBodyHtml = $false
-    )
-
-    $mail = New-Object System.Net.Mail.MailMessage
-    try {
-        $mail.From = New-Object System.Net.Mail.MailAddress($From)
-        foreach ($addr in ($To -split '[;,]\s*' | Where-Object { $_ })) {
-            $mail.To.Add($addr.Trim())
-        }
-        $mail.Subject = $Subject
-        $mail.Body = $BodyText
-        $mail.BodyEncoding = [System.Text.UTF8Encoding]::new($false)
-        $mail.SubjectEncoding = [System.Text.UTF8Encoding]::new($false)
-        $mail.IsBodyHtml = $IsBodyHtml
-
-        $client = New-Object System.Net.Mail.SmtpClient($SmtpHost, $SmtpPortNumber)
-        $client.EnableSsl = $UseSsl
-        if ($UseCredential -and $null -ne $MailCredential) {
-            $client.Credentials = $MailCredential.GetNetworkCredential()
-        }
-
-        $prevCertCb = $null
-        if ($IgnoreCertificateErrors) {
-            $prevCertCb = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-        }
-        try {
-            $client.Send($mail)
-        }
-        finally {
-            if ($null -ne $prevCertCb) {
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $prevCertCb
-            }
-            $client.Dispose()
-        }
-    }
-    finally {
-        $mail.Dispose()
-    }
 }
 
 # Requer o módulo Posh-SSH 4.x prerelease ou superior para compatibilidade SSH com o FortiGate.
@@ -306,27 +239,12 @@ try {
 
         $BodyHtml = New-VpnAlertEmailHtml -Usuarios $UsuariosAcimaLimite -LimiteHorasRef $LimiteHoras -FortiIp $FortiGateIP -Quando (Get-Date)
 
-        $smtpCred = $null
-        if ($SmtpUseCredential) {
-            $smtpCred = New-Object System.Management.Automation.PSCredential (
-                $SmtpUser,
-                (ConvertTo-SecureString $SmtpPassword -AsPlainText -Force)
-            )
-        }
-
         try {
-            Send-MonitoramentoVpnMail `
-                -From $MailFrom `
+            Send-PSPanelEmail `
                 -To $MailTo `
                 -Subject "[ALERTA] Usuários SSL VPN conectados há mais de $LimiteHoras horas" `
-                -BodyText $BodyHtml `
-                -SmtpHost $SmtpServer `
-                -SmtpPortNumber $SmtpPort `
-                -UseSsl:$SmtpUseSsl `
-                -IgnoreCertificateErrors:$SmtpIgnoreCertificateErrors `
-                -MailCredential $smtpCred `
-                -UseCredential:$SmtpUseCredential `
-                -IsBodyHtml:$true
+                -Body $BodyHtml `
+                -BodyAsHtml
             Write-Host "E-mail enviado com sucesso."
         }
         catch {

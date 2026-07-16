@@ -56,7 +56,6 @@ Esta task deve ser apenas preparada neste momento. Nao implementar automaticamen
 - Fazer o modulo PowerShell ler diretamente o arquivo compartilhado e enviar diretamente com MailKit/MimeKit, sem iniciar processo Node.
 - Incluir no projeto as DLLs .NET necessarias em versoes fixadas, sem depender de instalacao global ou download durante a execucao.
 - Migrar os tres scripts PowerShell inicialmente identificados.
-- Migrar com seguranca a configuracao SMTP legada que ja estiver no SQLite.
 - Impedir que o arquivo real de configuracao SMTP seja versionado.
 - Atualizar o controle de release ao concluir a implementacao, conforme `AGENTS.md`.
 
@@ -74,6 +73,7 @@ Esta task deve ser apenas preparada neste momento. Nao implementar automaticamen
 - Adicionar anexos nesta primeira versao.
 - Reescrever os scripts consumidores por inteiro.
 - Alterar arquivos SQLite manualmente.
+- Migrar ou reaproveitar configuracoes SMTP antigas do SQLite; os dados do novo arquivo serao preenchidos manualmente na tela.
 - Atualizar `nodemailer` ou outras dependencias sem necessidade demonstrada.
 
 ## Arquivos provaveis
@@ -180,7 +180,7 @@ Regras do schema:
 
 O arquivo contem senha SMTP e deve ser tratado como segredo operacional.
 
-- A senha sera armazenada como texto no JSON; a protecao em repouso dependera obrigatoriamente da ACL NTFS restritiva definida nesta task.
+- A senha sera armazenada como texto no JSON; a protecao em repouso dependera das permissoes configuradas externamente no sistema de arquivos.
 - Antes de implementar ou testar, substituir qualquer credencial que tenha sido compartilhada fora do cofre operacional; nao reutilizar credencial exposta em conversa, documentacao ou log.
 - Nunca versionar `database/email-settings.json`.
 - Nunca incluir seu conteudo em logs, historico, mensagens flash ou resposta HTTP.
@@ -188,15 +188,16 @@ O arquivo contem senha SMTP e deve ser tratado como segredo operacional.
 - Criar o arquivo somente quando a configuracao for salva ou migrada.
 - Gravar usando arquivo temporario no mesmo diretorio e substituicao atomica.
 - Evitar estado parcialmente escrito em queda do processo.
-- Aplicar ACL restritiva no Windows, permitindo leitura e escrita apenas para a identidade que executa o PS Panel, `SYSTEM` e administradores locais, conforme viabilidade do ambiente.
-- Se nao for possivel aplicar a ACL automaticamente, falhar de forma clara ou registrar pendencia operacional sem revelar o segredo; nao assumir silenciosamente que qualquer permissao e segura.
+- Nao aplicar, remover ou alterar ACL, `chmod` ou qualquer permissao do arquivo pelo codigo da aplicacao ou pelo modulo PowerShell.
+- Assumir que PS Panel, worker e scripts PowerShell executam com identidades que ja possuem o acesso necessario.
+- Tratar a configuracao das permissoes do arquivo como responsabilidade operacional externa a aplicacao.
 - Nao usar criptografia reversivel com chave fixa gravada no repositorio.
-- Documentar que ACL e identidade de execucao passam a fazer parte do requisito de instalacao.
+- Documentar que permissoes e identidades de execucao fazem parte do requisito de instalacao, sem automatiza-las no codigo.
 - Nunca devolver a senha persistida para `views/settings.ejs`.
 - Campo de senha vazio ao salvar deve preservar a senha atual.
 - Disponibilizar uma acao explicita para substituir a senha; limpeza total da senha deve exigir intencao explicita e nao acontecer por campo vazio.
 
-O arquivo JSON e a fonte unica da configuracao SMTP depois da migracao. Nao manter uma segunda copia ativa da senha no SQLite.
+O arquivo JSON e a unica fonte de configuracao SMTP do novo fluxo. Configuracoes SMTP antigas eventualmente existentes no SQLite nao devem ser lidas, copiadas ou removidas por esta task.
 
 ## Service compartilhado de configuracao
 
@@ -223,33 +224,7 @@ getPublicEmailConfig(config)
 
 `getPublicEmailConfig` deve remover a senha e expor somente um booleano como `passwordConfigured`, alem dos campos nao secretos necessarios para preencher a tela.
 
-## Migracao das configuracoes legadas
-
-As chaves SMTP atuais no SQLite sao:
-
-```text
-email.smtp_host
-email.smtp_port
-email.smtp_user
-email.smtp_pass
-email.smtp_secure
-email.from_address
-```
-
-Implementar migracao idempotente:
-
-1. se `database/email-settings.json` existir e for valido, ele prevalece;
-2. se o arquivo nao existir, procurar configuracao SMTP legada nao vazia no `Settings`;
-3. converter `smtp_secure` e porta para `security` sem produzir combinacao insegura;
-4. validar todos os dados antes de gravar;
-5. gravar o JSON de forma atomica;
-6. somente depois de confirmar a gravacao, remover ou esvaziar as chaves SMTP legadas;
-7. manter no SQLite apenas as chaves funcionais do resumo diario e seu controle de envio;
-8. se a migracao falhar, manter os valores legados intactos e impedir perda de configuracao.
-
-A migracao nao deve sobrescrever arquivo ja existente nem imprimir valores migrados. Depois da migracao, todas as leituras e gravacoes novas devem usar somente o arquivo.
-
-Continuam no `Settings`:
+Permanecem no `Settings` somente as configuracoes funcionais do resumo:
 
 ```text
 email.daily_summary_enabled
@@ -404,8 +379,8 @@ Durante a implementacao, preservar cuidadosamente alteracoes locais preexistente
 - A senha nunca volta preenchida para o navegador.
 - Salvar senha vazia preserva a senha existente.
 - Gravacao interrompida nao deixa JSON parcial como configuracao ativa.
-- A configuracao SMTP legada e migrada uma unica vez sem perda de dados.
-- Apos migracao, nao existe segunda copia ativa da senha SMTP no SQLite.
+- Nenhum codigo de migracao SMTP do SQLite para JSON permanece no fluxo normal da aplicacao.
+- Configuracoes SMTP antigas do SQLite sao ignoradas e o administrador pode preencher novamente os dados pela tela.
 - O resumo diario continua funcionando com habilitacao e destinatario vindos do SQLite e SMTP vindo do JSON.
 - O envio manual do resumo continua funcionando.
 - Os tres scripts usam `Send-PSPanelEmail` e nao possuem configuracao SMTP propria.
@@ -430,8 +405,7 @@ Durante a implementacao, preservar cuidadosamente alteracoes locais preexistente
 - Tentar porta 25 e combinacoes inconsistentes e confirmar rejeicao.
 - Simular escrita interrompida e confirmar que o arquivo valido anterior permanece ativo.
 - Simular JSON malformado e confirmar erro controlado.
-- Executar migracao com configuracao legada e confirmar idempotencia.
-- Confirmar que falha de migracao preserva os valores legados.
+- Confirmar que configuracoes SMTP antigas do SQLite nao sao lidas, alteradas nem removidas.
 - Enviar resumo diario nas portas 587 e 465 em ambiente homologado.
 - Executar envio manual do resumo.
 - Enviar por cada um dos tres scripts consumidores.
@@ -443,7 +417,7 @@ Durante a implementacao, preservar cuidadosamente alteracoes locais preexistente
 - Usar senha incorreta e certificado invalido em ambiente controlado, confirmando falha sanitizada.
 - Inspecionar argumentos dos processos e logs, confirmando ausencia de credenciais e corpo.
 - Confirmar que nenhum arquivo temporario com senha permanece apos sucesso ou falha.
-- Confirmar ACL do arquivo usando a identidade real de execucao do PS Panel.
+- Confirmar operacionalmente que as identidades do PS Panel, worker e scripts possuem acesso ao arquivo, sem esperar alteracao automatica de permissoes.
 
 ## Validacao esperada
 
@@ -495,6 +469,24 @@ Realizar testes controlados contra SMTP homologado nas portas 587 e 465, separad
 ## Assinatura da LLM
 
 - Data: 2026-07-16 11:01:24 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-16 11:37:38 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-16 11:47:02 -03:00
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: atualizacao

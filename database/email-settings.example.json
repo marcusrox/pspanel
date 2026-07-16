@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "smtp": {
+    "host": "smtp.exemplo.local",
+    "port": 587,
+    "security": "starttls",
+    "username": "usuario-smtp",
+    "password": "",
+    "fromAddress": "pspanel@exemplo.local"
+  }
+}

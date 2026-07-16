@@ -66,17 +66,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
 
 # ---------- CONFIGURACOES ----------
-$SmtpServer = 'mail.desenbahia.ba.gov.br'
-$SmtpPort = 25
-$MailFrom = 'fortigate@desenbahia.ba.gov.br'
 $MailTo = 'analistasusi@desenbahia.ba.gov.br'
-$SmtpUseSsl = $false
-$SmtpIgnoreCertificateErrors = $false
-$SmtpUseCredential = $false
-$SmtpUser = 'usuario_smtp'
-$SmtpPassword = 'senha_smtp'
 
 $ApiPageSize = 200
 $ApiMaxPages = 100
@@ -467,53 +460,13 @@ function New-HistoryReportHtml {
     return $builder.ToString()
 }
 
-function Send-ReportMail {
-    param([string]$Subject, [string]$BodyHtml)
-
-    $mail = New-Object System.Net.Mail.MailMessage
-    try {
-        $mail.From = New-Object System.Net.Mail.MailAddress($MailFrom)
-        foreach ($address in ($MailTo -split '[;,]\s*' | Where-Object { $_ })) { $mail.To.Add($address.Trim()) }
-        if ($mail.To.Count -eq 0) { throw 'Nenhum destinatario de e-mail valido foi configurado.' }
-        $mail.Subject = $Subject
-        $mail.Body = $BodyHtml
-        $mail.IsBodyHtml = $true
-        $mail.BodyEncoding = [System.Text.UTF8Encoding]::new($false)
-        $mail.SubjectEncoding = [System.Text.UTF8Encoding]::new($false)
-
-        $client = New-Object System.Net.Mail.SmtpClient($SmtpServer, $SmtpPort)
-        try {
-            $client.EnableSsl = $SmtpUseSsl
-            if ($SmtpUseCredential) {
-                $client.Credentials = (New-Object System.Management.Automation.PSCredential(
-                    $SmtpUser,
-                    (ConvertTo-SecureString $SmtpPassword -AsPlainText -Force)
-                )).GetNetworkCredential()
-            }
-            $previousCallback = $null
-            $callbackChanged = $false
-            if ($SmtpIgnoreCertificateErrors) {
-                $previousCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-                $callbackChanged = $true
-            }
-            try { $client.Send($mail) }
-            finally {
-                if ($callbackChanged) { [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previousCallback }
-            }
-        }
-        finally { $client.Dispose() }
-    }
-    finally { $mail.Dispose() }
-}
-
 try {
     $reportDate = ConvertTo-ReportDate -Value $DataRelatorio
     Write-Host "Consultando historico VPN IPsec de $($reportDate.ToString('dd/MM/yyyy')) pela API..."
     $records = @(Get-FortiIpsecHistoryRecords -ReportDate $reportDate)
     $rows = @(ConvertTo-HistoryRows -Records $records -ReportDate $reportDate)
     $html = New-HistoryReportHtml -Rows $rows -ReportDate $reportDate
-    Send-ReportMail -Subject "[PSPanel] Histórico de conexões VPN IPsec - $($reportDate.ToString('dd/MM/yyyy'))" -BodyHtml $html
+    Send-PSPanelEmail -To $MailTo -Subject "[PSPanel] Histórico de conexões VPN IPsec - $($reportDate.ToString('dd/MM/yyyy'))" -Body $html -BodyAsHtml
     Write-Host "Relatorio historico enviado com sucesso. Registros da API: $($records.Count). Conexoes: $($rows.Count)."
     exit 0
 }

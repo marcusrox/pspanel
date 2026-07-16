@@ -293,6 +293,82 @@
                     </div>
                 </div>
 
+                <div class="settings-section" data-section-key="smtp">
+                    <h2>
+                        <button
+                            type="button"
+                            id="settings-section-smtp-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="false"
+                            aria-controls="settings-section-smtp-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-server"></i>
+                                Email - Servidor SMTP
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
+                    </h2>
+
+                    <div
+                        id="settings-section-smtp-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-smtp-title"
+                        hidden>
+                        <p class="field-hint">Configuração compartilhada pelo resumo diário e pelos scripts PowerShell que enviam email.</p>
+
+                        <div class="settings-grid">
+                            <div class="form-group">
+                                <label for="smtp.host">Host SMTP</label>
+                                <input type="text"
+                                       id="smtp.host"
+                                       name="smtp.host"
+                                       value="<%= smtpConfig?.host || '' %>"
+                                       autocomplete="off">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="smtp.port">Porta e segurança</label>
+                                <select id="smtp.port" name="smtp.port">
+                                    <option value="587" <%= smtpConfig?.port === 587 ? 'selected' : '' %>>587 - STARTTLS obrigatório</option>
+                                    <option value="465" <%= smtpConfig?.port === 465 ? 'selected' : '' %>>465 - TLS implícito</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="form-group">
+                                <label for="smtp.username">Usuário SMTP</label>
+                                <input type="text"
+                                       id="smtp.username"
+                                       name="smtp.username"
+                                       value="<%= smtpConfig?.username || '' %>"
+                                       autocomplete="username">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="smtp.password">Senha SMTP</label>
+                                <input type="password"
+                                       id="smtp.password"
+                                       name="smtp.password"
+                                       value=""
+                                       placeholder="<%= smtpConfig?.passwordConfigured ? 'Senha configurada' : '' %>"
+                                       autocomplete="new-password">
+                                <p class="field-hint">Deixe em branco para manter a senha atual.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp.fromAddress">Email remetente</label>
+                            <input type="email"
+                                   id="smtp.fromAddress"
+                                   name="smtp.fromAddress"
+                                   value="<%= smtpConfig?.fromAddress || '' %>">
+                        </div>
+
+                        <p class="field-hint">A senha é armazenada fora do Git. O acesso ao arquivo deve ser controlado pelas permissões do sistema operacional. Certificados inválidos não são aceitos.</p>
+                    </div>
+                </div>
+
                 <div class="settings-section" data-section-key="emailDailySummary">
                     <h2>
                         <button
@@ -325,75 +401,12 @@
                         </label>
                     </div>
 
-                    <div class="settings-grid">
-                        <div class="form-group">
-                            <label for="email.smtp_host">Host SMTP</label>
-                            <input type="text"
-                                   id="email.smtp_host"
-                                   name="email.smtp_host"
-                                   value="<%= settings.email?.smtp_host || '' %>">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="email.smtp_port">Porta SMTP</label>
-                            <input type="number"
-                                   id="email.smtp_port"
-                                   name="email.smtp_port"
-                                   value="<%= settings.email?.smtp_port || '587' %>"
-                                   min="1"
-                                   max="65535">
-                        </div>
-                    </div>
-
-                    <div class="settings-grid">
-                        <div class="form-group">
-                            <label for="email.smtp_user">Usuário SMTP</label>
-                            <input type="text"
-                                   id="email.smtp_user"
-                                   name="email.smtp_user"
-                                   value="<%= settings.email?.smtp_user || '' %>"
-                                   autocomplete="username">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="email.smtp_pass">Senha SMTP</label>
-                            <input type="password"
-                                   id="email.smtp_pass"
-                                   name="email.smtp_pass"
-                                   value=""
-                                   placeholder="<%= settings.email?.smtp_pass ? 'Senha configurada' : '' %>"
-                                   autocomplete="new-password">
-                            <p class="field-hint">Deixe em branco para manter a senha atual.</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-grid">
-                        <div class="form-group">
-                            <label for="email.from_address">Email remetente</label>
-                            <input type="email"
-                                   id="email.from_address"
-                                   name="email.from_address"
-                                   value="<%= settings.email?.from_address || '' %>">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="email.daily_summary_recipient">Destinatário do resumo</label>
-                            <input type="email"
-                                   id="email.daily_summary_recipient"
-                                   name="email.daily_summary_recipient"
-                                   value="<%= settings.email?.daily_summary_recipient || '' %>">
-                        </div>
-                    </div>
-
                     <div class="form-group">
-                        <label class="checkbox-field">
-                            <input type="checkbox"
-                                   name="email.smtp_secure"
-                                   value="1"
-                                   <%= settings.email?.smtp_secure === '1' ? 'checked' : '' %>>
-                            <span>Usar SSL/TLS direto</span>
-                        </label>
-                        <p class="field-hint">Marque apenas para SMTP SSL/TLS direto, normalmente porta 465. Para porta 587 com STARTTLS, deixe desmarcado.</p>
+                        <label for="email.daily_summary_recipient">Destinatário do resumo</label>
+                        <input type="email"
+                               id="email.daily_summary_recipient"
+                               name="email.daily_summary_recipient"
+                               value="<%= settings.email?.daily_summary_recipient || '' %>">
                     </div>
 
                     <div class="summary-status">
@@ -435,6 +448,7 @@
             const defaultState = {
                 execution: true,
                 appearance: true,
+                smtp: false,
                 emailDailySummary: false
             };
 

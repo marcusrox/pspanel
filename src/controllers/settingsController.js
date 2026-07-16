@@ -1,5 +1,10 @@
 const Settings = require('../models/Settings');
 const {
+    getPublicEmailConfig,
+    loadEmailConfig,
+    saveEmailConfig
+} = require('../services/emailConfigService');
+const {
     getDailySummaryStatus,
     sendDailySummaryNow
 } = require('../services/dailySummaryEmailService');
@@ -32,7 +37,6 @@ function normalizeSettingsBody(body, allowedSettings) {
         }
     }
 
-    normalized['email.smtp_secure'] = getBodyValue(body, 'email.smtp_secure') ? '1' : '0';
     normalized['email.daily_summary_enabled'] = getBodyValue(body, 'email.daily_summary_enabled') ? '1' : '0';
 
     return normalized;
@@ -47,8 +51,15 @@ class SettingsController {
     static async showSettings(req, res) {
         try {
             const settings = await Settings.getAll();
+            let smtpConfig = null;
+            try {
+                smtpConfig = await loadEmailConfig({ allowMissing: true });
+            } catch (emailConfigError) {
+                console.error('Erro ao carregar configuração SMTP:', emailConfigError.message || emailConfigError);
+            }
             res.render('settings', {
                 settings,
+                smtpConfig: getPublicEmailConfig(smtpConfig),
                 dailySummaryStatus: getDailySummaryStatus(settings),
                 user: req.session.user,
                 messages: res.locals.messages
@@ -65,12 +76,6 @@ class SettingsController {
             const allowedSettings = [
                 'scripts.max_execution_time',
                 'ui.font_scale',
-                'email.smtp_host',
-                'email.smtp_port',
-                'email.smtp_user',
-                'email.smtp_pass',
-                'email.smtp_secure',
-                'email.from_address',
                 'email.daily_summary_recipient',
                 'email.daily_summary_enabled'
             ];
@@ -91,28 +96,29 @@ class SettingsController {
                 }
             }
 
-            if (updates['email.smtp_port']) {
-                const smtpPort = parseInt(updates['email.smtp_port'], 10);
-                if (isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
-                    throw new Error('Porta SMTP inválida');
-                }
-                updates['email.smtp_port'] = String(smtpPort);
-            }
-
-            if (updates['email.smtp_secure'] === '1' && updates['email.smtp_port'] === '587') {
-                throw new Error('Para a porta 587, deixe SSL/TLS direto desmarcado. O STARTTLS será negociado automaticamente quando suportado pelo servidor.');
-            }
-
-            if (!isValidEmail(updates['email.from_address'])) {
-                throw new Error('Email remetente inválido');
-            }
-
             if (!isValidEmail(updates['email.daily_summary_recipient'])) {
                 throw new Error('Email destinatário do resumo inválido');
             }
 
-            if (updates['email.smtp_pass'] === '') {
-                delete updates['email.smtp_pass'];
+            const smtpPort = parseInt(getBodyValue(req.body, 'smtp.port'), 10);
+            const smtpInput = {
+                host: getBodyValue(req.body, 'smtp.host'),
+                port: smtpPort,
+                security: smtpPort === 465 ? 'tls' : 'starttls',
+                username: getBodyValue(req.body, 'smtp.username'),
+                password: getBodyValue(req.body, 'smtp.password'),
+                fromAddress: getBodyValue(req.body, 'smtp.fromAddress')
+            };
+            const currentSmtpConfig = await loadEmailConfig({ allowMissing: true }).catch(() => null);
+            const hasSmtpInput = [
+                smtpInput.host,
+                smtpInput.username,
+                smtpInput.password,
+                smtpInput.fromAddress
+            ].some((value) => String(value || '').trim());
+
+            if (hasSmtpInput || currentSmtpConfig) {
+                await saveEmailConfig({ version: 1, smtp: smtpInput });
             }
 
             // Atualizar cada configuração

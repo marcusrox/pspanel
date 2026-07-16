@@ -1,7 +1,7 @@
 const History = require('../models/History');
 const Settings = require('../models/Settings');
+const { loadEmailConfig } = require('./emailConfigService');
 const {
-    buildEmailConfig,
     getMissingEmailConfig,
     sendMail
 } = require('./emailService');
@@ -53,55 +53,116 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function formatReportDatePtBr(reportDate) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reportDate);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : reportDate;
+}
+
+function formatLocalDateTime(date) {
+    return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
+function getStatusText(status) {
+    const statusLabels = {
+        success: 'Sucesso',
+        error: 'Erro',
+        running: 'Em execução'
+    };
+    return statusLabels[status] || status || '-';
+}
+
 function buildDailySummaryMessage(reportDate, runs) {
-    const subject = `PS Panel - Resumo de agendamentos - ${reportDate}`;
+    const generatedAt = new Date();
+    const reportDateText = formatReportDatePtBr(reportDate);
+    const generatedAtText = formatLocalDateTime(generatedAt);
+    const routineName = 'Resumo diário de agendamentos';
+    const subject = `[PS Panel] Resumo diário de agendamentos - ${reportDateText}`;
     const total = runs.length;
+    const textFooter = [
+        '---',
+        `Enviado em: ${generatedAtText}`,
+        'Sistema: PS Panel',
+        `Rotina: ${routineName}`
+    ].join('\n');
+    const htmlFooter = `
+        <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;">
+            Enviado em: <strong>${escapeHtml(generatedAtText)}</strong><br>
+            Sistema: <strong>PS Panel</strong><br>
+            Rotina: <strong>${escapeHtml(routineName)}</strong>
+        </div>
+    `;
 
     if (!total) {
-        const text = `Resumo diario de agendamentos - ${reportDate}\n\nNenhum agendamento executado em ${reportDate}.`;
-        const html = `<p>Resumo diario de agendamentos - ${escapeHtml(reportDate)}</p><p>Nenhum agendamento executado em ${escapeHtml(reportDate)}.</p>`;
+        const text = `${routineName} - ${reportDateText}\n\nNenhum agendamento foi executado em ${reportDateText}.\n\n${textFooter}`;
+        const html = `
+            <!DOCTYPE html>
+            <html>
+                <head><meta charset="utf-8"></head>
+                <body style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#222;">
+                    <h1 style="color:#1a365d;font-size:22px;">${routineName}</h1>
+                    <p>Data do resumo: <strong>${escapeHtml(reportDateText)}</strong><br>Total de execuções: <strong>0</strong></p>
+                    <p style="padding:12px;background:#f7fafc;border:1px solid #e2e8f0;">Nenhum agendamento foi executado nesta data.</p>
+                    ${htmlFooter}
+                </body>
+            </html>
+        `;
         return { subject, text, html };
     }
 
     const textRows = runs.map((run, index) => [
         `${index + 1}. ${run.script_name}`,
-        `Inicio: ${formatDateTimePtBr(run.start_time, '-')}`,
+        `Início: ${formatDateTimePtBr(run.start_time, '-')}`,
         `Fim: ${formatDateTimePtBr(run.end_time, '-')}`,
-        `Duracao: ${getDurationText(run)}`,
-        `Status: ${run.status}`,
+        `Duração: ${getDurationText(run)}`,
+        `Status: ${getStatusText(run.status)}`,
         `Resultado: ${summarizeOutput(run)}`
     ].join('\n')).join('\n\n');
 
     const htmlRows = runs.map((run) => `
         <tr>
-            <td>${escapeHtml(run.script_name)}</td>
-            <td>${escapeHtml(formatDateTimePtBr(run.start_time, '-'))}</td>
-            <td>${escapeHtml(formatDateTimePtBr(run.end_time, '-'))}</td>
-            <td>${escapeHtml(getDurationText(run))}</td>
-            <td>${escapeHtml(run.status)}</td>
-            <td>${escapeHtml(summarizeOutput(run))}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(run.script_name)}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;">${escapeHtml(formatDateTimePtBr(run.start_time, '-'))}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;">${escapeHtml(formatDateTimePtBr(run.end_time, '-'))}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;">${escapeHtml(getDurationText(run))}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;">${escapeHtml(getStatusText(run.status))}</td>
+            <td style="padding:4px 6px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;">${escapeHtml(summarizeOutput(run))}</td>
         </tr>
     `).join('');
 
     return {
         subject,
-        text: `Resumo diario de agendamentos - ${reportDate}\nTotal de execucoes: ${total}\n\n${textRows}`,
+        text: `${routineName} - ${reportDateText}\nTotal de execuções: ${total}\n\n${textRows}\n\n${textFooter}`,
         html: `
-            <h2>Resumo diario de agendamentos - ${escapeHtml(reportDate)}</h2>
-            <p>Total de execucoes: ${total}</p>
-            <table border="1" cellpadding="6" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>Script</th>
-                        <th>Inicio</th>
-                        <th>Fim</th>
-                        <th>Duracao</th>
-                        <th>Status</th>
-                        <th>Resultado</th>
-                    </tr>
-                </thead>
-                <tbody>${htmlRows}</tbody>
-            </table>
+            <!DOCTYPE html>
+            <html>
+                <head><meta charset="utf-8"></head>
+                <body style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#222;">
+                    <h1 style="color:#1a365d;font-size:22px;">${routineName}</h1>
+                    <p>Data do resumo: <strong>${escapeHtml(reportDateText)}</strong><br>Total de execuções: <strong>${total}</strong></p>
+                    <table style="border-collapse:collapse;width:100%;max-width:1050px;border:1px solid #ccc;font-size:12px;line-height:1.2;">
+                        <thead>
+                            <tr style="background:#1a365d;color:#fff;text-align:left;">
+                                <th style="padding:5px 6px;border:1px solid #2c5282;">Script</th>
+                                <th style="padding:5px 6px;border:1px solid #2c5282;white-space:nowrap;">Início</th>
+                                <th style="padding:5px 6px;border:1px solid #2c5282;white-space:nowrap;">Fim</th>
+                                <th style="padding:5px 6px;border:1px solid #2c5282;white-space:nowrap;">Duração</th>
+                                <th style="padding:5px 6px;border:1px solid #2c5282;white-space:nowrap;">Status</th>
+                                <th style="padding:5px 6px;border:1px solid #2c5282;">Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody>${htmlRows}</tbody>
+                    </table>
+                    ${htmlFooter}
+                </body>
+            </html>
         `
     };
 }
@@ -128,10 +189,13 @@ function getDailySummaryStatus(settings) {
 
 async function sendDailySummary({ force = false, requireEnabled = false } = {}) {
     const settings = await Settings.getAll();
-    const config = buildEmailConfig(settings);
+    const emailSettings = settings.email || {};
+    const emailConfig = await loadEmailConfig({ allowMissing: true });
+    const smtpConfig = emailConfig ? emailConfig.smtp : null;
+    const recipient = emailSettings.daily_summary_recipient || '';
     const reportDate = getYesterdayLocalDateString();
 
-    if (requireEnabled && !config.enabled) {
+    if (requireEnabled && emailSettings.daily_summary_enabled !== '1') {
         return { sent: false, skipped: true, reason: 'disabled', reportDate };
     }
 
@@ -139,14 +203,14 @@ async function sendDailySummary({ force = false, requireEnabled = false } = {}) 
         return { sent: false, skipped: true, reason: 'already_sent', reportDate };
     }
 
-    const missingConfig = getMissingEmailConfig(config);
+    const missingConfig = getMissingEmailConfig(smtpConfig || {}, recipient);
     if (missingConfig.length) {
         return { sent: false, skipped: true, reason: 'missing_config', missingConfig, reportDate };
     }
 
     const runs = await History.findScheduledRunsByDate(reportDate);
     const message = buildDailySummaryMessage(reportDate, runs);
-    await sendMail(config, message);
+    await sendMail(smtpConfig, { ...message, to: recipient });
 
     const sentAt = new Date().toISOString();
     await Settings.set('email.daily_summary_last_sent_date', reportDate);
@@ -155,7 +219,7 @@ async function sendDailySummary({ force = false, requireEnabled = false } = {}) 
     return {
         sent: true,
         reportDate,
-        recipient: config.recipient,
+        recipient,
         runsCount: runs.length,
         sentAt
     };

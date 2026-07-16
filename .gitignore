@@ -48,3 +48,5 @@ scripts-ps/output/
 database/*.sqlite
 database/*.sqlite-*
 database/backups/
+database/email-settings.json
+database/email-settings.json.*.tmp
