@@ -7,7 +7,6 @@ const packageManifest = require('../../package.json');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const NODE_MODULES_ROOT = path.join(PROJECT_ROOT, 'node_modules');
-const PUBLIC_ENV_KEYS = new Set(['PORT', 'NODE_ENV']);
 const ENV_ALLOWLIST = [
     'PORT',
     'NODE_ENV',
@@ -21,7 +20,7 @@ const ENV_ALLOWLIST = [
     'LDAP_SEARCH_BASE',
     'LDAP_SEARCH_FILTER'
 ];
-const SENSITIVE_ENV_PATTERN = /(PASSWORD|TOKEN|SECRET|HASH|KEY|COOKIE|SESSION|AUTH|LDAP|ADMIN_USER)/i;
+const PASSWORD_ENV_PATTERN = /PASSWORD/i;
 
 function formatBytes(value) {
     const bytes = Number(value);
@@ -76,14 +75,14 @@ function collectEnvironmentVariables(environment = process.env) {
             && String(environment[name] || '').trim() !== '';
 
         if (!configured) return { name, status: 'Nao configurada', value: null };
-        if (SENSITIVE_ENV_PATTERN.test(name) || !PUBLIC_ENV_KEYS.has(name)) {
+        if (PASSWORD_ENV_PATTERN.test(name)) {
             return { name, status: 'Mascarado', value: null };
         }
 
         return {
             name,
             status: 'Configurada',
-            value: normalizePublicEnvironmentValue(name, environment[name])
+            value: String(environment[name])
         };
     });
 }

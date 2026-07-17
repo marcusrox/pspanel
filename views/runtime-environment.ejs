@@ -423,12 +423,12 @@
                     <i class="fas fa-shield-halved" aria-hidden="true"></i>
                     <div>
                         <h2 id="runtimeEnvironmentTitle">Variáveis de ambiente</h2>
-                        <p>Somente chaves conhecidas pelo PS Panel. Valores sensíveis são omitidos no servidor.</p>
+                        <p>Somente chaves conhecidas pelo PS Panel. Senhas são mascaradas.</p>
                     </div>
                 </header>
                 <div class="runtime-table-wrap">
                     <table class="runtime-table">
-                        <thead><tr><th>Variável</th><th>Estado</th><th>Valor público</th></tr></thead>
+                        <thead><tr><th>Variável</th><th>Estado</th><th>Valor</th></tr></thead>
                         <tbody>
                             <% runtimeEnvironment.environmentVariables.forEach((item) => { %>
                                 <tr>
