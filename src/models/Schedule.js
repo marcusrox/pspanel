@@ -6,6 +6,10 @@ const database = require('../database/connection');
 const schema = require('../database/schema');
 const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 const {
+    SCHEDULE_TYPES,
+    getNextOccurrence
+} = require('../services/scheduleRecurrence');
+const {
     parseScriptParametersFromContent,
     getMissingRequiredParameters,
     parseRawNamedParameters,
@@ -116,31 +120,85 @@ class Schedule {
         }));
     }
 
-    static async create({ script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_by }) {
+    static async create({
+        script_name,
+        parameters,
+        enabled,
+        next_run_at,
+        schedule_type,
+        cron_expression,
+        schedule_timezone,
+        created_by
+    }) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
-        const repeat = repeat_interval_minutes == null || repeat_interval_minutes === '' ? null : Number(repeat_interval_minutes);
         await Schedule.initialize();
         const result = await database.run(
-            `INSERT INTO schedules (script_name, parameters, enabled, next_run_at, repeat_interval_minutes, created_at, updated_at, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [script_name, parameters || null, en, next_run_at, repeat, ts, ts, created_by || null]
+            `INSERT INTO schedules (
+                script_name, parameters, enabled, next_run_at, schedule_type,
+                cron_expression, schedule_timezone, created_at, updated_at, created_by
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                script_name,
+                parameters || null,
+                en,
+                next_run_at,
+                schedule_type,
+                cron_expression || null,
+                schedule_timezone,
+                ts,
+                ts,
+                created_by || null
+            ]
         );
-        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, { script_name, next_run_at, repeat_interval_minutes: repeat }, script_name);
+        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, {
+            script_name,
+            schedule_type,
+            cron_expression: cron_expression || null,
+            schedule_timezone,
+            next_run_at,
+            enabled: !!en
+        }, script_name);
         return result.lastID;
     }
 
-    static async update(id, { script_name, parameters, enabled, next_run_at, repeat_interval_minutes }, username) {
+    static async update(id, {
+        script_name,
+        parameters,
+        enabled,
+        next_run_at,
+        schedule_type,
+        cron_expression,
+        schedule_timezone
+    }, username) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
-        const repeat = repeat_interval_minutes == null || repeat_interval_minutes === '' ? null : Number(repeat_interval_minutes);
         await Schedule.initialize();
         const result = await database.run(
-            `UPDATE schedules SET script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, repeat_interval_minutes = ?, updated_at = ?
+            `UPDATE schedules SET
+                script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, schedule_type = ?,
+                cron_expression = ?, schedule_timezone = ?, updated_at = ?
              WHERE id = ?`,
-            [script_name, parameters || null, en, next_run_at, repeat, ts, id]
+            [
+                script_name,
+                parameters || null,
+                en,
+                next_run_at,
+                schedule_type,
+                cron_expression || null,
+                schedule_timezone,
+                ts,
+                id
+            ]
         );
-        await Schedule.appendAudit(id, 'UPDATE', username, { script_name, next_run_at, repeat_interval_minutes: repeat, enabled: !!en }, script_name);
+        await Schedule.appendAudit(id, 'UPDATE', username, {
+            script_name,
+            schedule_type,
+            cron_expression: cron_expression || null,
+            schedule_timezone,
+            next_run_at,
+            enabled: !!en
+        }, script_name);
         return result.changes;
     }
 
@@ -299,8 +357,11 @@ class Schedule {
             let nextRun;
             let enabled = !!row.enabled;
             if (ok) {
-                if (row.repeat_interval_minutes != null && Number(row.repeat_interval_minutes) > 0) {
-                    nextRun = new Date(Date.now() + Number(row.repeat_interval_minutes) * 60 * 1000).toISOString();
+                if (row.schedule_type === SCHEDULE_TYPES.CRON) {
+                    nextRun = getNextOccurrence(row.cron_expression, {
+                        after: new Date(),
+                        timezone: row.schedule_timezone
+                    });
                 } else {
                     nextRun = '2099-12-31T23:59:59.999Z';
                     enabled = false;
@@ -320,6 +381,9 @@ class Schedule {
             await Schedule.appendAudit(row.id, 'EXECUTE_FINISH', SCHEDULE_RUN_USERNAME, {
                 exitCode: proc.code,
                 success: ok,
+                schedule_type: row.schedule_type,
+                cron_expression: row.cron_expression,
+                schedule_timezone: row.schedule_timezone,
                 next_run_at: nextRun,
                 enabled
             }, row.script_name);

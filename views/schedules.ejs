@@ -146,7 +146,7 @@
                             <th>Script</th>
                             <th>Parâmetros</th>
                             <th>Próxima execução</th>
-                            <th>Repetir (min)</th>
+                            <th>Recorrência</th>
                             <th>Última execução</th>
                             <th>Ações</th>
                         </tr>
@@ -157,8 +157,13 @@
                                 <td><%= s.enabled ? 'Sim' : 'Não' %></td>
                                 <td><%= s.script_name %></td>
                                 <td><%= s.parameters || '—' %></td>
-                                <td><%= new Date(s.next_run_at).toLocaleString('pt-BR') %></td>
-                                <td><%= s.repeat_interval_minutes != null ? s.repeat_interval_minutes : '— (uma vez)' %></td>
+                                <td><%= new Date(s.next_run_at).toLocaleString('pt-BR', { timeZone: s.schedule_timezone }) %></td>
+                                <td title="<%= s.cron_expression || 'Execução única' %>">
+                                    <%= s.recurrence_description %>
+                                    <% if (s.schedule_type === 'cron') { %>
+                                        <div style="font-size: 0.78rem; color: var(--text-secondary);"><%= s.schedule_timezone %></div>
+                                    <% } %>
+                                </td>
                                 <td><%= s.last_run_at ? new Date(s.last_run_at).toLocaleString('pt-BR') : '—' %></td>
                                 <td class="schedule-actions-cell">
                                     <div class="schedule-action-buttons">

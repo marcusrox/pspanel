@@ -8,44 +8,250 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/styles.css">
     <style>
-        .form-box { background-color: var(--bg-light); border-radius: 0.5rem; padding: 1.5rem; max-width: 760px; }
-        .form-group { margin-bottom: 1.25rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
-        .form-group input[type="text"], .form-group input[type="number"], .form-group select, .form-group textarea {
-            width: 100%; max-width: 100%; padding: 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color);
-            background: var(--bg-darker); color: var(--text-primary);
+        .main-content { width: calc(100% - 250px); min-width: 0; box-sizing: border-box; }
+        .form-box {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
         }
-        .form-group textarea { min-height: 4rem; font-family: monospace; }
-        .parameter-fields { display: none; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem; background: var(--bg-darker); }
-        .parameter-fields.is-visible { display: block; }
-        .parameter-fields h2 { font-size: 1rem; margin: 0 0 1rem; color: var(--text-primary); }
-        .parameter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-        .parameter-field label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; color: var(--text-secondary); }
-        .parameter-field input,
-        .parameter-field select {
-            width: 100%; max-width: 100%; padding: 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color);
-            background: var(--bg-light); color: var(--text-primary);
+        .schedule-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+            gap: 1.25rem;
+            align-items: start;
         }
-        .mandatory-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
-        .parameter-meta { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.35rem; }
-        .hint { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.35rem; }
-        .schedule-time-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-        .schedule-time-grid .form-group { margin-bottom: 0; }
-        .form-group .checkbox-field {
+        .form-card {
+            min-width: 0;
+            padding: 1.35rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+        }
+        .timing-card { border-color: rgba(129, 140, 248, 0.32); }
+        .card-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        }
+        .card-heading-main { display: flex; align-items: flex-start; gap: 0.8rem; min-width: 0; }
+        .card-heading-icon {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            width: auto;
-            margin-bottom: 0;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
-        .form-group .checkbox-field input[type="checkbox"] {
+            justify-content: center;
             flex: 0 0 auto;
-            width: auto;
-            margin: 0;
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 0.65rem;
+            color: #93c5fd;
+            background: rgba(37, 99, 235, 0.16);
+            box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.18);
         }
-        .form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .timing-card .card-heading-icon { color: #c4b5fd; background: rgba(124, 58, 237, 0.16); }
+        .card-heading h2 { margin: 0; font-size: 1.08rem; font-weight: 700; letter-spacing: 0.01em; color: var(--text-primary); }
+        .card-heading p { margin: 0.28rem 0 0; font-size: 0.82rem; line-height: 1.4; color: var(--text-secondary); }
+        .timezone-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex: 0 0 auto;
+            padding: 0.35rem 0.55rem;
+            border: 1px solid rgba(129, 140, 248, 0.28);
+            border-radius: 999px;
+            background: rgba(79, 70, 229, 0.1);
+            color: #c7d2fe;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+        .form-group { margin-bottom: 1.05rem; min-width: 0; }
+        .form-group:last-child { margin-bottom: 0; }
+        .field-label, .form-group > label:not(.choice-field):not(.checkbox-field) {
+            display: block;
+            margin-bottom: 0.45rem;
+            color: #cbd5e1;
+            font-size: 0.86rem;
+            font-weight: 600;
+        }
+        .form-group input[type="text"], .form-group input[type="number"], .form-group input[type="time"],
+        .form-group input[type="datetime-local"], .form-group select, .form-group textarea {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            padding: 0.72rem 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 0.5rem;
+            background: rgba(2, 6, 23, 0.44);
+            color: var(--text-primary);
+            font: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus,
+        .parameter-field input:focus, .parameter-field select:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+            background: rgba(2, 6, 23, 0.62);
+        }
+        .form-group textarea { min-height: 4.5rem; resize: vertical; font-family: Consolas, "Courier New", monospace; }
+        .script-select-group { margin-bottom: 1.15rem; }
+        .parameter-fields {
+            display: none;
+            padding: 1rem;
+            margin-bottom: 1.05rem;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 0.65rem;
+            background: rgba(2, 6, 23, 0.28);
+        }
+        .parameter-fields.is-visible { display: block; }
+        .parameter-fields h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            margin: 0 0 0.9rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 650;
+        }
+        .parameter-fields h3 i { color: #7dd3fc; }
+        .parameter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.9rem; }
+        .parameter-field { min-width: 0; }
+        .parameter-field label { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem; color: #cbd5e1; font-size: 0.84rem; font-weight: 600; }
+        .parameter-field input, .parameter-field select {
+            width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.68rem 0.75rem;
+            border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.82); color: var(--text-primary); font: inherit;
+        }
+        .mandatory-badge { font-size: 0.66rem; padding: 0.13rem 0.38rem; border-radius: 999px; background: rgba(239, 68, 68, 0.14); color: #fca5a5; font-weight: 600; }
+        .parameter-meta { font-size: 0.74rem; color: var(--text-secondary); margin-top: 0.3rem; line-height: 1.35; }
+        .hint { font-size: 0.78rem; line-height: 1.45; color: var(--text-secondary); margin: 0.32rem 0 0; }
+        .timing-box { min-width: 0; margin: 0; padding: 0; border: 0; }
+        .visually-hidden {
+            position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important;
+            margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important; border: 0 !important;
+        }
+        .choice-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
+        .schedule-type-choice { position: relative; display: block; min-width: 0; cursor: pointer; }
+        .schedule-type-choice input { position: absolute; opacity: 0; pointer-events: none; }
+        .schedule-type-content {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 0.25rem 0.6rem;
+            min-height: 4.2rem;
+            box-sizing: border-box;
+            padding: 0.78rem;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 0.6rem;
+            background: rgba(2, 6, 23, 0.3);
+            color: var(--text-secondary);
+            transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+        }
+        .schedule-type-content i { grid-row: 1 / span 2; margin-top: 0.12rem; color: #94a3b8; }
+        .schedule-type-content strong { color: #e2e8f0; font-size: 0.85rem; }
+        .schedule-type-content small { font-size: 0.7rem; line-height: 1.35; }
+        .schedule-type-choice:hover .schedule-type-content { border-color: rgba(129, 140, 248, 0.5); }
+        .schedule-type-choice:has(input:checked) .schedule-type-content {
+            border-color: #818cf8;
+            background: rgba(79, 70, 229, 0.17);
+            box-shadow: inset 0 0 0 1px rgba(165, 180, 252, 0.12);
+        }
+        .schedule-type-choice:has(input:checked) .schedule-type-content i,
+        .schedule-type-choice:has(input:checked) .schedule-type-content strong { color: #c7d2fe; }
+        .schedule-type-choice input:focus-visible + .schedule-type-content { outline: 3px solid rgba(96, 165, 250, 0.5); outline-offset: 2px; }
+        .timing-panel[hidden], .cadence-panel[hidden] { display: none; }
+        .once-panel {
+            padding: 0.95rem;
+            border: 1px solid rgba(96, 165, 250, 0.18);
+            border-radius: 0.6rem;
+            background: rgba(30, 64, 175, 0.07);
+        }
+        .weekday-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
+        .weekday-heading .field-label { margin: 0; }
+        .all-days-choice { display: inline-flex; align-items: center; gap: 0.38rem; color: #a5b4fc; font-size: 0.74rem; cursor: pointer; }
+        .all-days-choice input { margin: 0; accent-color: #6366f1; }
+        .weekday-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.35rem; margin-bottom: 1rem; }
+        .weekday-choice { position: relative; min-width: 0; cursor: pointer; }
+        .weekday-choice input { position: absolute; opacity: 0; pointer-events: none; }
+        .weekday-choice span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.25rem;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 0.48rem;
+            background: rgba(2, 6, 23, 0.28);
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-weight: 650;
+        }
+        .weekday-choice:has(input:checked) span { border-color: #818cf8; background: rgba(79, 70, 229, 0.2); color: #e0e7ff; }
+        .weekday-choice input:focus-visible + span { outline: 3px solid rgba(96, 165, 250, 0.5); outline-offset: 2px; }
+        .cadence-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(130px, 0.8fr); gap: 0.75rem; align-items: end; }
+        .cadence-grid .form-group { margin-bottom: 0; }
+        .timezone-note { display: flex; gap: 0.45rem; margin-top: 0.75rem; color: var(--text-secondary); font-size: 0.74rem; line-height: 1.4; }
+        .timezone-note i { margin-top: 0.15rem; color: #a5b4fc; }
+        .schedule-preview {
+            margin-top: 1rem;
+            padding: 0.95rem;
+            border: 1px solid rgba(52, 211, 153, 0.18);
+            border-radius: 0.65rem;
+            background: linear-gradient(145deg, rgba(6, 78, 59, 0.12), rgba(2, 6, 23, 0.38));
+        }
+        .preview-heading { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.65rem; color: #a7f3d0; font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.055em; }
+        .preview-description { margin: 0 0 0.65rem; color: #f1f5f9; font-size: 0.9rem; line-height: 1.4; }
+        .cron-line { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0; padding: 0.55rem 0.65rem; border-radius: 0.45rem; background: rgba(2, 6, 23, 0.52); color: var(--text-secondary); font-size: 0.72rem; }
+        .cron-line code { color: #c4b5fd; font-family: Consolas, "Courier New", monospace; font-size: 0.8rem; overflow-wrap: anywhere; text-align: right; }
+        .occurrence-title { margin: 0.75rem 0 0.35rem; color: #cbd5e1; font-size: 0.74rem; font-weight: 600; }
+        .schedule-preview ol { display: grid; gap: 0.28rem; margin: 0; padding: 0; list-style: none; color: var(--text-secondary); counter-reset: occurrence; }
+        .schedule-preview li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.74rem; }
+        .schedule-preview li::before { content: "\f017"; font-family: "Font Awesome 6 Free"; font-weight: 900; color: #6ee7b7; font-size: 0.68rem; }
+        .form-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem 1.15rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.7rem;
+            background: rgba(15, 23, 42, 0.72);
+        }
+        .status-toggle { display: inline-flex; align-items: center; gap: 0.55rem; color: #cbd5e1; font-size: 0.84rem; cursor: pointer; }
+        .status-toggle input { margin: 0; accent-color: #22c55e; }
+        .status-toggle i { color: #4ade80; }
+        .form-actions { display: flex; align-items: center; gap: 0.65rem; }
+        .form-actions .primary-btn, .form-actions .secondary-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; min-height: 2.55rem; box-sizing: border-box; }
+        @media (max-width: 1200px) {
+            .schedule-layout { grid-template-columns: minmax(0, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .main-content { width: calc(100% - 64px); }
+            .form-card { padding: 1rem; }
+            .card-heading { align-items: flex-start; }
+            .timezone-badge { white-space: normal; text-align: right; }
+            .cadence-grid { grid-template-columns: minmax(0, 1fr); }
+            .form-footer { align-items: stretch; flex-direction: column; }
+            .form-actions { width: 100%; }
+            .form-actions .primary-btn, .form-actions .secondary-btn { flex: 1; }
+        }
+        @media (max-width: 520px) {
+            .choice-row { grid-template-columns: minmax(0, 1fr); }
+            .weekday-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .card-heading { flex-direction: column; }
+            .timezone-badge { align-self: flex-start; }
+            .form-actions { flex-direction: column-reverse; }
+            .form-actions .primary-btn, .form-actions .secondary-btn { width: 100%; }
+            .cron-line { align-items: flex-start; flex-direction: column; }
+            .cron-line code { text-align: left; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .schedule-type-content, .form-group input, .form-group select, .form-group textarea { transition: none; }
+        }
     </style>
 </head>
 <body>
@@ -65,47 +271,159 @@
 
         <div class="form-box">
             <form method="POST" action="<%= mode === 'new' ? '/schedules' : '/schedules/' + schedule.id %>">
-                <div class="form-group">
-                    <label for="script_name">Script (.ps1 em scripts-ps)</label>
-                    <select name="script_name" id="script_name" required>
-                        <% scripts.forEach(function (scriptItem) { %>
-                            <option value="<%= scriptItem.name %>" <%= (schedule && schedule.script_name === scriptItem.name) ? 'selected' : '' %>><%= scriptItem.name %></option>
-                        <% }); %>
-                    </select>
+                <div class="schedule-layout">
+                    <section class="form-card script-card" aria-labelledby="scriptCardTitle">
+                        <div class="card-heading">
+                            <div class="card-heading-main">
+                                <span class="card-heading-icon"><i class="fas fa-terminal" aria-hidden="true"></i></span>
+                                <div>
+                                    <h2 id="scriptCardTitle">Script e parâmetros</h2>
+                                    <p>Selecione o script e informe os dados necessários para a execução.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group script-select-group">
+                            <label for="script_name">Script PowerShell</label>
+                            <select name="script_name" id="script_name" required>
+                                <% scripts.forEach(function (scriptItem) { %>
+                                    <option value="<%= scriptItem.name %>" <%= (schedule && schedule.script_name === scriptItem.name) ? 'selected' : '' %>><%= scriptItem.name %></option>
+                                <% }); %>
+                            </select>
+                            <p class="hint"><i class="fas fa-folder-open" aria-hidden="true"></i> Scripts disponíveis em <code>scripts-ps</code>.</p>
+                        </div>
+
+                        <div id="parameterFields" class="parameter-fields" aria-live="polite">
+                            <h3><i class="fas fa-sliders-h" aria-hidden="true"></i> Parâmetros declarados pelo script</h3>
+                            <div id="parameterGrid" class="parameter-grid"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="parameters">Parâmetros adicionais</label>
+                            <textarea name="parameters" id="parameters" placeholder="Ex.: -Verbose"><%= additionalParameters || '' %></textarea>
+                            <p class="hint">Use somente para opções extras. Parâmetros reconhecidos pelo script devem ser preenchidos nos campos acima.</p>
+                        </div>
+                    </section>
+
+                    <section class="form-card timing-card" aria-labelledby="timingCardTitle">
+                        <div class="card-heading">
+                            <div class="card-heading-main">
+                                <span class="card-heading-icon"><i class="fas fa-calendar-alt" aria-hidden="true"></i></span>
+                                <div>
+                                    <h2 id="timingCardTitle">Quando executar</h2>
+                                    <p>Defina uma execução única ou uma recorrência semanal.</p>
+                                </div>
+                            </div>
+                            <span class="timezone-badge" title="Fuso usado no cálculo das execuções">
+                                <i class="fas fa-globe-americas" aria-hidden="true"></i>
+                                <%= recurrenceOptions.timezone %>
+                            </span>
+                        </div>
+
+                        <fieldset class="timing-box">
+                            <legend class="visually-hidden">Tipo e periodicidade do agendamento</legend>
+                            <div class="choice-row">
+                                <label class="schedule-type-choice">
+                                    <input type="radio" name="schedule_type" value="once" <%= (!schedule || schedule.schedule_type === 'once') ? 'checked' : '' %>>
+                                    <span class="schedule-type-content">
+                                        <i class="fas fa-play" aria-hidden="true"></i>
+                                        <strong>Uma vez</strong>
+                                        <small>Executa em uma data e hora.</small>
+                                    </span>
+                                </label>
+                                <label class="schedule-type-choice">
+                                    <input type="radio" name="schedule_type" value="cron" <%= (schedule && schedule.schedule_type === 'cron') ? 'checked' : '' %>>
+                                    <span class="schedule-type-content">
+                                        <i class="fas fa-redo-alt" aria-hidden="true"></i>
+                                        <strong>Recorrente</strong>
+                                        <small>Repete nos dias selecionados.</small>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div id="onceTimingPanel" class="timing-panel once-panel">
+                                <div class="form-group">
+                                    <label for="next_run_at">Data e hora da execução</label>
+                                    <input type="datetime-local" name="next_run_at" id="next_run_at" value="<%= next_run_local %>">
+                                    <p class="hint">Após o primeiro sucesso, este agendamento será desativado automaticamente.</p>
+                                </div>
+                            </div>
+
+                            <div id="cronTimingPanel" class="timing-panel" hidden>
+                                <div class="weekday-heading">
+                                    <span class="field-label">Dias da semana</span>
+                                    <label class="all-days-choice">
+                                        <input type="checkbox" id="allWeekdays">
+                                        <span>Todos os dias</span>
+                                    </label>
+                                </div>
+                                <div class="weekday-grid">
+                                    <% ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].forEach(function (label, day) { %>
+                                        <label class="weekday-choice">
+                                            <input type="checkbox" name="recurrence_days" value="<%= day %>" <%= recurrenceForm.days.includes(String(day)) ? 'checked' : '' %>>
+                                            <span><%= label %></span>
+                                        </label>
+                                    <% }); %>
+                                </div>
+
+                                <div class="cadence-grid">
+                                    <div class="form-group">
+                                        <label for="recurrence_cadence">Frequência</label>
+                                        <select name="recurrence_cadence" id="recurrence_cadence">
+                                            <option value="fixed_time" <%= recurrenceForm.cadence === 'fixed_time' ? 'selected' : '' %>>Em um horário específico</option>
+                                            <option value="minutes" <%= recurrenceForm.cadence === 'minutes' ? 'selected' : '' %>>A cada N minutos</option>
+                                            <option value="hours" <%= recurrenceForm.cadence === 'hours' ? 'selected' : '' %>>A cada N horas</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="fixedTimePanel" class="cadence-panel form-group">
+                                        <label for="recurrence_time">Horário</label>
+                                        <input type="time" name="recurrence_time" id="recurrence_time" value="<%= recurrenceForm.time %>">
+                                    </div>
+                                    <div id="minuteIntervalPanel" class="cadence-panel form-group" hidden>
+                                        <label for="minute_interval">Intervalo</label>
+                                        <select name="recurrence_interval" id="minute_interval">
+                                            <% recurrenceOptions.minuteIntervals.forEach(function (interval) { %>
+                                                <option value="<%= interval %>" <%= recurrenceForm.cadence === 'minutes' && recurrenceForm.interval === String(interval) ? 'selected' : '' %>><%= interval %> min</option>
+                                            <% }); %>
+                                        </select>
+                                    </div>
+                                    <div id="hourIntervalPanel" class="cadence-panel form-group" hidden>
+                                        <label for="hour_interval">Intervalo</label>
+                                        <select name="recurrence_interval" id="hour_interval">
+                                            <% recurrenceOptions.hourIntervals.forEach(function (interval) { %>
+                                                <option value="<%= interval %>" <%= recurrenceForm.cadence === 'hours' && recurrenceForm.interval === String(interval) ? 'selected' : '' %>><%= interval %> h</option>
+                                            <% }); %>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="timezone-note">
+                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                                    <span>A execução ocorre na primeira passagem do worker depois do horário calculado.</span>
+                                </div>
+                                <div class="schedule-preview" aria-live="polite">
+                                    <div class="preview-heading"><i class="fas fa-eye" aria-hidden="true"></i> Prévia do agendamento</div>
+                                    <p class="preview-description"><strong id="recurrenceDescription">—</strong></p>
+                                    <p class="cron-line"><span>Expressão cron</span><code id="cronPreview">—</code></p>
+                                    <p class="occurrence-title">Próximas execuções</p>
+                                    <ol id="occurrencePreview"></ol>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </section>
                 </div>
 
-                <div id="parameterFields" class="parameter-fields" aria-live="polite">
-                    <h2>Parâmetros do script</h2>
-                    <div id="parameterGrid" class="parameter-grid"></div>
-                </div>
-
-                <div class="form-group">
-                    <label for="parameters">Parâmetros adicionais</label>
-                    <textarea name="parameters" id="parameters" placeholder="Ex.: -Verbose"><%= additionalParameters || '' %></textarea>
-                    <p class="hint">Use este campo apenas para opções adicionais. Parâmetros declarados no script devem ser preenchidos nos campos acima.</p>
-                </div>
-                <div class="schedule-time-grid">
-                    <div class="form-group">
-                        <label for="next_run_at">Primeira / próxima execução (horário local)</label>
-                        <input type="datetime-local" name="next_run_at" id="next_run_at" required value="<%= next_run_local %>">
-                    </div>
-                    <div class="form-group">
-                        <label for="repeat_interval_minutes">Repetir a cada (minutos)</label>
-                        <input type="number" name="repeat_interval_minutes" id="repeat_interval_minutes" min="1" step="1"
-                            placeholder="vazio = executar uma vez e desativar"
-                            value="<%= schedule && schedule.repeat_interval_minutes != null ? schedule.repeat_interval_minutes : '' %>">
-                        <p class="hint">Deixe em branco para <strong>uma execução</strong> (após sucesso o agendamento fica inativo). Preencha, por exemplo, <code>60</code> para rodar de hora em hora após cada conclusão com sucesso.</p>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-field">
+                <div class="form-footer">
+                    <label class="status-toggle">
                         <input type="checkbox" name="enabled" value="1" <%= (!schedule || schedule.enabled) ? 'checked' : '' %>>
-                        <span>Ativo</span>
+                        <i class="fas fa-power-off" aria-hidden="true"></i>
+                        <span>Agendamento ativo</span>
                     </label>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="primary-btn"><i class="fas fa-save"></i> Salvar</button>
-                    <a href="/schedules" class="secondary-btn">Cancelar</a>
+                    <div class="form-actions">
+                        <a href="/schedules" class="secondary-btn"><i class="fas fa-times" aria-hidden="true"></i> Cancelar</a>
+                        <button type="submit" class="primary-btn"><i class="fas fa-save" aria-hidden="true"></i> Salvar agendamento</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -116,6 +434,7 @@
         const scriptsData = <%- JSON.stringify(scripts || []).replace(/</g, '\\u003c') %>;
         const initialScriptName = <%- JSON.stringify(schedule ? schedule.script_name : '').replace(/</g, '\\u003c') %>;
         const initialParameterValues = <%- JSON.stringify(parameterValues || {}).replace(/</g, '\\u003c') %>;
+        const scheduleTimezone = <%- JSON.stringify(recurrenceOptions.timezone).replace(/</g, '\\u003c') %>;
         let selectedParameterDefinitions = [];
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -131,11 +450,176 @@
                 if (missingParameters.length) {
                     event.preventDefault();
                     alert(`Informe os parâmetros obrigatórios: ${missingParameters.join(', ')}.`);
+                    return;
+                }
+
+                const selectedType = document.querySelector('input[name="schedule_type"]:checked').value;
+                if (selectedType === 'cron' && !getSelectedWeekdays().length) {
+                    event.preventDefault();
+                    alert('Selecione pelo menos um dia da semana.');
                 }
             });
 
             renderSelectedScriptParameters(true);
+            initializeTimingControls();
         });
+
+        function initializeTimingControls() {
+            const typeInputs = document.querySelectorAll('input[name="schedule_type"]');
+            const cadenceSelect = document.getElementById('recurrence_cadence');
+            const allWeekdays = document.getElementById('allWeekdays');
+            const weekdayInputs = document.querySelectorAll('input[name="recurrence_days"]');
+
+            typeInputs.forEach((input) => input.addEventListener('change', updateTimingPanels));
+            cadenceSelect.addEventListener('change', updateCadencePanels);
+            allWeekdays.addEventListener('change', function () {
+                weekdayInputs.forEach((input) => { input.checked = allWeekdays.checked; });
+                updateRecurrencePreview();
+            });
+            weekdayInputs.forEach((input) => input.addEventListener('change', function () {
+                allWeekdays.checked = getSelectedWeekdays().length === 7;
+                updateRecurrencePreview();
+            }));
+            document.getElementById('recurrence_time').addEventListener('input', updateRecurrencePreview);
+            document.getElementById('minute_interval').addEventListener('change', updateRecurrencePreview);
+            document.getElementById('hour_interval').addEventListener('change', updateRecurrencePreview);
+
+            allWeekdays.checked = getSelectedWeekdays().length === 7;
+            updateTimingPanels();
+        }
+
+        function setPanelEnabled(panel, enabled) {
+            panel.hidden = !enabled;
+            panel.querySelectorAll('input, select').forEach((input) => {
+                input.disabled = !enabled;
+            });
+        }
+
+        function updateTimingPanels() {
+            const selectedType = document.querySelector('input[name="schedule_type"]:checked').value;
+            const isCron = selectedType === 'cron';
+            const oncePanel = document.getElementById('onceTimingPanel');
+            const cronPanel = document.getElementById('cronTimingPanel');
+
+            setPanelEnabled(oncePanel, !isCron);
+            setPanelEnabled(cronPanel, isCron);
+            document.getElementById('next_run_at').required = !isCron;
+            if (isCron) updateCadencePanels();
+        }
+
+        function updateCadencePanels() {
+            const cadence = document.getElementById('recurrence_cadence').value;
+            setPanelEnabled(document.getElementById('fixedTimePanel'), cadence === 'fixed_time');
+            setPanelEnabled(document.getElementById('minuteIntervalPanel'), cadence === 'minutes');
+            setPanelEnabled(document.getElementById('hourIntervalPanel'), cadence === 'hours');
+            document.getElementById('recurrence_time').required = cadence === 'fixed_time';
+            updateRecurrencePreview();
+        }
+
+        function getSelectedWeekdays() {
+            return Array.from(document.querySelectorAll('input[name="recurrence_days"]:checked'))
+                .map((input) => Number(input.value))
+                .sort((a, b) => a - b);
+        }
+
+        function buildPreviewCron() {
+            const days = getSelectedWeekdays();
+            if (!days.length) return null;
+            const dayField = days.length === 7 ? '*' : days.join(',');
+            const cadence = document.getElementById('recurrence_cadence').value;
+
+            if (cadence === 'fixed_time') {
+                const time = document.getElementById('recurrence_time').value;
+                if (!/^\d{2}:\d{2}$/.test(time)) return null;
+                const [hour, minute] = time.split(':').map(Number);
+                return `${minute} ${hour} * * ${dayField}`;
+            }
+            if (cadence === 'minutes') {
+                return `*/${Number(document.getElementById('minute_interval').value)} * * * ${dayField}`;
+            }
+            const interval = Number(document.getElementById('hour_interval').value);
+            return interval === 1 ? `0 * * * ${dayField}` : `0 */${interval} * * ${dayField}`;
+        }
+
+        function describePreview(days) {
+            const dayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+            const prefix = days.length === 7 ? 'Todos os dias' : joinPreviewWords(days.map((day) => dayNames[day]));
+            const cadence = document.getElementById('recurrence_cadence').value;
+            if (cadence === 'fixed_time') {
+                return `${prefix}, às ${document.getElementById('recurrence_time').value}`;
+            }
+            const interval = Number(document.getElementById(cadence === 'minutes' ? 'minute_interval' : 'hour_interval').value);
+            const unit = cadence === 'minutes'
+                ? (interval === 1 ? 'minuto' : 'minutos')
+                : (interval === 1 ? 'hora' : 'horas');
+            return `${prefix}, a cada ${interval} ${unit}`;
+        }
+
+        function joinPreviewWords(words) {
+            if (words.length <= 1) return words[0] || '';
+            return `${words.slice(0, -1).join(', ')} e ${words[words.length - 1]}`;
+        }
+
+        function getPreviewOccurrences(days) {
+            const cadence = document.getElementById('recurrence_cadence').value;
+            const time = document.getElementById('recurrence_time').value.split(':').map(Number);
+            const interval = Number(document.getElementById(cadence === 'minutes' ? 'minute_interval' : 'hour_interval').value);
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: scheduleTimezone,
+                weekday: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23'
+            });
+            const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+            const results = [];
+            let cursor = Math.floor(Date.now() / 60000) * 60000 + 60000;
+
+            for (let i = 0; i < 24 * 60 * 22 && results.length < 3; i += 1) {
+                const date = new Date(cursor);
+                const parts = Object.fromEntries(formatter.formatToParts(date)
+                    .filter((part) => part.type !== 'literal')
+                    .map((part) => [part.type, part.value]));
+                const weekday = weekdayMap[parts.weekday];
+                const hour = Number(parts.hour);
+                const minute = Number(parts.minute);
+                const matches = days.includes(weekday) && (
+                    (cadence === 'fixed_time' && hour === time[0] && minute === time[1])
+                    || (cadence === 'minutes' && minute % interval === 0)
+                    || (cadence === 'hours' && minute === 0 && hour % interval === 0)
+                );
+                if (matches) results.push(date);
+                cursor += 60000;
+            }
+            return results;
+        }
+
+        function updateRecurrencePreview() {
+            const days = getSelectedWeekdays();
+            const cron = buildPreviewCron();
+            const description = document.getElementById('recurrenceDescription');
+            const cronPreview = document.getElementById('cronPreview');
+            const occurrencePreview = document.getElementById('occurrencePreview');
+            occurrencePreview.replaceChildren();
+
+            if (!cron) {
+                description.textContent = 'Selecione pelo menos um dia da semana.';
+                cronPreview.textContent = '—';
+                return;
+            }
+
+            description.textContent = describePreview(days);
+            cronPreview.textContent = cron;
+            getPreviewOccurrences(days).forEach((date) => {
+                const item = document.createElement('li');
+                item.textContent = new Intl.DateTimeFormat('pt-BR', {
+                    timeZone: scheduleTimezone,
+                    dateStyle: 'short',
+                    timeStyle: 'short'
+                }).format(date);
+                occurrencePreview.appendChild(item);
+            });
+        }
 
         function getSelectedScriptData() {
             const scriptName = document.getElementById('script_name').value;

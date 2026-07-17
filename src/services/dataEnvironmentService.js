@@ -470,7 +470,8 @@ async function collectSafeAggregates(tables) {
                 SELECT
                     SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) AS enabled_count,
                     SUM(CASE WHEN enabled <> 1 THEN 1 ELSE 0 END) AS disabled_count,
-                    SUM(CASE WHEN repeat_interval_minutes IS NOT NULL THEN 1 ELSE 0 END) AS recurring_count,
+                    SUM(CASE WHEN schedule_type = 'once' THEN 1 ELSE 0 END) AS once_count,
+                    SUM(CASE WHEN schedule_type = 'cron' THEN 1 ELSE 0 END) AS recurring_count,
                     SUM(CASE WHEN worker_lock_until IS NOT NULL AND worker_lock_until >= ? THEN 1 ELSE 0 END) AS active_lock_count
                 FROM schedules
             `, [new Date().toISOString()]);
@@ -479,7 +480,8 @@ async function collectSafeAggregates(tables) {
                 items: [
                     { label: 'Habilitados', value: Number(row.enabled_count || 0).toLocaleString('pt-BR') },
                     { label: 'Desabilitados', value: Number(row.disabled_count || 0).toLocaleString('pt-BR') },
-                    { label: 'Recorrentes', value: Number(row.recurring_count || 0).toLocaleString('pt-BR') },
+                    { label: 'Execuções únicas', value: Number(row.once_count || 0).toLocaleString('pt-BR') },
+                    { label: 'Recorrências cron', value: Number(row.recurring_count || 0).toLocaleString('pt-BR') },
                     { label: 'Locks ativos', value: Number(row.active_lock_count || 0).toLocaleString('pt-BR') }
                 ]
             });

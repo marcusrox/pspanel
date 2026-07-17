@@ -174,9 +174,10 @@ sequenceDiagram
    - executa PowerShell com `-NoProfile -ExecutionPolicy Bypass -File`;
    - grava resultado no historico;
    - atualiza `last_run_*`, `next_run_at`, `enabled` e auditoria `EXECUTE_FINISH`.
-7. Jobs recorrentes calculam a proxima execucao por `repeat_interval_minutes`.
-8. Jobs nao recorrentes sao desabilitados apos sucesso.
-9. Falhas sao reagendadas para nova tentativa em 5 minutos.
+7. Jobs recorrentes calculam a proxima execucao pela expressao cron de cinco campos no fuso persistido no agendamento.
+8. Jobs de execucao unica sao desabilitados apos sucesso.
+9. Falhas sao reagendadas para nova tentativa em 5 minutos sem alterar a regra cron.
+10. Ocorrencias perdidas sao consolidadas em uma unica execucao quando o worker retorna.
 
 ## Persistencia
 
@@ -225,10 +226,18 @@ Tabela `schedules`:
 | `parameters` | Parametros textuais. |
 | `enabled` | Indica se o job esta ativo. |
 | `next_run_at` | Proxima execucao em ISO string. |
-| `repeat_interval_minutes` | Intervalo de repeticao em minutos. |
+| `schedule_type` | Tipo `once` para execucao unica ou `cron` para recorrencia. |
+| `cron_expression` | Expressao cron de cinco campos para jobs recorrentes. |
+| `schedule_timezone` | Fuso IANA usado para interpretar a recorrencia. |
 | `worker_lock_until` | Lock para evitar execucoes concorrentes. |
 | `last_run_at` / `last_run_exit_code` / `last_run_output` | Ultimo resultado. |
 | `created_at` / `updated_at` / `created_by` | Metadados. |
+
+O formulario gera somente expressoes cron semanais suportadas pela aplicacao:
+horario fixo, intervalo regular em minutos que divide uma hora ou intervalo
+regular em horas que divide um dia. `next_run_at` materializa em UTC a proxima
+ocorrencia para manter eficiente a consulta do worker. O fuso inicial usado
+pelos agendamentos e `America/Sao_Paulo`.
 
 Tabela `schedule_audit`:
 

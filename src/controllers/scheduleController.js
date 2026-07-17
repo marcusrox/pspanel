@@ -3,6 +3,19 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const Schedule = require('../models/Schedule');
 const {
+    SCHEDULE_TIMEZONE,
+    SCHEDULE_TYPES,
+    CADENCES,
+    ALLOWED_MINUTE_INTERVALS,
+    ALLOWED_HOUR_INTERVALS,
+    buildCronExpression,
+    parseCronExpression,
+    getNextOccurrence,
+    describeCronExpression,
+    zonedDateTimeToIso,
+    isoToDatetimeLocal
+} = require('../services/scheduleRecurrence');
+const {
     parseScriptParametersFromContent,
     getMissingRequiredParameters,
     parseRawNamedParameters,
@@ -37,14 +50,6 @@ async function listScriptsWithParameters(projectRoot) {
 
 function isValidScriptName(name) {
     return typeof name === 'string' && name.endsWith('.ps1') && !name.includes('..') && !name.includes('/') && !name.includes('\\');
-}
-
-function toDatetimeLocalValue(isoString) {
-    if (!isoString) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 async function getScriptParameterDefinitions(scriptPath) {
@@ -83,7 +88,61 @@ function buildScheduleListItem(schedule) {
     return {
         ...safeSchedule,
         parameters: redactedParameters.maskedParameters,
-        last_run_output: redactSensitiveText(lastRunOutput, redactedParameters.sensitiveValues)
+        last_run_output: redactSensitiveText(lastRunOutput, redactedParameters.sensitiveValues),
+        recurrence_description: schedule.schedule_type === SCHEDULE_TYPES.CRON
+            ? describeCronExpression(schedule.cron_expression)
+            : 'Uma vez'
+    };
+}
+
+function getDefaultRecurrenceForm() {
+    return {
+        days: ['0', '1', '2', '3', '4', '5', '6'],
+        cadence: CADENCES.FIXED_TIME,
+        time: '08:00',
+        interval: '1'
+    };
+}
+
+function buildRecurrenceForm(schedule) {
+    if (!schedule || schedule.schedule_type !== SCHEDULE_TYPES.CRON) {
+        return getDefaultRecurrenceForm();
+    }
+
+    const parsed = parseCronExpression(schedule.cron_expression);
+    return {
+        days: parsed.days.map(String),
+        cadence: parsed.cadence,
+        time: parsed.time || '08:00',
+        interval: String(parsed.interval || 1)
+    };
+}
+
+function buildTimingValues(body) {
+    if (body.schedule_type === SCHEDULE_TYPES.ONCE) {
+        return {
+            schedule_type: SCHEDULE_TYPES.ONCE,
+            cron_expression: null,
+            schedule_timezone: SCHEDULE_TIMEZONE,
+            next_run_at: zonedDateTimeToIso(body.next_run_at, SCHEDULE_TIMEZONE)
+        };
+    }
+
+    if (body.schedule_type !== SCHEDULE_TYPES.CRON) {
+        throw new Error('Selecione um tipo de agendamento válido.');
+    }
+
+    const cronExpression = buildCronExpression({
+        days: body.recurrence_days,
+        cadence: body.recurrence_cadence,
+        time: body.recurrence_time,
+        interval: body.recurrence_interval
+    });
+    return {
+        schedule_type: SCHEDULE_TYPES.CRON,
+        cron_expression: cronExpression,
+        schedule_timezone: SCHEDULE_TIMEZONE,
+        next_run_at: getNextOccurrence(cronExpression, { timezone: SCHEDULE_TIMEZONE })
     };
 }
 
@@ -141,7 +200,15 @@ exports.newForm = async (req, res) => {
             scripts,
             parameterValues: {},
             additionalParameters: '',
-            next_run_local: toDatetimeLocalValue(new Date(Date.now() + 5 * 60 * 1000).toISOString()),
+            next_run_local: isoToDatetimeLocal(new Date(Date.now() + 5 * 60 * 1000).toISOString()),
+            recurrenceForm: getDefaultRecurrenceForm(),
+            recurrenceOptions: {
+                timezone: SCHEDULE_TIMEZONE,
+                types: SCHEDULE_TYPES,
+                cadences: CADENCES,
+                minuteIntervals: ALLOWED_MINUTE_INTERVALS,
+                hourIntervals: ALLOWED_HOUR_INTERVALS
+            },
             messages: res.locals.messages
         });
     } catch (e) {
@@ -177,7 +244,17 @@ exports.editForm = async (req, res) => {
             scripts,
             parameterValues: formValues.parameterValues,
             additionalParameters: formValues.additionalParameters,
-            next_run_local: toDatetimeLocalValue(schedule.next_run_at),
+            next_run_local: schedule.schedule_type === SCHEDULE_TYPES.ONCE
+                ? isoToDatetimeLocal(schedule.next_run_at, schedule.schedule_timezone)
+                : '',
+            recurrenceForm: buildRecurrenceForm(schedule),
+            recurrenceOptions: {
+                timezone: SCHEDULE_TIMEZONE,
+                types: SCHEDULE_TYPES,
+                cadences: CADENCES,
+                minuteIntervals: ALLOWED_MINUTE_INTERVALS,
+                hourIntervals: ALLOWED_HOUR_INTERVALS
+            },
             messages: res.locals.messages
         });
     } catch (e) {
@@ -188,7 +265,7 @@ exports.editForm = async (req, res) => {
 };
 
 exports.create = async (req, res) => {
-    const { script_name, parameters, paramValues, enabled, next_run_at, repeat_interval_minutes } = req.body;
+    const { script_name, parameters, paramValues, enabled } = req.body;
     const scriptPath = path.join(process.cwd(), 'scripts-ps', script_name || '');
 
     if (!isValidScriptName(script_name) || !fsSync.existsSync(scriptPath)) {
@@ -196,9 +273,11 @@ exports.create = async (req, res) => {
         return res.redirect('/schedules/new');
     }
 
-    const nextIso = next_run_at ? new Date(next_run_at).toISOString() : null;
-    if (!nextIso || Number.isNaN(new Date(nextIso).getTime())) {
-        req.flash('error', 'Data/hora de execução inválida.');
+    let timing;
+    try {
+        timing = buildTimingValues(req.body);
+    } catch (error) {
+        req.flash('error', error.message);
         return res.redirect('/schedules/new');
     }
 
@@ -219,8 +298,7 @@ exports.create = async (req, res) => {
             script_name,
             parameters: formatProvidedParams(parameterDefinitions, paramValues, parameters),
             enabled: !!enabled,
-            next_run_at: nextIso,
-            repeat_interval_minutes: repeat_interval_minutes || null,
+            ...timing,
             created_by: req.session.user.username
         });
         req.flash('success', 'Agendamento criado.');
@@ -234,7 +312,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { script_name, parameters, paramValues, enabled, next_run_at, repeat_interval_minutes } = req.body;
+    const { script_name, parameters, paramValues, enabled } = req.body;
     const scriptPath = path.join(process.cwd(), 'scripts-ps', script_name || '');
 
     if (!isValidScriptName(script_name) || !fsSync.existsSync(scriptPath)) {
@@ -242,9 +320,11 @@ exports.update = async (req, res) => {
         return res.redirect(`/schedules/${id}/edit`);
     }
 
-    const nextIso = next_run_at ? new Date(next_run_at).toISOString() : null;
-    if (!nextIso || Number.isNaN(new Date(nextIso).getTime())) {
-        req.flash('error', 'Data/hora de execução inválida.');
+    let timing;
+    try {
+        timing = buildTimingValues(req.body);
+    } catch (error) {
+        req.flash('error', error.message);
         return res.redirect(`/schedules/${id}/edit`);
     }
 
@@ -272,8 +352,7 @@ exports.update = async (req, res) => {
                 script_name,
                 parameters: formatProvidedParams(parameterDefinitions, paramValues, parameters),
                 enabled: !!enabled,
-                next_run_at: nextIso,
-                repeat_interval_minutes: repeat_interval_minutes || null
+                ...timing
             },
             req.session.user.username
         );

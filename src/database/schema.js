@@ -1,4 +1,5 @@
 const database = require('./connection');
+const replaceScheduleIntervalWithCron = require('./migrations/replaceScheduleIntervalWithCron');
 
 const migrations = [
     {
@@ -64,6 +65,10 @@ const migrations = [
 
             await database.run('CREATE INDEX IF NOT EXISTS idx_schedule_audit_script_name ON schedule_audit (script_name)');
         }
+    },
+    {
+        id: '003_replace_schedule_interval_with_cron',
+        up: replaceScheduleIntervalWithCron
     }
 ];
 
@@ -78,7 +83,7 @@ async function hasMigration(id) {
 async function applyMigration(migration) {
     await database.run('BEGIN IMMEDIATE');
     try {
-        await migration.up();
+        await migration.up(database);
         await database.run(
             'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
             [migration.id, new Date().toISOString()]
