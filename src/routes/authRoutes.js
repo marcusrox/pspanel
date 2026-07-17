@@ -1,13 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateUser } = require('../services/authService');
+const DEVELOPMENT_AUTO_LOGIN_ENABLED = process.env.NODE_ENV === 'development'
+  && process.env.DEV_AUTO_LOGIN_LOCAL === 'true';
+const MANUAL_LOGIN_URL = '/login?skipAutoLogin=1';
 
 function isLoopbackRequest(req) {
   const remoteAddress = req.socket && req.socket.remoteAddress;
   return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteAddress);
 }
 
-if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL === 'true') {
+if (DEVELOPMENT_AUTO_LOGIN_ENABLED) {
   router.get('/dev-login', async (req, res) => {
     if (!isLoopbackRequest(req)) {
       return res.sendStatus(404);
@@ -16,7 +19,7 @@ if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL =
     if (!process.env.ADMIN_USER || !process.env.ADMIN_PASSWORD) {
       console.error('Login automatico local indisponivel: configuracao do admin local incompleta.');
       req.flash('error', 'Login automatico indisponivel. Use o login manual.');
-      return res.redirect('/login');
+      return res.redirect(MANUAL_LOGIN_URL);
     }
 
     try {
@@ -29,7 +32,7 @@ if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL =
       if (!result.success) {
         console.error('Falha no login automatico do administrador local.');
         req.flash('error', 'Nao foi possivel realizar o login automatico. Use o login manual.');
-        return res.redirect('/login');
+        return res.redirect(MANUAL_LOGIN_URL);
       }
 
       req.session.user = result.user;
@@ -37,7 +40,7 @@ if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL =
         if (error) {
           console.error('Erro ao salvar a sessao do login automatico local:', error.message);
           req.flash('error', 'Erro ao iniciar a sessao. Use o login manual.');
-          return res.redirect('/login');
+          return res.redirect(MANUAL_LOGIN_URL);
         }
 
         return res.redirect('/');
@@ -45,7 +48,7 @@ if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL =
     } catch (error) {
       console.error('Erro durante o login automatico local:', error.message);
       req.flash('error', 'Erro durante o login automatico. Use o login manual.');
-      return res.redirect('/login');
+      return res.redirect(MANUAL_LOGIN_URL);
     }
   });
 }
@@ -55,6 +58,15 @@ router.get('/login', (req, res) => {
   if (req.session.user) {
     return res.redirect('/');
   }
+
+  if (
+    DEVELOPMENT_AUTO_LOGIN_ENABLED
+    && isLoopbackRequest(req)
+    && req.query.skipAutoLogin !== '1'
+  ) {
+    return res.redirect('/dev-login');
+  }
+
   res.render('login', { 
     messages: res.locals.messages
   });
