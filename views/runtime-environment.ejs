@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambiente de execuÃ§Ã£o - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .runtime-summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .runtime-summary-card,
+        .runtime-panel {
+            background: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.625rem;
+        }
+
+        .runtime-summary-card {
+            min-width: 0;
+            padding: 1rem;
+        }
+
+        .runtime-summary-icon {
+            color: #60a5fa;
+            font-size: 1.15rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .runtime-summary-label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+
+        .runtime-summary-value {
+            display: block;
+            overflow-wrap: anywhere;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .runtime-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .runtime-panel {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .runtime-panel-wide {
+            grid-column: 1 / -1;
+        }
+
+        .runtime-panel-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .runtime-panel-header > i {
+            width: 1.25rem;
+            color: #60a5fa;
+            margin-top: 0.2rem;
+            text-align: center;
+        }
+
+        .runtime-panel-header h2,
+        .runtime-module-title {
+            font-size: 1rem;
+        }
+
+        .runtime-panel-header p,
+        .runtime-note,
+        .runtime-empty {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .runtime-table-wrap {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .runtime-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .runtime-table th,
+        .runtime-table td {
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.75);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .runtime-table th {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .runtime-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .runtime-table tbody tr:hover {
+            background: rgba(148, 163, 184, 0.05);
+        }
+
+        .runtime-key,
+        .runtime-value {
+            overflow-wrap: anywhere;
+        }
+
+        .runtime-key {
+            color: #cbd5e1;
+        }
+
+        .runtime-value,
+        .runtime-code {
+            font-family: Consolas, 'Courier New', monospace;
+        }
+
+        .runtime-badge {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+
+        .runtime-badge-success {
+            color: #86efac;
+            background: rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .runtime-badge-warning {
+            color: #fde047;
+            background: rgba(234, 179, 8, 0.12);
+            border-color: rgba(234, 179, 8, 0.3);
+        }
+
+        .runtime-badge-muted {
+            color: #cbd5e1;
+            background: rgba(148, 163, 184, 0.1);
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .runtime-modules-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .runtime-module-group {
+            min-width: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .runtime-module-title {
+            padding: 0.75rem 1rem;
+            background: rgba(2, 6, 23, 0.25);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .runtime-module-list {
+            max-height: 22rem;
+            overflow: auto;
+            list-style: none;
+        }
+
+        .runtime-module-list li {
+            padding: 0.55rem 1rem;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+            overflow-wrap: anywhere;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 0.82rem;
+        }
+
+        .runtime-module-list li:last-child {
+            border-bottom: 0;
+        }
+
+        .runtime-note,
+        .runtime-empty {
+            padding: 0.85rem 1rem;
+        }
+
+        @media (max-width: 1200px) {
+            .runtime-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 850px) {
+            .runtime-summary,
+            .runtime-grid,
+            .runtime-modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .runtime-panel-wide {
+                grid-column: auto;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .top-header {
+                align-items: flex-start;
+            }
+
+            .header-logo {
+                width: 2.75rem;
+            }
+
+            .runtime-table th,
+            .runtime-table td {
+                padding: 0.65rem 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'runtime-environment', user: user }) %>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Ambiente de execuÃ§Ã£o</h1>
+                <p>InformaÃ§Ãµes do processo atual para suporte e diagnÃ³stico.</p>
+            </div>
+            <div class="header-logo-container">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <% if (messages.error && messages.error.length) { %>
+            <div class="alert alert-danger"><%= messages.error[0] %></div>
+        <% } %>
+        <% if (messages.success && messages.success.length) { %>
+            <div class="alert alert-success"><%= messages.success[0] %></div>
+        <% } %>
+        <% if (messages.info && messages.info.length) { %>
+            <div class="alert alert-info"><%= messages.info[0] %></div>
+        <% } %>
+
+        <section class="runtime-summary" aria-label="Resumo do ambiente">
+            <% runtimeEnvironment.summary.forEach((card) => { %>
+                <article class="runtime-summary-card">
+                    <i class="<%= card.icon %> runtime-summary-icon" aria-hidden="true"></i>
+                    <span class="runtime-summary-label"><%= card.label %></span>
+                    <strong class="runtime-summary-value"><%= card.value %></strong>
+                </article>
+            <% }); %>
+        </section>
+
+        <div class="runtime-grid">
+            <section class="runtime-panel" aria-labelledby="runtimeApplicationTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-cube" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeApplicationTitle">AplicaÃ§Ã£o</h2>
+                        <p>IdentificaÃ§Ã£o do PS Panel e instante da coleta.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>InformaÃ§Ã£o</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.application.forEach((item) => { %>
+                                <tr><td class="runtime-key"><%= item.name %></td><td class="runtime-value"><%= item.value %></td></tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel" aria-labelledby="runtimeOsTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-desktop" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeOsTitle">Sistema operacional</h2>
+                        <p>Plataforma e recursos disponÃ­veis ao processo.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>InformaÃ§Ã£o</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.operatingSystem.forEach((item) => { %>
+                                <tr><td class="runtime-key"><%= item.name %></td><td class="runtime-value"><%= item.value %></td></tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel" aria-labelledby="runtimeProcessTitle">
+                <header class="runtime-panel-header">
+                    <i class="fa-brands fa-node-js" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeProcessTitle">Node.js e processo</h2>
+                        <p>Estado resumido do processo WEB que atendeu a requisiÃ§Ã£o.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>InformaÃ§Ã£o</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.process.details.forEach((item) => { %>
+                                <tr><td class="runtime-key"><%= item.name %></td><td class="runtime-value"><%= item.value %></td></tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel" aria-labelledby="runtimeVersionsTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-code-branch" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeVersionsTitle">VersÃµes do runtime</h2>
+                        <p>Componentes selecionados de <span class="runtime-code">process.versions</span>.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>Componente</th><th>VersÃ£o</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.process.versions.forEach((item) => { %>
+                                <tr><td class="runtime-key"><%= item.name %></td><td class="runtime-value"><%= item.value %></td></tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel runtime-panel-wide" aria-labelledby="runtimeDependenciesTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-boxes-stacked" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeDependenciesTitle">DependÃªncias diretas</h2>
+                        <p>Pacotes declarados pelo projeto e versÃµes resolvidas localmente, sem dependÃªncias transitivas.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>Pacote</th><th>Tipo</th><th>Declarada</th><th>Resolvida</th><th>Estado</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.dependencies.forEach((item) => { %>
+                                <tr>
+                                    <td class="runtime-code"><%= item.name %></td>
+                                    <td><%= item.type %></td>
+                                    <td class="runtime-code"><%= item.declaredVersion %></td>
+                                    <td class="runtime-code"><%= item.resolvedVersion %></td>
+                                    <td><span class="runtime-badge <%= item.status === 'Resolvido' ? 'runtime-badge-success' : 'runtime-badge-warning' %>"><%= item.status %></span></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel runtime-panel-wide" aria-labelledby="runtimeModulesTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-diagram-project" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeModulesTitle">MÃ³dulos carregados</h2>
+                        <p>Retrato do cache CommonJS deste processo no instante da coleta.</p>
+                    </div>
+                </header>
+                <p class="runtime-note">Esta lista mostra somente mÃ³dulos carregados pelo processo atual; ela nÃ£o representa todos os pacotes instalados.</p>
+                <div class="runtime-modules-grid">
+                    <section class="runtime-module-group" aria-labelledby="runtimeInternalModulesTitle">
+                        <h3 class="runtime-module-title" id="runtimeInternalModulesTitle">Internos (<%= runtimeEnvironment.loadedModules.internal.length %>)</h3>
+                        <% if (runtimeEnvironment.loadedModules.internal.length) { %>
+                            <ul class="runtime-module-list">
+                                <% runtimeEnvironment.loadedModules.internal.forEach((name) => { %><li><%= name %></li><% }); %>
+                            </ul>
+                        <% } else { %><p class="runtime-empty">Nenhum mÃ³dulo interno identificado.</p><% } %>
+                    </section>
+                    <section class="runtime-module-group" aria-labelledby="runtimeExternalModulesTitle">
+                        <h3 class="runtime-module-title" id="runtimeExternalModulesTitle">Pacotes externos (<%= runtimeEnvironment.loadedModules.external.length %>)</h3>
+                        <% if (runtimeEnvironment.loadedModules.external.length) { %>
+                            <ul class="runtime-module-list">
+                                <% runtimeEnvironment.loadedModules.external.forEach((name) => { %><li><%= name %></li><% }); %>
+                            </ul>
+                        <% } else { %><p class="runtime-empty">Nenhum pacote externo identificado.</p><% } %>
+                    </section>
+                </div>
+            </section>
+
+            <section class="runtime-panel runtime-panel-wide" aria-labelledby="runtimeEnvironmentTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeEnvironmentTitle">VariÃ¡veis de ambiente</h2>
+                        <p>Somente chaves conhecidas pelo PS Panel. Valores sensÃ­veis sÃ£o omitidos no servidor.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>VariÃ¡vel</th><th>Estado</th><th>Valor pÃºblico</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.environmentVariables.forEach((item) => { %>
+                                <tr>
+                                    <td class="runtime-code"><%= item.name %></td>
+                                    <td>
+                                        <span class="runtime-badge <%= item.status === 'Configurada' ? 'runtime-badge-success' : item.status === 'Mascarado' ? 'runtime-badge-warning' : 'runtime-badge-muted' %>"><%= item.status %></span>
+                                    </td>
+                                    <td class="runtime-value"><%= item.value || 'â€”' %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="runtime-panel runtime-panel-wide" aria-labelledby="runtimeSettingsTitle">
+                <header class="runtime-panel-header">
+                    <i class="fas fa-sliders" aria-hidden="true"></i>
+                    <div>
+                        <h2 id="runtimeSettingsTitle">ConfiguraÃ§Ãµes Ãºteis</h2>
+                        <p>Somente valores previamente classificados como seguros para diagnÃ³stico.</p>
+                    </div>
+                </header>
+                <div class="runtime-table-wrap">
+                    <table class="runtime-table">
+                        <thead><tr><th>ConfiguraÃ§Ã£o</th><th>Valor ou estado</th></tr></thead>
+                        <tbody>
+                            <% runtimeEnvironment.settings.forEach((item) => { %>
+                                <tr><td class="runtime-key"><%= item.name %></td><td class="runtime-value"><%= item.value %></td></tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <%- include('partials/app-footer') %>
+    </main>
+</body>
+</html>
