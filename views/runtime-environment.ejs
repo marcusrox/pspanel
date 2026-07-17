@@ -262,6 +262,8 @@
             </div>
         </header>
 
+        <%- include('partials/environment-navigation', { activeEnvironment: 'runtime' }) %>
+
         <% if (messages.error && messages.error.length) { %>
             <div class="alert alert-danger"><%= messages.error[0] %></div>
         <% } %>

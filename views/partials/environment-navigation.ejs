@@ -1,0 +1,11 @@
+<% const currentEnvironment = typeof activeEnvironment !== 'undefined' ? activeEnvironment : ''; %>
+<nav class="environment-navigation" aria-label="Navegacao dos ambientes">
+    <a href="/runtime-environment" class="environment-navigation-link <%= currentEnvironment === 'runtime' ? 'active' : '' %>" <% if (currentEnvironment === 'runtime') { %>aria-current="page"<% } %>>
+        <i class="fas fa-server" aria-hidden="true"></i>
+        <span>Ambiente de execução</span>
+    </a>
+    <a href="/data-environment" class="environment-navigation-link <%= currentEnvironment === 'data' ? 'active' : '' %>" <% if (currentEnvironment === 'data') { %>aria-current="page"<% } %>>
+        <i class="fas fa-database" aria-hidden="true"></i>
+        <span>Ambiente de dados</span>
+    </a>
+</nav>

@@ -17,6 +17,7 @@ const historyRoutes = require('./src/routes/historyRoutes');
 const scheduleRoutes = require('./src/routes/scheduleRoutes');
 const logRoutes = require('./src/routes/logRoutes');
 const runtimeEnvironmentRoutes = require('./src/routes/runtimeEnvironmentRoutes');
+const dataEnvironmentRoutes = require('./src/routes/dataEnvironmentRoutes');
 const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
 const release = require('./src/config/release');
@@ -97,7 +98,7 @@ app.use(async (req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs', '/runtime-environment'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs', '/runtime-environment', '/data-environment'], isAuthenticated);
 
 // Rotas principais
 app.use('/', mainRoutes);
@@ -106,6 +107,7 @@ app.use('/settings', settingsRoutes);
 app.use('/schedules', scheduleRoutes);
 app.use('/logs', logRoutes);
 app.use('/runtime-environment', runtimeEnvironmentRoutes);
+app.use('/data-environment', dataEnvironmentRoutes);
 
 async function start() {
   try {

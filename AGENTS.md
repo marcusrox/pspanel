@@ -118,7 +118,7 @@ Observacao: `npm test` ainda nao possui testes reais e retorna erro por configur
 - Se a validacao visual exigir login, use credenciais locais apenas quando ja fornecidas/autorizadas pelo usuario; nunca imprima ou documente valores do `.env`.
 - Se uma validacao nao puder ser executada, informe claramente o motivo.
 
-## Validação com servidor local
+## Validação autenticada local pelo agente
 
 - A porta `3000` e exclusiva do usuário/desenvolvedor e pode estar ocupada por
   `npm run dev`.
@@ -133,6 +133,16 @@ Observacao: `npm test` ainda nao possui testes reais e retorna erro por configur
   agente.
 - Nunca encerrar processos descobertos por porta quando eles não foram iniciados
   pelo agente.
+
+Para validar páginas autenticadas, o agente está autorizado a iniciar um
+servidor temporário com:
+
+- `PORT=3100` ou próxima porta livre;
+- `NODE_ENV=development`;
+- `DEV_AUTO_LOGIN_LOCAL=true`.
+
+A aplicação pode carregar `ADMIN_USER` e `ADMIN_PASSWORD` do `.env`
+internamente para executar `/dev-login`.
 
 ## Git e preservação do trabalho local
 

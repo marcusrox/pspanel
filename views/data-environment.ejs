@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambiente de dados - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .data-summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .data-summary-card,
+        .data-panel,
+        .data-detail,
+        .data-aggregate {
+            border: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.55);
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.12);
+        }
+
+        .data-summary-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 0.75rem;
+            align-items: center;
+            min-width: 0;
+            padding: 1rem;
+            border-radius: 0.85rem;
+        }
+
+        .data-summary-icon {
+            display: grid;
+            place-items: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.7rem;
+            color: #93c5fd;
+            background: rgba(37, 99, 235, 0.18);
+        }
+
+        .data-summary-copy {
+            min-width: 0;
+        }
+
+        .data-summary-label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .data-summary-value {
+            display: block;
+            margin-top: 0.2rem;
+            overflow: hidden;
+            color: var(--text-primary);
+            font-size: 1.05rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.25rem;
+        }
+
+        .data-panel {
+            min-width: 0;
+            overflow: hidden;
+            border-radius: 0.9rem;
+        }
+
+        .data-panel-wide {
+            grid-column: 1 / -1;
+        }
+
+        .data-panel-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-panel-header > i {
+            width: 1.25rem;
+            margin-top: 0.2rem;
+            color: #60a5fa;
+            text-align: center;
+        }
+
+        .data-panel-header h2 {
+            font-size: 1rem;
+        }
+
+        .data-panel-header p,
+        .data-note,
+        .data-empty {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .data-table-wrap {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.72rem 0.85rem;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .data-table th {
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .data-code {
+            color: #bfdbfe;
+            font-family: Consolas, "Courier New", monospace;
+            overflow-wrap: anywhere;
+        }
+
+        .data-value {
+            overflow-wrap: anywhere;
+        }
+
+        .data-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 999px;
+            color: #cbd5e1;
+            background: rgba(148, 163, 184, 0.12);
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .data-badge-success {
+            color: #bbf7d0;
+            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(34, 197, 94, 0.14);
+        }
+
+        .data-badge-warning {
+            color: #fde68a;
+            border-color: rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.14);
+        }
+
+        .data-details-list,
+        .data-aggregate-grid {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+        }
+
+        .data-detail {
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+
+        .data-detail summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.85rem 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .data-detail summary:hover,
+        .data-detail summary:focus-visible {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .data-detail-meta {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            font-weight: 400;
+        }
+
+        .data-subsection-title {
+            padding: 0.8rem 0.85rem 0.25rem;
+            color: var(--text-primary);
+            font-size: 0.88rem;
+        }
+
+        .data-aggregate-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .data-aggregate {
+            min-width: 0;
+            padding: 0.9rem;
+            border-radius: 0.75rem;
+        }
+
+        .data-aggregate h3 {
+            margin-bottom: 0.65rem;
+            font-size: 0.9rem;
+        }
+
+        .data-metric-list,
+        .data-alert-list,
+        .data-note-list {
+            display: grid;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .data-metric-list li {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .data-metric-list strong {
+            color: var(--text-primary);
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+
+        .data-panel-body {
+            padding: 1rem;
+        }
+
+        .data-health-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .data-health-item {
+            padding: 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.7rem;
+            background: rgba(15, 23, 42, 0.45);
+        }
+
+        .data-health-item span {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+
+        .data-alert-list li,
+        .data-note-list li {
+            padding: 0.7rem 0.8rem;
+            border-left: 3px solid #f59e0b;
+            border-radius: 0.35rem;
+            color: var(--text-secondary);
+            background: rgba(245, 158, 11, 0.08);
+            font-size: 0.82rem;
+        }
+
+        .data-note-list li {
+            border-left-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .data-note {
+            padding: 0.85rem 1rem;
+        }
+
+        @media (max-width: 1180px) {
+            .data-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .data-aggregate-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 820px) {
+            .data-summary,
+            .data-grid,
+            .data-aggregate-grid,
+            .data-health-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .data-panel-wide {
+                grid-column: auto;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .top-header {
+                align-items: flex-start;
+            }
+
+            .header-logo {
+                width: 2.75rem;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.65rem 0.7rem;
+            }
+
+            .data-detail summary {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <% const formatDate = (value) => { if (!value) return '—'; const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? value.replace(' ', 'T') + 'Z' : value; const date = new Date(normalized); return Number.isNaN(date.getTime()) ? 'Indisponível' : date.toLocaleString('pt-BR'); }; %>
+    <%- include('partials/sidebar', { activeMenu: 'runtime-environment', user: user }) %>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Ambiente de dados</h1>
+                <p>Metadados, estrutura e volumetria da persistência local, sem exposição de registros.</p>
+            </div>
+            <div class="header-logo-container">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <%- include('partials/environment-navigation', { activeEnvironment: 'data' }) %>
+
+        <% if (messages.error && messages.error.length) { %>
+            <div class="alert alert-danger"><%= messages.error[0] %></div>
+        <% } %>
+        <% if (messages.success && messages.success.length) { %>
+            <div class="alert alert-success"><%= messages.success[0] %></div>
+        <% } %>
+        <% if (messages.info && messages.info.length) { %>
+            <div class="alert alert-info"><%= messages.info[0] %></div>
+        <% } %>
+
+        <section class="data-summary" aria-label="Resumo do ambiente de dados">
+            <% dataEnvironment.summary.forEach((card) => { %>
+                <article class="data-summary-card">
+                    <span class="data-summary-icon" aria-hidden="true"><i class="<%= card.icon %>"></i></span>
+                    <div class="data-summary-copy">
+                        <span class="data-summary-label"><%= card.label %></span>
+                        <strong class="data-summary-value" title="<%= card.value %>"><%= card.value %></strong>
+                    </div>
+                </article>
+            <% }); %>
+        </section>
+
+        <div class="data-grid">
+            <section class="data-panel" aria-labelledby="dataTechnologyTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-microchip" aria-hidden="true"></i>
+                    <div><h2 id="dataTechnologyTitle">Tecnologias e componentes</h2><p>Componentes conhecidos da camada de persistência.</p></div>
+                </header>
+                <div class="data-table-wrap">
+                    <table class="data-table"><thead><tr><th>Informação</th><th>Valor</th></tr></thead><tbody>
+                        <% dataEnvironment.technologies.forEach((item) => { %>
+                            <tr><td><%= item.name %></td><td class="data-value <%= item.name.includes('Conexao') || item.name.includes('Schema') ? 'data-code' : '' %>"><%= item.name === 'Coletado em' ? formatDate(item.value) : item.value %></td></tr>
+                        <% }); %>
+                    </tbody></table>
+                </div>
+            </section>
+
+            <section class="data-panel" aria-labelledby="dataSqliteTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-sliders" aria-hidden="true"></i>
+                    <div><h2 id="dataSqliteTitle">Configuração SQLite</h2><p>PRAGMAs consultados sem alteração de estado.</p></div>
+                </header>
+                <div class="data-table-wrap">
+                    <table class="data-table"><thead><tr><th>Configuração</th><th>Valor</th></tr></thead><tbody>
+                        <% dataEnvironment.sqlite.items.forEach((item) => { %>
+                            <tr><td><%= item.name %></td><td class="data-value"><%= item.value %></td></tr>
+                        <% }); %>
+                    </tbody></table>
+                </div>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataFilesTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-folder-tree" aria-hidden="true"></i>
+                    <div><h2 id="dataFilesTitle">Arquivos e armazenamento físico</h2><p>Somente nomes relativos e metadados; nenhum conteúdo é aberto.</p></div>
+                </header>
+                <div class="data-table-wrap">
+                    <table class="data-table"><thead><tr><th>Artefato</th><th>Categoria</th><th>Estado</th><th>Tamanho</th><th>Última alteração</th><th>Observação</th></tr></thead><tbody>
+                        <% dataEnvironment.physical.files.forEach((file) => { %>
+                            <tr>
+                                <td class="data-code"><%= file.name %></td><td><%= file.category %></td>
+                                <td><span class="data-badge <%= file.status === 'Presente' ? 'data-badge-success' : file.status === 'Indisponivel' ? 'data-badge-warning' : '' %>"><%= file.status %></span></td>
+                                <td><%= file.size %></td><td><%= formatDate(file.modifiedAt) %></td><td class="data-value"><%= file.note || '—' %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody></table>
+                </div>
+                <p class="data-note">Tamanho físico contabilizado: <strong><%= dataEnvironment.physical.accountedSize %></strong>.</p>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataTablesTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-table" aria-hidden="true"></i>
+                    <div><h2 id="dataTablesTitle">Tabelas e volumetria</h2><p>Contagens agregadas das tabelas de usuário; objetos internos do SQLite são excluídos.</p></div>
+                </header>
+                <div class="data-table-wrap">
+                    <table class="data-table"><thead><tr><th>Tabela</th><th>Registros</th><th>Colunas</th><th>Índices</th><th>Vazia</th><th>Tamanho aproximado</th><th>Participação</th></tr></thead><tbody>
+                        <% dataEnvironment.tables.forEach((table) => { %>
+                            <tr><td class="data-code"><%= table.name %></td><td><%= table.rowCountLabel %></td><td><%= table.columnCount %></td><td><%= table.indexCount %></td><td><%= table.empty %></td><td><%= table.size %></td><td><%= table.share %></td></tr>
+                        <% }); %>
+                    </tbody></table>
+                </div>
+                <p class="data-note">As contagens podem refletir instantes ligeiramente diferentes enquanto a aplicação continua em uso.</p>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataStructureTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-sitemap" aria-hidden="true"></i>
+                    <div><h2 id="dataStructureTitle">Estrutura das tabelas</h2><p>Colunas, tipos, nulabilidade, chaves e intervalos temporais permitidos.</p></div>
+                </header>
+                <div class="data-details-list">
+                    <% dataEnvironment.tables.forEach((table) => { %>
+                        <details class="data-detail">
+                            <summary><span class="data-code"><%= table.name %></span><span class="data-detail-meta"><%= table.columnCount %> coluna(s) · <%= table.rowCountLabel %> registro(s)</span></summary>
+                            <div class="data-table-wrap">
+                                <table class="data-table"><thead><tr><th>Coluna</th><th>Tipo</th><th>Aceita nulo</th><th>Chave primária</th><th>Default</th><th>Gerada/oculta</th></tr></thead><tbody>
+                                    <% table.columns.forEach((column) => { %>
+                                        <tr><td class="data-code"><%= column.name %></td><td class="data-code"><%= column.type %></td><td><%= column.nullable %></td><td><%= column.primaryKey %></td><td><%= column.defaultValue %></td><td><%= column.generated %></td></tr>
+                                    <% }); %>
+                                </tbody></table>
+                            </div>
+                            <% if (table.freshness.length) { %>
+                                <h3 class="data-subsection-title">Intervalos temporais agregados</h3>
+                                <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Coluna</th><th>Mais antigo</th><th>Mais recente</th></tr></thead><tbody>
+                                    <% table.freshness.forEach((item) => { %><tr><td class="data-code"><%= item.column %></td><td><%= item.unavailable ? 'Indisponível' : formatDate(item.oldest) %></td><td><%= item.unavailable ? 'Indisponível' : formatDate(item.newest) %></td></tr><% }); %>
+                                </tbody></table></div>
+                            <% } %>
+                        </details>
+                    <% }); %>
+                </div>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataIndexesTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-list-ol" aria-hidden="true"></i>
+                    <div><h2 id="dataIndexesTitle">Índices</h2><p>Estrutura dos índices sem exposição do SQL de criação.</p></div>
+                </header>
+                <% if (dataEnvironment.indexes.length) { %>
+                    <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Índice</th><th>Tabela</th><th>Colunas</th><th>Único</th><th>Origem</th><th>Parcial</th></tr></thead><tbody>
+                        <% dataEnvironment.indexes.forEach((index) => { %><tr><td class="data-code"><%= index.name %></td><td class="data-code"><%= index.table %></td><td class="data-code"><%= index.columns.join(', ') || 'Indisponível' %></td><td><%= index.unique %></td><td><%= index.origin %></td><td><%= index.partial %></td></tr><% }); %>
+                    </tbody></table></div>
+                <% } else { %><p class="data-note">Nenhum índice foi identificado.</p><% } %>
+            </section>
+
+            <section class="data-panel" aria-labelledby="dataRelationshipsTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-diagram-project" aria-hidden="true"></i>
+                    <div><h2 id="dataRelationshipsTitle">Relacionamentos</h2><p>Restrições declaradas e relações apenas lógicas são diferenciadas.</p></div>
+                </header>
+                <div class="data-panel-body">
+                    <h3 class="data-subsection-title">Foreign keys declaradas</h3>
+                    <% if (dataEnvironment.relationships.foreignKeys.length) { %>
+                        <ul class="data-note-list"><% dataEnvironment.relationships.foreignKeys.forEach((relation) => { %><li><span class="data-code"><%= relation.from %></span> → <span class="data-code"><%= relation.to %></span> · UPDATE <%= relation.onUpdate %> · DELETE <%= relation.onDelete %></li><% }); %></ul>
+                    <% } else { %><p class="data-empty">Nenhuma foreign key declarada no schema atual.</p><% } %>
+                    <h3 class="data-subsection-title">Relações lógicas conhecidas</h3>
+                    <% if (dataEnvironment.relationships.logical.length) { %>
+                        <ul class="data-note-list"><% dataEnvironment.relationships.logical.forEach((relation) => { %><li><span class="data-code"><%= relation.from %></span> → <span class="data-code"><%= relation.to %></span><br><%= relation.type %></li><% }); %></ul>
+                    <% } else { %><p class="data-empty">Nenhuma relação lógica adicional foi mapeada.</p><% } %>
+                </div>
+            </section>
+
+            <section class="data-panel" aria-labelledby="dataMigrationsTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-code-branch" aria-hidden="true"></i>
+                    <div><h2 id="dataMigrationsTitle">Migrações de schema</h2><p>Registro somente leitura das migrações aplicadas.</p></div>
+                </header>
+                <% if (dataEnvironment.migrations.length) { %>
+                    <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Migração</th><th>Aplicada em</th><th>Estado</th></tr></thead><tbody>
+                        <% dataEnvironment.migrations.forEach((migration) => { %><tr><td class="data-code"><%= migration.id %></td><td><%= formatDate(migration.appliedAt) %></td><td><span class="data-badge data-badge-success"><%= migration.status %></span></td></tr><% }); %>
+                    </tbody></table></div>
+                <% } else { %><p class="data-note">Nenhuma migração aplicada foi identificada.</p><% } %>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataAggregatesTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-chart-column" aria-hidden="true"></i>
+                    <div><h2 id="dataAggregatesTitle">Indicadores agregados</h2><p>Somente contagens e intervalos seguros; nenhum registro individual é exibido.</p></div>
+                </header>
+                <div class="data-aggregate-grid">
+                    <% dataEnvironment.aggregates.forEach((group) => { %>
+                        <article class="data-aggregate"><h3><%= group.name %></h3>
+                            <% if (group.unavailable) { %><p class="data-empty">Indisponível</p><% } else { %>
+                                <ul class="data-metric-list"><% group.items.forEach((item) => { %><li><span><%= item.label %></span><strong><%= /antiga|recente|aplicacao/i.test(item.label) ? formatDate(item.value) : item.value %></strong></li><% }); %></ul>
+                            <% } %>
+                        </article>
+                    <% }); %>
+                </div>
+            </section>
+
+            <section class="data-panel data-panel-wide" aria-labelledby="dataHealthTitle">
+                <header class="data-panel-header">
+                    <i class="fas fa-heart-pulse" aria-hidden="true"></i>
+                    <div><h2 id="dataHealthTitle">Saúde e observações</h2><p>Verificações leves e somente leitura, sem manutenção automática.</p></div>
+                </header>
+                <div class="data-panel-body">
+                    <div class="data-health-grid">
+                        <div class="data-health-item"><span>Quick check</span><strong class="data-badge <%= dataEnvironment.health.quickCheck === 'Integro' ? 'data-badge-success' : 'data-badge-warning' %>"><%= dataEnvironment.health.quickCheck %></strong></div>
+                        <div class="data-health-item"><span>Violações de foreign key</span><strong><%= dataEnvironment.health.foreignKeyViolations %></strong></div>
+                    </div>
+                    <% if (dataEnvironment.health.alerts.length) { %><ul class="data-alert-list"><% dataEnvironment.health.alerts.forEach((alert) => { %><li><%= alert %></li><% }); %></ul><% } else { %><p class="data-empty">Nenhum alerta técnico foi identificado nesta coleta.</p><% } %>
+                    <h3 class="data-subsection-title">Notas da coleta</h3>
+                    <ul class="data-note-list"><% dataEnvironment.notes.forEach((note) => { %><li><%= note %></li><% }); %></ul>
+                </div>
+            </section>
+        </div>
+
+        <%- include('partials/app-footer') %>
+    </main>
+</body>
+</html>
