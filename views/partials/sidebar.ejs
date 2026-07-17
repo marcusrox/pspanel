@@ -30,23 +30,34 @@
         </a>
     </nav>
     <div class="sidebar-footer">
-        <div class="user-info">
-            <% if (user.displayName) { %>
-                <span class="user-info1"><i class="fas fa-user"></i> <%= user.displayName %></span>
+        <div class="sidebar-user-card">
+            <span class="sidebar-user-avatar" aria-hidden="true">
+                <i class="fas fa-user"></i>
+            </span>
+            <div class="sidebar-user-details">
+                <span class="sidebar-user-status"><span class="sidebar-status-dot"></span>Sessão ativa</span>
+                <strong class="sidebar-user-name"><%= user.displayName || user.username %></strong>
                 <% if (user.email) { %>
-                    <span class="user-info2"><%= user.email %></span>
+                    <span class="sidebar-user-email"><%= user.email %></span>
                 <% } %>
-            <% } else { %>
-                <span class="user-info1"><i class="fas fa-user"></i> <%= user.username %></span>
-            <% } %>
+            </div>
         </div>
-        <a href="/runtime-environment" class="sidebar-footer-link <%= currentMenu === 'runtime-environment' ? 'active' : '' %>" title="Ambiente de execuÃ§Ã£o" aria-label="Ambiente de execuÃ§Ã£o">
-            <i class="fas fa-server" aria-hidden="true"></i>
-            <span>Ambiente</span>
-        </a>
-        <a href="/logout" class="logout-btn" title="Sair" aria-label="Sair">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Sair</span>
-        </a>
+
+        <div class="sidebar-footer-actions">
+            <a href="/runtime-environment" class="sidebar-footer-action sidebar-footer-environment <%= currentMenu === 'runtime-environment' ? 'active' : '' %>" title="Ambiente de execução" aria-label="Ambiente de execução">
+                <span class="sidebar-action-icon" aria-hidden="true"><i class="fas fa-server"></i></span>
+                <span class="sidebar-action-copy">
+                    <strong>Ambiente</strong>
+                    <small>Diagnóstico técnico</small>
+                </span>
+            </a>
+            <a href="/logout" class="sidebar-footer-action sidebar-footer-logout" title="Sair" aria-label="Sair">
+                <span class="sidebar-action-icon" aria-hidden="true"><i class="fas fa-arrow-right-from-bracket"></i></span>
+                <span class="sidebar-action-copy">
+                    <strong>Sair</strong>
+                    <small>Encerrar sessão</small>
+                </span>
+            </a>
+        </div>
     </div>
 </div>

@@ -503,3 +503,57 @@ Usar `PORT=3100` ou a proxima porta livre a partir de `3101`, conforme
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: atualizacao
+
+## Implementacao
+
+- Foi criado `src/services/runtimeEnvironmentService.js` para coletar e
+  sanitizar dados da aplicacao, sistema operacional, processo, dependencias
+  diretas, cache CommonJS, variaveis permitidas e configuracoes seguras.
+- Foram criados o controller, o router e a view EJS da rota autenticada
+  `GET /runtime-environment`.
+- O item **Ambiente** foi adicionado ao rodape da sidebar, imediatamente acima
+  de **Sair**, com estado ativo e comportamento responsivo.
+- A pagina utiliza cards de resumo, paineis, tabelas, badges textuais e nomes de
+  modulos sanitizados, sem expor caminhos absolutos.
+- Variaveis desconhecidas nao sao enumeradas; valores sensiveis e informacoes
+  LDAP sao omitidos no service antes da renderizacao.
+- O release foi atualizado para `Release 17/07/2026 13:24 - 026`.
+- As verificacoes `node --check` dos JavaScript alterados, compilacao EJS,
+  teste isolado de sanitizacao e `git diff --check` foram executadas.
+- Na validacao HTTP pela porta 3100, a rota sem sessao respondeu `302`, a rota
+  autenticada respondeu `200` com `Cache-Control: no-store`, e `/`, `/history`,
+  `/logs` e `/settings` continuaram respondendo `200`.
+- O HTML validado possui exatamente um `h1`, item ativo correto e ausencia dos
+  segredos ficticios e do caminho absoluto do workspace.
+- A pagina foi validada visualmente em desktop e em viewport mobile de 390 por
+  844, sem overflow horizontal e com **Ambiente** acima de **Sair**.
+- A instancia temporaria foi encerrada pelo PID confirmado e seus arquivos de
+  saida temporarios foram removidos.
+
+---
+
+## Assinatura da LLM
+
+- Data: 17/07/2026 13:30:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
+
+## Ajuste visual do rodape da sidebar
+
+- As informacoes do usuario foram reorganizadas em um cartao de sessao com
+  avatar, indicador de status e hierarquia visual propria.
+- As acoes **Ambiente** e **Sair** passaram a usar blocos compactos com icones,
+  subtitulos e cores discretas distintas do menu principal.
+- O modo responsivo preserva somente os icones das acoes e oculta o cartao de
+  sessao, mantendo **Sair** como o ultimo item.
+- O release foi atualizado para `Release 17/07/2026 13:40 - 027`.
+
+---
+
+## Assinatura da LLM
+
+- Data: 17/07/2026 13:40:52
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao

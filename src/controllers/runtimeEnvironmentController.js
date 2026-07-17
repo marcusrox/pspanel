@@ -12,7 +12,7 @@ class RuntimeEnvironmentController {
                 messages: res.locals.messages
             });
         } catch (error) {
-            console.error('Erro ao carregar o ambiente de execucao:', error.message || error);
+            console.error('Erro ao carregar o ambiente de execucao.');
             req.flash('error', 'Nao foi possivel carregar o ambiente de execucao.');
             res.redirect('/');
         }
