@@ -1,3 +1,3 @@
 module.exports = {
-    label: 'Release 16/07/2026 11:59 - 024'
+    label: 'Release 17/07/2026 09:50 - 025'
 };

@@ -118,6 +118,22 @@ Observacao: `npm test` ainda nao possui testes reais e retorna erro por configur
 - Se a validacao visual exigir login, use credenciais locais apenas quando ja fornecidas/autorizadas pelo usuario; nunca imprima ou documente valores do `.env`.
 - Se uma validacao nao puder ser executada, informe claramente o motivo.
 
+## Validação com servidor local
+
+- A porta `3000` e exclusiva do usuário/desenvolvedor e pode estar ocupada por
+  `npm run dev`.
+- O agente nunca deve iniciar, testar, reutilizar ou encerrar processos na porta
+  `3000`.
+- Para validações HTTP próprias, o agente deve usar a porta `3100` como padrão.
+- Sempre iniciar o servidor de validação com a variavel `PORT` definida
+  explicitamente.
+- Se `3100` estiver ocupada, usar a próxima porta livre a partir de `3101`.
+- Ao iniciar servidor para validação, capturar o PID do processo iniciado.
+- Ao finalizar a validação, encerrar somente o processo iniciado pelo próprio
+  agente.
+- Nunca encerrar processos descobertos por porta quando eles não foram iniciados
+  pelo agente.
+
 ## Git e preservação do trabalho local
 
 - Verifique `git status --short` antes de mudancas maiores.

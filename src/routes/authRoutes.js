@@ -2,6 +2,54 @@ const express = require('express');
 const router = express.Router();
 const { authenticateUser } = require('../services/authService');
 
+function isLoopbackRequest(req) {
+  const remoteAddress = req.socket && req.socket.remoteAddress;
+  return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteAddress);
+}
+
+if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTO_LOGIN_LOCAL === 'true') {
+  router.get('/dev-login', async (req, res) => {
+    if (!isLoopbackRequest(req)) {
+      return res.sendStatus(404);
+    }
+
+    if (!process.env.ADMIN_USER || !process.env.ADMIN_PASSWORD) {
+      console.error('Login automatico local indisponivel: configuracao do admin local incompleta.');
+      req.flash('error', 'Login automatico indisponivel. Use o login manual.');
+      return res.redirect('/login');
+    }
+
+    try {
+      const result = await authenticateUser(
+        process.env.ADMIN_USER,
+        process.env.ADMIN_PASSWORD,
+        'local'
+      );
+
+      if (!result.success) {
+        console.error('Falha no login automatico do administrador local.');
+        req.flash('error', 'Nao foi possivel realizar o login automatico. Use o login manual.');
+        return res.redirect('/login');
+      }
+
+      req.session.user = result.user;
+      req.session.save((error) => {
+        if (error) {
+          console.error('Erro ao salvar a sessao do login automatico local:', error.message);
+          req.flash('error', 'Erro ao iniciar a sessao. Use o login manual.');
+          return res.redirect('/login');
+        }
+
+        return res.redirect('/');
+      });
+    } catch (error) {
+      console.error('Erro durante o login automatico local:', error.message);
+      req.flash('error', 'Erro durante o login automatico. Use o login manual.');
+      return res.redirect('/login');
+    }
+  });
+}
+
 // Rota de login
 router.get('/login', (req, res) => {
   if (req.session.user) {
@@ -59,4 +107,4 @@ router.get('/logout', (req, res) => {
   });
 });
 
-module.exports = router; 
+module.exports = router;

@@ -14,7 +14,6 @@ async function authenticateLocal(username, password) {
   console.log('Admin User configurado:', process.env.ADMIN_USER ? 'sim' : 'não');
   console.log('Admin Password configurado:', process.env.ADMIN_PASSWORD ? 'sim' : 'não');
 
-  console.log('Usuário tentando autenticar:', username);
   console.log('Senha fornecida:', password ? '[REDACTED]' : '[vazia]');
 
   if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
