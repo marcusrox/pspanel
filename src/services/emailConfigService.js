@@ -8,8 +8,16 @@ function normalize(value) {
     return value == null ? '' : String(value).trim();
 }
 
-function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalize(value));
+function isValidEmailAddress(value) {
+    return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(normalize(value));
+}
+
+function isValidMailbox(value) {
+    const mailbox = normalize(value);
+    if (isValidEmailAddress(mailbox)) return true;
+
+    const match = mailbox.match(/^(?:"(?:[^"\\\r\n]|\\.)+"|[^<>"\r\n]+)\s*<([^<>\r\n]+)>$/);
+    return Boolean(match && isValidEmailAddress(match[1]));
 }
 
 function getSecurityForPort(port) {
@@ -47,7 +55,7 @@ function validateEmailConfig(config) {
     if (smtp.security !== getSecurityForPort(smtp.port)) errors.push('modo de segurança SMTP');
     if (!normalize(smtp.username)) errors.push('usuário SMTP');
     if (!String(smtp.password || '')) errors.push('senha SMTP');
-    if (!isValidEmail(smtp.fromAddress)) errors.push('email remetente');
+    if (!isValidMailbox(smtp.fromAddress)) errors.push('email remetente');
     if ([smtp.host, smtp.username, smtp.password, smtp.fromAddress].some((value) => /[\r\n]/.test(String(value || '')))) {
         errors.push('quebra de linha não permitida');
     }

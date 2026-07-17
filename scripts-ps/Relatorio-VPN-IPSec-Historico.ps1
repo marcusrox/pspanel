@@ -28,6 +28,9 @@
 .PARAMETER ValidacaoCertificado
     O valor padrao e Ignorar, destinado ao certificado interno previamente verificado.
 
+.PARAMETER MailTo
+    Destinatario do relatorio por e-mail. O valor padrao e analistasusi@desenbahia.ba.gov.br.
+
 .EXAMPLE
     .\Relatorio-VPN-IPSec-Historico.ps1 -FortiApiToken "token-ficticio"
 
@@ -61,15 +64,16 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('Validar', 'Ignorar')]
-    [string]$ValidacaoCertificado = 'Ignorar'
+    [string]$ValidacaoCertificado = 'Ignorar',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$MailTo = 'analistasusi@desenbahia.ba.gov.br'
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
-
-# ---------- CONFIGURACOES ----------
-$MailTo = 'analistasusi@desenbahia.ba.gov.br'
 
 $ApiPageSize = 200
 $ApiMaxPages = 100
@@ -414,6 +418,8 @@ function Get-HistorySummaryRows {
 function New-HistoryReportHtml {
     param([object[]]$Rows, [datetime]$ReportDate)
 
+    $routineName = [System.IO.Path]::GetFileName($PSCommandPath)
+    $sentAtText = (Get-Date).ToString('dd/MM/yyyy HH:mm:ss')
     $builder = [System.Text.StringBuilder]::new()
     [void]$builder.Append('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#222;">')
     [void]$builder.Append('<h1 style="color:#1a365d;font-size:22px;">Histórico diário de usuários VPN IPsec</h1>')
@@ -456,6 +462,7 @@ function New-HistoryReportHtml {
         [void]$builder.Append('</tbody></table>')
     }
 
+    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong></div>")
     [void]$builder.Append('</body></html>')
     return $builder.ToString()
 }

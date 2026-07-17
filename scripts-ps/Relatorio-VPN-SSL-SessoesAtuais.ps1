@@ -6,7 +6,7 @@
     Conecta por SSH (Posh-SSH), executa "get vpn ssl monitor", interpreta a tabela "SSL-VPN sessions"
     (duração em segundos) e, se houver usuários acima do limite configurado, monta um e-mail HTML e envia
     pelo modulo compartilhado PSPanel.Email. O usuário e a senha do FortiGate são recebidos por parâmetros obrigatórios,
-    enquanto o endereço do equipamento pode ser substituído opcionalmente.
+    enquanto o endereço do equipamento e o destinatário do alerta podem ser substituídos opcionalmente.
 
 .PARAMETER FortiUser
     Usuário SSH do FortiGate.
@@ -16,6 +16,9 @@
 
 .PARAMETER FortiGateIP
     Endereço IP ou nome do FortiGate. O valor padrão é 10.35.0.1.
+
+.PARAMETER MailTo
+    Destinatário do alerta por e-mail. O valor padrão é analistasusi@desenbahia.ba.gov.br.
 
 .EXAMPLE
     .\Monitoramento-VPN.ps1 -FortiUser "usuario" -FortiPassword "senha"
@@ -31,15 +34,14 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
-    [string]$FortiGateIP = "10.35.0.1"
+    [string]$FortiGateIP = "10.35.0.1",
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$MailTo = 'analistasusi@desenbahia.ba.gov.br'
 )
 
 # ---------- CONFIGURAÇÕES ----------
-$MailTo     = "analistasusi@desenbahia.ba.gov.br"
-#$MailTo     = "msouza@desenbahia.ba.gov.br"
-
-Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
-
 # Limite em horas
 $LimiteHoras = 1
 
@@ -89,14 +91,18 @@ function New-VpnAlertEmailHtml {
 
     $lista = @($Usuarios)
     $n = $lista.Count
+    $routineName = [System.IO.Path]::GetFileName($PSCommandPath)
+    $sentAtText = $Quando.ToString('dd/MM/yyyy HH:mm:ss')
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.Append('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#222;">')
-    [void]$sb.Append("<p>Foram encontrados <strong>$n</strong> usuário(s) SSL VPN conectados há mais de <strong>$LimiteHorasRef</strong> hora(s).</p>")
-    [void]$sb.Append('<table style="border-collapse:collapse;width:100%;max-width:900px;border:1px solid #ccc;">')
+    [void]$sb.Append('<h1 style="color:#1a365d;font-size:22px;">Alerta de usuários SSL VPN</h1>')
+    [void]$sb.Append("<p>Coleta: <strong>$(Encode-Html $sentAtText)</strong><br>FortiGate: <strong>$(Encode-Html $FortiIp)</strong><br>Usuários encontrados: <strong>$n</strong><br>Limite configurado: <strong>$(Encode-Html ([string]$LimiteHorasRef)) horas</strong></p>")
+    [void]$sb.Append("<p style=""padding:12px;background:#fffaf0;border:1px solid #ed8936;color:#7b341e;"">Foram encontrados <strong>$n</strong> usuário(s) conectados há mais tempo que o limite configurado.</p>")
+    [void]$sb.Append('<table style="border-collapse:collapse;width:100%;max-width:1050px;border:1px solid #ccc;font-size:12px;line-height:1.2;">')
     [void]$sb.Append('<thead><tr style="background:#1a365d;color:#fff;text-align:left;">')
     foreach ($h in @('Usuário', 'IP de origem', 'IP do túnel', 'Duração', 'Horas conectado', 'Segundos')) {
-        [void]$sb.Append("<th style=""padding:10px 12px;border:1px solid #2c5282;"">$h</th>")
+        [void]$sb.Append("<th style=""padding:5px 6px;border:1px solid #2c5282;white-space:nowrap;"">$h</th>")
     }
     [void]$sb.Append('</tr></thead><tbody>')
     $i = 0
@@ -104,16 +110,16 @@ function New-VpnAlertEmailHtml {
         $bg = if (($i % 2) -eq 0) { '#f7fafc' } else { '#edf2f7' }
         $i++
         [void]$sb.Append("<tr style=""background:$bg;"">")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;"">$(Encode-Html $u.Usuario)</td>")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;font-family:Consolas,monospace;"">$(Encode-Html $u.IP)</td>")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;font-family:Consolas,monospace;"">$(Encode-Html $u.TunnelIP)</td>")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;"">$(Encode-Html $u.Duracao)</td>")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;text-align:right;"">$(Encode-Html ([string]$u.Horas))</td>")
-        [void]$sb.Append("<td style=""padding:8px 12px;border:1px solid #e2e8f0;text-align:right;"">$(Encode-Html ([string]$u.Duracao_s))</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;"">$(Encode-Html $u.Usuario)</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;font-family:Consolas,monospace;"">$(Encode-Html $u.IP)</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;font-family:Consolas,monospace;"">$(Encode-Html $u.TunnelIP)</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;"">$(Encode-Html $u.Duracao)</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;text-align:right;"">$(Encode-Html ([string]$u.Horas))</td>")
+        [void]$sb.Append("<td style=""padding:4px 6px;border:1px solid #e2e8f0;text-align:right;"">$(Encode-Html ([string]$u.Duracao_s))</td>")
         [void]$sb.Append('</tr>')
     }
     [void]$sb.Append('</tbody></table>')
-    [void]$sb.Append("<p style=""margin-top:16px;color:#4a5568;font-size:13px;"">Data/hora: <strong>$(Encode-Html ($Quando.ToString('yyyy-MM-dd HH:mm:ss')))</strong><br>Firewall: <strong>$(Encode-Html $FortiIp)</strong></p>")
+    [void]$sb.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong></div>")
     [void]$sb.Append('</body></html>')
     return $sb.ToString()
 }
@@ -144,6 +150,8 @@ catch {
     Write-Error "Erro ao carregar o módulo Posh-SSH: $_"
     exit 1
 }
+
+Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1') -Force -ErrorAction Stop
 
 # ---------- CRIA CREDENCIAL SSH ----------
 $SecurePassword = ConvertTo-SecureString $FortiPassword -AsPlainText -Force

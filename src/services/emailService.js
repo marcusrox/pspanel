@@ -5,7 +5,15 @@ function normalize(value) {
 }
 
 function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalize(value));
+    return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(normalize(value));
+}
+
+function isValidMailbox(value) {
+    const mailbox = normalize(value);
+    if (isValidEmail(mailbox)) return true;
+
+    const match = mailbox.match(/^(?:"(?:[^"\\\r\n]|\\.)+"|[^<>"\r\n]+)\s*<([^<>\r\n]+)>$/);
+    return Boolean(match && isValidEmail(match[1]));
 }
 
 function getMissingEmailConfig(config, recipient) {
@@ -14,7 +22,7 @@ function getMissingEmailConfig(config, recipient) {
     if (![587, 465].includes(config.port)) missing.push('porta SMTP');
     if (!config.username) missing.push('usuário SMTP');
     if (!config.password) missing.push('senha SMTP');
-    if (!config.fromAddress || !isValidEmail(config.fromAddress)) missing.push('email remetente');
+    if (!config.fromAddress || !isValidMailbox(config.fromAddress)) missing.push('email remetente');
     if (!recipient || !isValidEmail(recipient)) missing.push('email destinatário');
     return missing;
 }

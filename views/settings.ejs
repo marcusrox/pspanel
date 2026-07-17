@@ -359,10 +359,12 @@
 
                         <div class="form-group">
                             <label for="smtp.fromAddress">Email remetente</label>
-                            <input type="email"
+                            <input type="text"
                                    id="smtp.fromAddress"
                                    name="smtp.fromAddress"
-                                   value="<%= smtpConfig?.fromAddress || '' %>">
+                                   value="<%= smtpConfig?.fromAddress || '' %>"
+                                   placeholder='"PS Panel" <naoresponda@exemplo.com>'>
+                            <p class="field-hint">Aceita apenas o email ou o formato Nome &lt;email@dominio&gt;.</p>
                         </div>
 
                         <p class="field-hint">A senha é armazenada fora do Git. O acesso ao arquivo deve ser controlado pelas permissões do sistema operacional. Certificados inválidos não são aceitos.</p>
