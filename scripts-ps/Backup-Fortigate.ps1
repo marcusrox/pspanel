@@ -74,13 +74,22 @@ if (!(Test-Path -Path $BackupDir)) {
 
 $SecurePassword = ConvertTo-SecureString $FortiPassword -AsPlainText -Force
 $Credential = New-Object System.Management.Automation.PSCredential ($FortiUser, $SecurePassword)
+$session = $null
+$SessionId = $null
+$backupSucceeded = $false
 
 # === CONECTANDO ===
 try {
-    $session = New-SSHSession -ComputerName $FortiHost -Credential $Credential -AcceptKey -Force -ErrorAction Stop
+    $session = New-SSHSession `
+        -ComputerName $FortiHost `
+        -Credential $Credential `
+        -AcceptKey `
+        -Force `
+        -ConnectionTimeout 30 `
+        -ErrorAction Stop
 }
 catch {
-    Write-Error "Erro ao conectar no FortiGate: $_"
+    Write-Error "Erro ao conectar ou autenticar no FortiGate '$FortiHost': $($_.Exception.Message)"
     exit 1
 }
 
@@ -129,23 +138,82 @@ $blocks = @(
     "firewall ssl-ssh-profile"
 )
 
-# === EXTRAÇÃO DE CADA BLOCO ===
-foreach ($block in $blocks) {
-    Write-Host "Extraindo: $block..."
-    $output = Invoke-SSHCommand -SessionId $SessionId -Command "show $block"
-    $safeName = $block -replace "\s+", "-"   # Substitui espaços por hífens
-    $fileName = "${BackupDir}\$safeName.txt"
-    $output.Output | Out-File -FilePath $fileName -Encoding utf8 -Force
+try {
+    # O FortiGate pode aceitar a autenticacao e encerrar a sessao logo em seguida
+    # quando o host de origem nao esta autorizado para acesso administrativo SSH.
+    try {
+        $connectionTest = Invoke-SSHCommand `
+            -SessionId $SessionId `
+            -Command 'get system status' `
+            -TimeOut 30 `
+            -ErrorAction Stop
+        $connectionTestOutput = @($connectionTest.Output) -join "`n"
+    }
+    catch {
+        throw "Autenticacao SSH concluida, mas o FortiGate encerrou ou recusou a sessao antes de aceitar comandos. Verifique os hosts confiaveis e o acesso administrativo SSH no equipamento. Detalhe: $($_.Exception.Message)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($connectionTestOutput)) {
+        throw 'Autenticacao SSH concluida, mas o FortiGate encerrou ou recusou a sessao sem retornar dados. Verifique os hosts confiaveis e o acesso administrativo SSH no equipamento.'
+    }
+
+    # === EXTRAÇÃO DE CADA BLOCO ===
+    foreach ($block in $blocks) {
+        Write-Host "Extraindo: $block..."
+        try {
+            $output = Invoke-SSHCommand `
+                -SessionId $SessionId `
+                -Command "show $block" `
+                -TimeOut 120 `
+                -ErrorAction Stop
+        }
+        catch {
+            throw "A sessao SSH foi encerrada durante a extracao de '$block': $($_.Exception.Message)"
+        }
+
+        if ($null -eq $output) {
+            throw "O FortiGate nao retornou resposta durante a extracao de '$block'."
+        }
+
+        $safeName = $block -replace "\s+", "-"   # Substitui espaços por hífens
+        $fileName = "${BackupDir}\$safeName.txt"
+        $output.Output | Out-File -FilePath $fileName -Encoding utf8 -Force -ErrorAction Stop
+    }
+
+    # === EXTRAÇÃO DO FULL CONFIGURATION ===
+    Write-Host "Extraindo: full-configuration..."
+    try {
+        $fullConfig = Invoke-SSHCommand `
+            -SessionId $SessionId `
+            -Command 'show full-configuration' `
+            -TimeOut 300 `
+            -ErrorAction Stop
+    }
+    catch {
+        throw "A sessao SSH foi encerrada durante a extracao de 'full-configuration': $($_.Exception.Message)"
+    }
+
+    if ($null -eq $fullConfig) {
+        throw "O FortiGate nao retornou resposta durante a extracao de 'full-configuration'."
+    }
+
+    $fullFileName = "${BackupDir}\full-configuration.txt"
+    $fullConfig.Output | Out-File -FilePath $fullFileName -Encoding utf8 -Force -ErrorAction Stop
+    $backupSucceeded = $true
+}
+catch {
+    Write-Error "Backup do FortiGate interrompido: $($_.Exception.Message)"
+}
+finally {
+    # === FINALIZA SESSÃO ===
+    if ($null -ne $SessionId) {
+        Remove-SSHSession -SessionId $SessionId -ErrorAction SilentlyContinue | Out-Null
+    }
 }
 
-# === EXTRAÇÃO DO FULL CONFIGURATION ===
-Write-Host "Extraindo: full-configuration..."
-$fullConfig = Invoke-SSHCommand -SessionId $SessionId -Command "show full-configuration"
-$fullFileName = "${BackupDir}\full-configuration.txt"
-$fullConfig.Output | Out-File -FilePath $fullFileName -Encoding utf8 -Force
-
-# === FINALIZA SESSÃO ===
-Remove-SSHSession -SessionId $SessionId
+if (-not $backupSucceeded) {
+    exit 1
+}
 
 Write-Host "Backup concluído! Arquivos salvos em $BackupDir" -ForegroundColor Green
 
