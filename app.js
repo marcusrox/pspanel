@@ -22,8 +22,27 @@ const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
 const release = require('./src/config/release');
 
+function getBooleanEnvironment(name, fallback) {
+  const rawValue = process.env[name];
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return fallback;
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+  if (normalizedValue === 'true') return true;
+  if (normalizedValue === 'false') return false;
+
+  throw new Error(`${name} deve ser configurado como true ou false.`);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionCookieSecure = getBooleanEnvironment('SESSION_COOKIE_SECURE', isProduction);
+
+if (isProduction && !sessionCookieSecure) {
+  console.warn('Cookie de sessao sem Secure habilitado para acesso HTTP interno. Ative SESSION_COOKIE_SECURE ao publicar com HTTPS.');
+}
 
 // Configuração do template engine
 app.set('view engine', 'ejs');
@@ -40,7 +59,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: sessionCookieSecure,
+    httpOnly: true,
+    sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 8 // 8 horas
   }
 }));
