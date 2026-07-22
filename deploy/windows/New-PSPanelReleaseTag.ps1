@@ -132,6 +132,7 @@ function Assert-NoEqualOrLaterRelease {
         [object] $CurrentRelease,
 
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [string[]] $TagNames
     )
 
