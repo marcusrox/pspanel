@@ -499,14 +499,62 @@ Não publique a porta 3000 na internet.
 
 ## 15. Atualização da aplicação
 
-Antes de atualizar:
+Prefira implantar uma tag de release ou um hash de commit imutável com o script
+semi-automático. Abra o PowerShell 7 como administrador e faça primeiro uma
+simulação:
 
-- faça backup consistente de `database`;
-- registre o commit atualmente implantado;
-- interrompa o serviço web;
-- desabilite temporariamente a tarefa do worker.
+```powershell
+Set-Location C:\Apps\PSPanel
 
-Exemplo:
+.\deploy\windows\Update-PSPanel.ps1 `
+    -Version 'HASH_OU_TAG' `
+    -WhatIf
+```
+
+Se o plano e as verificações preliminares estiverem corretos, execute sem
+`-WhatIf`:
+
+```powershell
+.\deploy\windows\Update-PSPanel.ps1 -Version 'HASH_OU_TAG'
+```
+
+O script:
+
+- exige execução como administrador e a versão homologada do Node.js;
+- recusa alterações locais em arquivos versionados;
+- atualiza as referências Git antes de interromper a aplicação;
+- para o serviço e desabilita o worker;
+- salva `.env`, `database` e a configuração local do WinSW em
+  `C:\Apps\PSPanel-Backups`;
+- executa `npm ci --omit=dev` e valida a sintaxe dos arquivos JavaScript e
+  PowerShell versionados;
+- inicia o serviço, testa `http://127.0.0.1:3000/login` e reativa o worker;
+- tenta voltar automaticamente ao commit e aos dados anteriores se o deploy
+  falhar.
+
+Os logs ficam em `C:\Apps\PSPanel\log\deploy`. Por padrão, os dez snapshots
+mais recentes são mantidos. O teste imediato do worker pode executar jobs
+vencidos; quando isso não for desejado, use `-SkipWorkerTest`. A versão é
+implantada em modo detached HEAD para que o servidor permaneça exatamente no
+commit escolhido.
+
+Para rollback manual, informe o nome do snapshot mostrado no resumo ou na pasta
+de backups:
+
+```powershell
+.\deploy\windows\Update-PSPanel.ps1 `
+    -Rollback '2026-07-22_103000-12345'
+```
+
+O rollback cria antes um novo snapshot do estado corrente. Branches móveis não
+são aceitos por padrão; para atualizar diretamente de `origin/main`, é
+necessário optar explicitamente por esse risco:
+
+```powershell
+.\deploy\windows\Update-PSPanel.ps1 -Version 'origin/main' -Force
+```
+
+Se o script não puder ser usado, o procedimento manual de contingência é:
 
 ```powershell
 Stop-Service PSPanelWeb
@@ -515,7 +563,8 @@ Stop-ScheduledTask -TaskName 'PSPanel Schedule Worker' -ErrorAction SilentlyCont
 
 Set-Location C:\Apps\PSPanel
 git status
-git pull --ff-only origin main
+git fetch origin --tags --prune
+git switch --detach HASH_OU_TAG
 npm ci --omit=dev
 
 node --check app.js
