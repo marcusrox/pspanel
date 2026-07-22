@@ -1,4 +1,6 @@
 const { createLDAPClient, bindLDAP, searchLDAP } = require('./ldapService');
+const Settings = require('../models/Settings');
+const { isUserInAllowedAdGroup } = require('./adAccessService');
 
 async function authenticateUser(username, password, loginType) {
   if (loginType === 'local') {
@@ -86,7 +88,23 @@ async function authenticateLDAP(username, password) {
       await bindLDAP(testClient, userDN, password);
       console.log('✓ Autenticação do usuário bem sucedida!');
 
-      const userProfile = {
+      let allowedGroupDn;
+      try {
+        allowedGroupDn = await Settings.get('auth.allowed_ad_group_dn');
+      } catch (error) {
+        console.error('Erro ao carregar configuração de acesso do Active Directory:', error.message || error);
+        return { success: false, message: 'Erro interno durante autenticação' };
+      }
+
+      if (!isUserInAllowedAdGroup(user.memberOf, allowedGroupDn)) {
+        console.warn('Acesso LDAP negado: usuário autenticado não pertence ao grupo permitido.');
+        return {
+          success: false,
+          message: 'Acesso negado: seu usuário foi autenticado, mas não pertence ao grupo do Active Directory autorizado a acessar o PS Panel.'
+        };
+      }
+
+      return {
         success: true,
         user: {
           username: user.sAMAccountName,
@@ -95,10 +113,7 @@ async function authenticateLDAP(username, password) {
           groups: user.memberOf,
           type: 'ldap'
         }
-      };  
-
-      //console.log('\nPerfil do usuário montado:', JSON.stringify(userProfile, null, 2));
-      return userProfile;
+      };
 
     } catch (error) {
       console.error('\n✗ Falha na autenticação do usuário:', error.message);

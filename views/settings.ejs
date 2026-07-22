@@ -293,6 +293,41 @@
                     </div>
                 </div>
 
+                <div class="settings-section" data-section-key="authenticationAccess">
+                    <h2>
+                        <button
+                            type="button"
+                            id="settings-section-authentication-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="false"
+                            aria-controls="settings-section-authentication-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-user-shield"></i>
+                                Autenticação e acesso
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
+                    </h2>
+                    <div
+                        id="settings-section-authentication-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-authentication-title"
+                        hidden>
+                        <div class="form-group">
+                            <label for="auth.allowed_ad_group_dn">Grupo do Active Directory permitido</label>
+                            <input type="text"
+                                   id="auth.allowed_ad_group_dn"
+                                   name="auth.allowed_ad_group_dn"
+                                   value="<%= settings.auth?.allowed_ad_group_dn || '' %>"
+                                   maxlength="1024"
+                                   autocomplete="off"
+                                   placeholder="CN=PSPanel-Usuarios,OU=Groups,DC=exemplo,DC=local">
+                            <p class="field-hint">Informe o DN completo do grupo. A verificação considera associação direta pelo atributo <code>memberOf</code>.</p>
+                            <p class="field-hint"><strong>Atenção:</strong> enquanto este campo estiver vazio, qualquer usuário autenticado no AD poderá acessar o PS Panel.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="settings-section" data-section-key="smtp">
                     <h2>
                         <button
@@ -450,6 +485,7 @@
             const defaultState = {
                 execution: true,
                 appearance: true,
+                authenticationAccess: false,
                 smtp: false,
                 emailDailySummary: false
             };

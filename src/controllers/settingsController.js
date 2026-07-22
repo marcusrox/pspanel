@@ -8,6 +8,7 @@ const {
     getDailySummaryStatus,
     sendDailySummaryNow
 } = require('../services/dailySummaryEmailService');
+const { validateAllowedAdGroupDn } = require('../services/adAccessService');
 
 function isValidEmail(value) {
     if (!value) return true;
@@ -76,10 +77,17 @@ class SettingsController {
             const allowedSettings = [
                 'scripts.max_execution_time',
                 'ui.font_scale',
+                'auth.allowed_ad_group_dn',
                 'email.daily_summary_recipient',
                 'email.daily_summary_enabled'
             ];
             const updates = normalizeSettingsBody(req.body, allowedSettings);
+
+            if (updates['auth.allowed_ad_group_dn'] !== undefined) {
+                updates['auth.allowed_ad_group_dn'] = validateAllowedAdGroupDn(
+                    updates['auth.allowed_ad_group_dn']
+                );
+            }
 
             // Validar tempo máximo de execução
             if (updates['scripts.max_execution_time']) {

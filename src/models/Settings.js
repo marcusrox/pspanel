@@ -13,6 +13,7 @@ class Settings {
         const defaults = {
             'scripts.max_execution_time': '3600',
             'ui.font_scale': '100',
+            'auth.allowed_ad_group_dn': '',
             'email.daily_summary_recipient': '',
             'email.daily_summary_enabled': '0',
             'email.daily_summary_last_sent_date': '',
