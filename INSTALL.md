@@ -499,6 +499,22 @@ Não publique a porta 3000 na internet.
 
 ## 15. Atualização da aplicação
 
+Na estação de desenvolvimento, depois de concluir, commitar e enviar a release
+para `origin/main`, valide e crie a tag correspondente ao valor de
+`src/config/release.js`:
+
+```powershell
+Set-Location C:\Projects\PSPanel
+
+.\deploy\windows\New-PSPanelReleaseTag.ps1 -WhatIf
+.\deploy\windows\New-PSPanelReleaseTag.ps1
+```
+
+O script recusa uma árvore de trabalho com alterações, confirma que o commit
+atual já está publicado em `origin/main` e consulta tags locais e remotas. Se
+existir uma release igual ou posterior, nenhuma tag será criada. Em caso de
+sucesso, ele cria uma tag anotada e a envia ao `origin`.
+
 Prefira implantar uma tag de release ou um hash de commit imutável com o script
 semi-automático. Abra o PowerShell 7 como administrador e faça primeiro uma
 simulação:
