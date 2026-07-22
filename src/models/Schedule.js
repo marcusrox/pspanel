@@ -26,6 +26,52 @@ function nowIso() {
     return new Date().toISOString();
 }
 
+function normalizeAuditContext(context) {
+    if (typeof context === 'string') {
+        return { username: context, userId: null, authType: null, clientIp: null };
+    }
+
+    const safeContext = context || {};
+    const userId = Number(safeContext.userId);
+    return {
+        username: safeContext.username || null,
+        userId: Number.isInteger(userId) && userId > 0 ? userId : null,
+        authType: safeContext.authType || null,
+        clientIp: safeContext.clientIp || null
+    };
+}
+
+function safeScheduleSnapshot(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        script_name: row.script_name,
+        enabled: !!row.enabled,
+        next_run_at: row.next_run_at,
+        schedule_type: row.schedule_type,
+        cron_expression: row.cron_expression || null,
+        schedule_timezone: row.schedule_timezone || null
+    };
+}
+
+function buildScheduleUpdateAudit(before, after) {
+    const previous = safeScheduleSnapshot(before);
+    const current = safeScheduleSnapshot({ ...before, ...after, id: before.id });
+    const changedFields = [];
+
+    for (const field of ['script_name', 'enabled', 'next_run_at', 'schedule_type', 'cron_expression', 'schedule_timezone']) {
+        if ((previous[field] ?? null) !== (current[field] ?? null)) changedFields.push(field);
+    }
+    if ((before.parameters || null) !== (after.parameters || null)) changedFields.push('parameters');
+
+    return {
+        changed_fields: changedFields,
+        before: previous,
+        after: current,
+        parameters_changed: changedFields.includes('parameters')
+    };
+}
+
 function getAuditScriptName(row) {
     if (!row || row.script_name) return row ? row.script_name : null;
     if (!row.details) return null;
@@ -59,7 +105,9 @@ function runPowerShell(scriptPath, argList) {
 
 async function recordHistoryFailure(scriptName, parameters, message) {
     try {
-        const historyId = await History.addEntry(scriptName, parameters || '', SCHEDULE_RUN_USERNAME);
+        const historyId = await History.addEntry(scriptName, parameters || '', SCHEDULE_RUN_USERNAME, {
+            executionSource: 'schedule_worker'
+        });
         await History.updateEntry(historyId, message, 'error', message);
     } catch (e) {
         console.error('History validation failure:', e);
@@ -71,13 +119,26 @@ class Schedule {
         await schema.initialize();
     }
 
-    static async appendAudit(scheduleId, action, username, detailsObj, scriptName = null) {
+    static async appendAudit(scheduleId, action, auditContext, detailsObj, scriptName = null) {
         await Schedule.initialize();
+        const context = normalizeAuditContext(auditContext);
         const details = detailsObj == null ? null : JSON.stringify(detailsObj);
         await database.run(
-            `INSERT INTO schedule_audit (schedule_id, script_name, action, username, details, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [scheduleId, scriptName || null, action, username || null, details, nowIso()]
+            `INSERT INTO schedule_audit (
+                schedule_id, script_name, action, username, details, created_at,
+                user_id, auth_type, client_ip
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                scheduleId,
+                scriptName || null,
+                action,
+                context.username,
+                details,
+                nowIso(),
+                context.userId,
+                context.authType,
+                context.clientIp
+            ]
         );
     }
 
@@ -128,7 +189,8 @@ class Schedule {
         schedule_type,
         cron_expression,
         schedule_timezone,
-        created_by
+        created_by,
+        audit_context
     }) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
@@ -151,7 +213,7 @@ class Schedule {
                 created_by || null
             ]
         );
-        await Schedule.appendAudit(result.lastID, 'CREATE', created_by, {
+        await Schedule.appendAudit(result.lastID, 'CREATE', audit_context || created_by, {
             script_name,
             schedule_type,
             cron_expression: cron_expression || null,
@@ -170,10 +232,11 @@ class Schedule {
         schedule_type,
         cron_expression,
         schedule_timezone
-    }, username) {
+    }, auditContext) {
         const ts = nowIso();
         const en = enabled ? 1 : 0;
         await Schedule.initialize();
+        const existing = await Schedule.findById(id);
         const result = await database.run(
             `UPDATE schedules SET
                 script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, schedule_type = ?,
@@ -191,21 +254,28 @@ class Schedule {
                 id
             ]
         );
-        await Schedule.appendAudit(id, 'UPDATE', username, {
+        await Schedule.appendAudit(id, 'UPDATE', auditContext, buildScheduleUpdateAudit(existing, {
             script_name,
+            parameters,
             schedule_type,
             cron_expression: cron_expression || null,
             schedule_timezone,
             next_run_at,
             enabled: !!en
-        }, script_name);
+        }), script_name);
         return result.changes;
     }
 
-    static async delete(id, username) {
+    static async delete(id, auditContext) {
         const row = await Schedule.findById(id);
         const result = await database.run(`DELETE FROM schedules WHERE id = ?`, [id]);
-        await Schedule.appendAudit(null, 'DELETE', username, { deleted_schedule_id: id, snapshot: row }, row ? row.script_name : null);
+        await Schedule.appendAudit(
+            null,
+            'DELETE',
+            auditContext,
+            { deleted_schedule_id: id, snapshot: safeScheduleSnapshot(row) },
+            row ? row.script_name : null
+        );
         return result.changes;
     }
 
@@ -327,7 +397,9 @@ class Schedule {
 
             let historyId;
             try {
-                historyId = await History.addEntry(row.script_name, row.parameters || '', SCHEDULE_RUN_USERNAME);
+                historyId = await History.addEntry(row.script_name, row.parameters || '', SCHEDULE_RUN_USERNAME, {
+                    executionSource: 'schedule_worker'
+                });
             } catch (e) {
                 console.error('History addEntry:', e);
             }
@@ -392,6 +464,21 @@ class Schedule {
         }
 
         return results;
+    }
+
+    static async listAuditByUser(userId, limit = 50) {
+        await Schedule.initialize();
+        const rows = await database.all(
+            `SELECT * FROM schedule_audit
+             WHERE user_id = ?
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?`,
+            [userId, limit]
+        );
+        return rows.map((row) => ({
+            ...row,
+            script_name: getAuditScriptName(row)
+        }));
     }
 }
 

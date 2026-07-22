@@ -41,7 +41,7 @@ O ponto de entrada usado pelo `package.json` e o arquivo `app.js` na raiz:
 - `npm start`: executa `node app.js`.
 - `npm run dev`: executa `nodemon app.js`.
 
-Esse arquivo configura Express, EJS, assets estaticos, sessoes, flash messages, rotas e inicializacao dos modelos `Settings` e `Schedule`.
+Esse arquivo configura Express, EJS, assets estaticos, sessoes, flash messages, rotas e inicializacao dos models persistentes, incluindo `Settings`, `Schedule`, `History`, `User` e `AccessAudit`.
 
 Existe tambem `src/app.js`, mas ele parece ser um bootstrap anterior ou alternativo. Ele registra apenas configuracoes e rota de settings, enquanto o `app.js` da raiz concentra a aplicacao completa. Para manutencao, considere tratar `src/app.js` como legado ou consolidar os bootstraps para evitar ambiguidade.
 
@@ -88,6 +88,7 @@ As rotas ficam em `src/routes/`:
 | `historyRoutes.js` | `/history` | Consulta do historico e detalhes de execucao. |
 | `settingsRoutes.js` | `/settings` | Tela e atualizacao de configuracoes. |
 | `scheduleRoutes.js` | `/schedules` | CRUD de agendamentos e auditoria. |
+| `userRoutes.js` | `/users` | Consulta administrativa de usuarios e auditoria consolidada. |
 
 O `app.js` protege as bases `/panel`, `/run-script`, `/history`, `/settings` e `/schedules` com `isAuthenticated`. Algumas rotas tambem fazem checagem propria de sessao, como `mainRoutes` e `historyRoutes`.
 
@@ -97,6 +98,7 @@ Os controllers atuais cobrem principalmente fluxos com formularios:
 
 - `settingsController.js`: carrega e atualiza configuracoes persistidas em SQLite.
 - `scheduleController.js`: lista, cria, edita, remove e audita agendamentos.
+- `userController.js`: lista usuarios, exibe suas trilhas e consulta a auditoria consolidada.
 
 A execucao manual de scripts ainda esta diretamente em `mainRoutes.js`, incluindo leitura de arquivos, parsing de parametros, chamada do PowerShell e escrita no historico.
 
@@ -107,6 +109,8 @@ Os models encapsulam persistencia SQLite:
 - `History.js`: registra execucoes manuais e agendadas em `database/pspanel.sqlite`.
 - `Settings.js`: armazena configuracoes chave/valor em `database/pspanel.sqlite`.
 - `Schedule.js`: armazena agendamentos e auditoria em `database/pspanel.sqlite`.
+- `User.js`: provisiona e consulta identidades persistentes criadas no primeiro login bem-sucedido.
+- `AccessAudit.js`: registra eventos de autenticacao/sessao e consolida consultas com execucoes e agendamentos.
 
 Os models usam a conexao central em `src/database/connection.js`. O schema e inicializado por `src/database/schema.js`, com registro em `schema_migrations`.
 
@@ -143,9 +147,13 @@ sequenceDiagram
         A->>L: bind com DN do usuario e senha informada
     end
     A-->>R: resultado
-    R->>R: salva req.session.user
+    R->>R: cria ou atualiza users
+    R->>R: registra LOGIN_SUCCESS em access_audit
+    R->>R: salva user.id em req.session.user
     R-->>U: redirect /
 ```
+
+Falhas de autenticacao e autorizacao sao registradas sem provisionar usuario. O logout gera auditoria antes da destruicao da sessao. A nova area `/users` e restrita no servidor ao administrador local configurado.
 
 ### Execucao manual de script
 
@@ -199,6 +207,18 @@ Tabela `script_history`:
 | `output` | Saida acumulada. |
 | `status` | `running`, `success` ou `error`. |
 | `error_message` | Erro retornado pelo PowerShell ou pelo processo. |
+| `user_id` | Identidade persistente da execucao manual, quando disponivel. |
+| `auth_type` | Origem de autenticacao do usuario naquele momento. |
+| `client_ip` | IP da requisicao manual. |
+| `execution_source` | `manual` ou `schedule_worker`. |
+
+Registros anteriores a migracao permanecem validos com os novos campos nulos. Execucoes do worker nao possuem `user_id`.
+
+### `users` e `access_audit`
+
+`users` e o catalogo provisionado automaticamente no primeiro login bem-sucedido. A unicidade usa `auth_type + normalized_username`, permitindo que identidades local e LDAP com o mesmo nome sejam distintas. A tabela guarda primeiro e ultimo login, ultimo IP, ultimo `User-Agent` e contador de logins.
+
+`access_audit` registra `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `ACCESS_DENIED`, `LOGOUT` e `SESSION_ERROR`. O vinculo com `users` e opcional para permitir tentativas de usuarios ainda desconhecidos. Senhas, cookies, IDs brutos de sessao e grupos do AD nao sao persistidos nessa trilha.
 
 ### `settings`
 
@@ -250,6 +270,9 @@ Tabela `schedule_audit`:
 | `username` | Usuario ou worker. |
 | `details` | JSON textual com contexto. |
 | `created_at` | Data do evento. |
+| `user_id` | Identidade persistente responsavel pela acao administrativa, quando houver. |
+| `auth_type` | Origem de autenticacao do usuario naquele momento. |
+| `client_ip` | IP da requisicao administrativa. |
 
 ## Rotas HTTP
 
@@ -273,6 +296,9 @@ Tabela `schedule_audit`:
 | `POST` | `/schedules/:id` | Atualiza agendamento. | Sim |
 | `POST` | `/schedules/:id/delete` | Remove agendamento. | Sim |
 | `GET` | `/schedules/audit` | Lista auditoria de agendamentos. | Sim |
+| `GET` | `/users` | Lista usuarios provisionados. | Administrador local |
+| `GET` | `/users/:id` | Exibe perfil e trilhas do usuario. | Administrador local |
+| `GET` | `/users/audit` | Consulta auditoria consolidada. | Administrador local |
 
 ## Configuracao
 
@@ -301,6 +327,9 @@ Controles existentes:
 - Agendamentos validam nomes `.ps1` sem `..`, `/` ou `\`.
 - Worker usa lock por agendamento para reduzir concorrencia.
 - Sessao usa `SESSION_SECRET` e cookie `secure` quando `NODE_ENV=production`.
+- Provisionamento de usuarios ocorre somente depois de autenticacao e autorizacao bem-sucedidas.
+- A consulta de usuarios, IPs e trilhas e restrita ao administrador local por middleware no servidor.
+- Metadados de auditoria possuem limites de tamanho e nao confiam em `X-Forwarded-For` sem configuracao explicita de proxy.
 
 Pontos de atencao:
 

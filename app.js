@@ -5,6 +5,7 @@ const session = require("express-session");
 const Settings = require('./src/models/Settings');
 const settingsRoutes = require('./src/routes/settingsRoutes');
 const { isAuthenticated } = require('./src/middleware/authMiddleware');
+const { isLocalAdmin, isLocalAdministrator } = require('./src/middleware/adminMiddleware');
 const { installConsoleFileLogger } = require('./src/services/webLogger');
 require("dotenv").config();
 
@@ -18,8 +19,11 @@ const scheduleRoutes = require('./src/routes/scheduleRoutes');
 const logRoutes = require('./src/routes/logRoutes');
 const runtimeEnvironmentRoutes = require('./src/routes/runtimeEnvironmentRoutes');
 const dataEnvironmentRoutes = require('./src/routes/dataEnvironmentRoutes');
+const userRoutes = require('./src/routes/userRoutes');
 const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
+const User = require('./src/models/User');
+const AccessAudit = require('./src/models/AccessAudit');
 const release = require('./src/config/release');
 
 function getBooleanEnvironment(name, fallback) {
@@ -98,6 +102,7 @@ app.use((req, res, next) => {
     info: req.flash('info')
   };
   res.locals.release = release;
+  res.locals.canManageUsers = isLocalAdministrator(req.session && req.session.user);
   next();
 });
 
@@ -120,6 +125,7 @@ app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
 app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs', '/runtime-environment', '/data-environment'], isAuthenticated);
+app.use('/users', isAuthenticated, isLocalAdmin);
 
 // Rotas principais
 app.use('/', mainRoutes);
@@ -129,12 +135,15 @@ app.use('/schedules', scheduleRoutes);
 app.use('/logs', logRoutes);
 app.use('/runtime-environment', runtimeEnvironmentRoutes);
 app.use('/data-environment', dataEnvironmentRoutes);
+app.use('/users', userRoutes);
 
 async function start() {
   try {
     await History.initialize();
     await Settings.initialize();
     await Schedule.initialize();
+    await User.initialize();
+    await AccessAudit.initialize();
 
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);

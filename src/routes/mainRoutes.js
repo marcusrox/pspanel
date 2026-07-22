@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const History = require('../models/History');
+const { getClientIp } = require('../services/requestAuditContext');
 const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
 const {
     parseScriptParametersFromContent,
@@ -297,7 +298,12 @@ router.post("/run-script", async (req, res) => {
     // Criar registro no histórico
     let historyId;
     try {
-        historyId = await History.addEntry(script, parameterSummary, req.session.user.username);
+        historyId = await History.addEntry(script, parameterSummary, req.session.user.username, {
+            userId: req.session.user.id,
+            authType: req.session.user.type,
+            clientIp: getClientIp(req),
+            executionSource: 'manual'
+        });
     } catch (error) {
         console.error('Erro ao registrar histórico:', error);
         // Continua a execução mesmo se falhar o registro no histórico

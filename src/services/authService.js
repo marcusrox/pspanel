@@ -29,7 +29,12 @@ async function authenticateLocal(username, password) {
       }
     };
   }
-  return { success: false, message: 'Credenciais locais inválidas' };
+  return {
+    success: false,
+    message: 'Credenciais locais inválidas',
+    reasonCode: 'INVALID_CREDENTIALS',
+    auditAction: 'LOGIN_FAILURE'
+  };
 }
 
 async function authenticateLDAP(username, password) {
@@ -61,7 +66,12 @@ async function authenticateLDAP(username, password) {
     
     if (users.length === 0) {
       console.log('✗ Usuário não encontrado no AD');
-      return { success: false, message: 'Usuário não encontrado' };
+      return {
+        success: false,
+        message: 'Usuário não encontrado',
+        reasonCode: 'USER_NOT_FOUND',
+        auditAction: 'LOGIN_FAILURE'
+      };
     }
 
     const user = users[0];
@@ -75,7 +85,12 @@ async function authenticateLDAP(username, password) {
     const userDN = user.distinguishedName;
     if (!userDN) {
       console.log('✗ DN do usuário não encontrado nos atributos');
-      return { success: false, message: 'Erro ao obter informações do usuário' };
+      return {
+        success: false,
+        message: 'Erro ao obter informações do usuário',
+        reasonCode: 'USER_PROFILE_INCOMPLETE',
+        auditAction: 'LOGIN_FAILURE'
+      };
     }
 
     console.log('\n3. Tentando autenticar com as credenciais do usuário...');
@@ -93,14 +108,21 @@ async function authenticateLDAP(username, password) {
         allowedGroupDn = await Settings.get('auth.allowed_ad_group_dn');
       } catch (error) {
         console.error('Erro ao carregar configuração de acesso do Active Directory:', error.message || error);
-        return { success: false, message: 'Erro interno durante autenticação' };
+        return {
+          success: false,
+          message: 'Erro interno durante autenticação',
+          reasonCode: 'AUTH_CONFIGURATION_ERROR',
+          auditAction: 'LOGIN_FAILURE'
+        };
       }
 
       if (!isUserInAllowedAdGroup(user.memberOf, allowedGroupDn)) {
         console.warn('Acesso LDAP negado: usuário autenticado não pertence ao grupo permitido.');
         return {
           success: false,
-          message: 'Acesso negado: seu usuário foi autenticado, mas não pertence ao grupo do Active Directory autorizado a acessar o PS Panel.'
+          message: 'Acesso negado: seu usuário foi autenticado, mas não pertence ao grupo do Active Directory autorizado a acessar o PS Panel.',
+          reasonCode: 'AD_GROUP_ACCESS_DENIED',
+          auditAction: 'ACCESS_DENIED'
         };
       }
 
@@ -122,7 +144,12 @@ async function authenticateLDAP(username, password) {
       if (error.stack) {
         console.error('Stack trace:', error.stack);
       }
-      return { success: false, message: 'Senha inválida' };
+      return {
+        success: false,
+        message: 'Senha inválida',
+        reasonCode: 'INVALID_CREDENTIALS',
+        auditAction: 'LOGIN_FAILURE'
+      };
     } finally {
       console.log('Desconectando cliente de teste...');
       testClient.unbind();
@@ -134,7 +161,12 @@ async function authenticateLDAP(username, password) {
     if (error.stack) {
       console.error('Stack trace:', error.stack);
     }
-    return { success: false, message: 'Erro interno durante autenticação' };
+    return {
+      success: false,
+      message: 'Erro interno durante autenticação',
+      reasonCode: 'AUTH_INTERNAL_ERROR',
+      auditAction: 'LOGIN_FAILURE'
+    };
   } finally {
     console.log('Desconectando cliente principal...');
     client.unbind();

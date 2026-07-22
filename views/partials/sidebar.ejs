@@ -20,6 +20,12 @@
             <i class="fas fa-history"></i>
             <span>Histórico</span>
         </a>
+        <% if (typeof canManageUsers !== 'undefined' && canManageUsers) { %>
+            <a href="/users" class="<%= currentMenu === 'users' ? 'active' : '' %>" title="Usuários e auditoria" aria-label="Usuários e auditoria">
+                <i class="fas fa-users-gear"></i>
+                <span>Usuários</span>
+            </a>
+        <% } %>
         <a href="/logs" class="<%= currentMenu === 'logs' ? 'active' : '' %>" title="Logs" aria-label="Logs">
             <i class="fas fa-file-lines"></i>
             <span>Logs</span>

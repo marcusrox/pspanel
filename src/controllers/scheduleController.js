@@ -25,6 +25,17 @@ const {
     redactSensitiveParameters,
     redactSensitiveText
 } = require('../services/powerShellParameters');
+const { getRequestAuditContext } = require('../services/requestAuditContext');
+
+function buildAuditContext(req) {
+    const requestContext = getRequestAuditContext(req);
+    return {
+        userId: req.session.user.id,
+        username: req.session.user.username,
+        authType: req.session.user.type,
+        clientIp: requestContext.clientIp
+    };
+}
 
 async function listScriptsWithParameters(projectRoot) {
     const scriptsDir = path.join(projectRoot, 'scripts-ps');
@@ -299,7 +310,8 @@ exports.create = async (req, res) => {
             parameters: formatProvidedParams(parameterDefinitions, paramValues, parameters),
             enabled: !!enabled,
             ...timing,
-            created_by: req.session.user.username
+            created_by: req.session.user.username,
+            audit_context: buildAuditContext(req)
         });
         req.flash('success', 'Agendamento criado.');
         res.redirect('/schedules');
@@ -354,7 +366,7 @@ exports.update = async (req, res) => {
                 enabled: !!enabled,
                 ...timing
             },
-            req.session.user.username
+            buildAuditContext(req)
         );
         req.flash('success', 'Agendamento atualizado.');
         res.redirect('/schedules');
@@ -373,7 +385,7 @@ exports.delete = async (req, res) => {
             req.flash('error', 'Agendamento não encontrado.');
             return res.redirect('/schedules');
         }
-        await Schedule.delete(id, req.session.user.username);
+        await Schedule.delete(id, buildAuditContext(req));
         req.flash('success', 'Agendamento excluído.');
     } catch (e) {
         console.error(e);

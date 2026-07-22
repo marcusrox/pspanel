@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoria global - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .filter-card, .table-card { background: var(--bg-light); border: 1px solid var(--border-color); border-radius: .5rem; padding: 1rem; }
+        .filter-card { margin-bottom: 1rem; }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; align-items: end; }
+        .filter-grid .form-group { margin: 0; }
+        .filter-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .table-card { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        .data-table th, .data-table td { padding: .65rem .75rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .data-table th { background: var(--bg-darker); color: var(--text-secondary); }
+        .category { display: inline-block; padding: .2rem .5rem; border-radius: 999px; color: #dbeafe; background: rgba(37,99,235,.2); font-size: .72rem; }
+        .legacy { color: var(--warning-color); font-size: .75rem; }
+        .pagination { display: flex; justify-content: flex-end; align-items: center; gap: .5rem; margin-top: 1rem; }
+        .pagination a, .pagination span { color: var(--text-primary); padding: .45rem .7rem; border: 1px solid var(--border-color); border-radius: .35rem; text-decoration: none; }
+        .pagination .disabled { opacity: .55; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'users', user: user }) %>
+    <main class="main-content">
+        <header class="top-header"><div class="header-title"><h1>Auditoria global</h1><p><a href="/users" class="header-back-link"><i class="fas fa-arrow-left"></i> Voltar aos usuários</a></p></div></header>
+
+        <section class="filter-card">
+            <form method="GET" action="/users/audit" class="filter-grid">
+                <div class="form-group"><label for="search">Usuário ou script</label><input id="search" name="search" maxlength="255" value="<%= filters.search %>"></div>
+                <div class="form-group"><label for="category">Categoria</label><select id="category" name="category"><option value="">Todas</option><option value="access" <%= filters.category === 'access' ? 'selected' : '' %>>Acesso</option><option value="execution" <%= filters.category === 'execution' ? 'selected' : '' %>>Execução</option><option value="schedule" <%= filters.category === 'schedule' ? 'selected' : '' %>>Agendamento</option></select></div>
+                <div class="form-group"><label for="auth_type">Autenticação</label><select id="auth_type" name="auth_type"><option value="">Todas</option><option value="local" <%= filters.authType === 'local' ? 'selected' : '' %>>Local</option><option value="ldap" <%= filters.authType === 'ldap' ? 'selected' : '' %>>AD</option></select></div>
+                <div class="form-group"><label for="action">Ação/status</label><input id="action" name="action" maxlength="64" value="<%= filters.action %>" placeholder="LOGIN_SUCCESS ou success"></div>
+                <div class="form-group"><label for="date_from">De</label><input id="date_from" name="date_from" type="date" value="<%= filters.dateFrom %>"></div>
+                <div class="form-group"><label for="date_to">Até</label><input id="date_to" name="date_to" type="date" value="<%= filters.dateTo %>"></div>
+                <div class="filter-actions"><button type="submit" class="primary-btn"><i class="fas fa-filter"></i> Filtrar</button><a href="/users/audit" class="secondary-btn">Limpar</a></div>
+            </form>
+        </section>
+
+        <section class="table-card">
+            <% if (!entries.length) { %><p style="color: var(--text-secondary);">Nenhum evento encontrado.</p><% } else { %>
+                <table class="data-table"><thead><tr><th>Quando</th><th>Categoria</th><th>Usuário</th><th>Autenticação</th><th>Ação</th><th>Status</th><th>Objeto/motivo</th><th>IP</th></tr></thead><tbody>
+                    <% entries.forEach(function (entry) { %><tr>
+                        <td><%= entry.formatted_date %></td>
+                        <td><span class="category"><%= entry.category === 'access' ? 'Acesso' : (entry.category === 'execution' ? 'Execução' : 'Agendamento') %></span></td>
+                        <td><%= entry.username || (entry.category === 'schedule' ? 'Agendamento (worker)' : '—') %><% if (!entry.user_id) { %><div class="legacy"><%= entry.username === 'Agendamento (worker)' ? 'Automático' : 'Sem vínculo persistido' %></div><% } %></td>
+                        <td><%= entry.auth_type || '—' %></td><td><%= entry.action %></td><td><%= entry.status || '—' %></td><td><%= entry.subject || '—' %></td><td><%= entry.client_ip || '—' %></td>
+                    </tr><% }); %>
+                </tbody></table>
+            <% } %>
+            <% const suffix = '&search=' + encodeURIComponent(filters.search) + '&category=' + encodeURIComponent(filters.category) + '&auth_type=' + encodeURIComponent(filters.authType) + '&action=' + encodeURIComponent(filters.action) + '&date_from=' + encodeURIComponent(filters.dateFrom) + '&date_to=' + encodeURIComponent(filters.dateTo); %>
+            <% if (pagination.totalPages > 1) { %><nav class="pagination" aria-label="Paginação">
+                <% if (pagination.currentPage > 1) { %><a href="/users/audit?page=<%= pagination.currentPage - 1 %><%= suffix %>">Anterior</a><% } else { %><span class="disabled">Anterior</span><% } %>
+                <span>Página <%= pagination.currentPage %> de <%= pagination.totalPages %></span>
+                <% if (pagination.currentPage < pagination.totalPages) { %><a href="/users/audit?page=<%= pagination.currentPage + 1 %><%= suffix %>">Próxima</a><% } else { %><span class="disabled">Próxima</span><% } %>
+            </nav><% } %>
+        </section>
+        <%- include('partials/app-footer') %>
+    </main>
+</body>
+</html>

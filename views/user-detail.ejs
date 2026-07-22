@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhe do usuário - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+        .profile-item, .trail-card { background: var(--bg-light); border: 1px solid var(--border-color); border-radius: .5rem; }
+        .profile-item { padding: 1rem; }
+        .profile-item small { display: block; color: var(--text-secondary); margin-bottom: .25rem; }
+        .trail-card { margin-bottom: 1.25rem; overflow: hidden; }
+        .trail-card h2 { padding: 1rem; font-size: 1.1rem; border-bottom: 1px solid var(--border-color); }
+        .table-wrap { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        .data-table th, .data-table td { padding: .65rem .8rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .data-table th { background: var(--bg-darker); color: var(--text-secondary); }
+        .empty { padding: 1rem; color: var(--text-secondary); }
+        .status-success { color: var(--success-color); }
+        .status-error { color: var(--danger-color); }
+        .trail-note { color: var(--text-secondary); font-size: .8rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'users', user: user }) %>
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1><%= selectedUser.display_name || selectedUser.username %></h1>
+                <p><a href="/users" class="header-back-link"><i class="fas fa-arrow-left"></i> Voltar aos usuários</a></p>
+            </div>
+            <a href="/users/audit?search=<%= encodeURIComponent(selectedUser.username) %>" class="secondary-btn"><i class="fas fa-magnifying-glass"></i> Ver na auditoria global</a>
+        </header>
+
+        <section class="profile-grid" aria-label="Resumo do usuário">
+            <div class="profile-item"><small>Usuário</small><%= selectedUser.username %></div>
+            <div class="profile-item"><small>Autenticação</small><%= selectedUser.auth_type === 'ldap' ? 'Active Directory' : 'Local' %></strong></div>
+            <div class="profile-item"><small>E-mail</small><%= selectedUser.email || '—' %></div>
+            <div class="profile-item"><small>Primeiro login</small><%= selectedUser.formatted_first_login %></div>
+            <div class="profile-item"><small>Último login</small><%= selectedUser.formatted_last_login %></div>
+            <div class="profile-item"><small>Último IP</small><%= selectedUser.last_login_ip || '—' %></div>
+            <div class="profile-item"><small>Logins bem-sucedidos</small><%= selectedUser.login_count %></div>
+            <div class="profile-item"><small>Último cliente</small><%= selectedUser.last_user_agent || '—' %></div>
+        </section>
+        <p class="trail-note">São exibidos até <%= trailLimit %> registros recentes por categoria.</p>
+
+        <section class="trail-card">
+            <h2><i class="fas fa-right-to-bracket"></i> Acessos e autenticações</h2>
+            <% if (!accessEntries.length) { %><p class="empty">Nenhum acesso registrado.</p><% } else { %>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Quando</th><th>Ação</th><th>Resultado</th><th>Motivo</th><th>IP</th><th>Cliente</th></tr></thead><tbody>
+                    <% accessEntries.forEach(function (entry) { %><tr>
+                        <td><%= entry.formatted_date %></td><td><%= entry.action %></td>
+                        <td class="<%= entry.success ? 'status-success' : 'status-error' %>"><%= entry.success ? 'Sucesso' : 'Falha' %></td>
+                        <td><%= entry.reason_code || '—' %></td><td><%= entry.ip_address || '—' %></td><td><%= entry.user_agent || '—' %></td>
+                    </tr><% }); %>
+                </tbody></table></div>
+            <% } %>
+        </section>
+
+        <section class="trail-card">
+            <h2><i class="fas fa-terminal"></i> Execuções manuais</h2>
+            <% if (!executionEntries.length) { %><p class="empty">Nenhuma execução vinculada.</p><% } else { %>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Quando</th><th>Script</th><th>Status</th><th>Origem</th><th>IP</th></tr></thead><tbody>
+                    <% executionEntries.forEach(function (entry) { %><tr>
+                        <td><%= entry.formatted_date %></td><td><%= entry.script_name %></td><td><%= entry.status %></td><td><%= entry.execution_source || '—' %></td><td><%= entry.client_ip || '—' %></td>
+                    </tr><% }); %>
+                </tbody></table></div>
+            <% } %>
+        </section>
+
+        <section class="trail-card">
+            <h2><i class="fas fa-clock-rotate-left"></i> Alterações de agendamentos</h2>
+            <% if (!scheduleEntries.length) { %><p class="empty">Nenhuma alteração vinculada.</p><% } else { %>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Quando</th><th>Ação</th><th>Agendamento</th><th>Script</th><th>IP</th></tr></thead><tbody>
+                    <% scheduleEntries.forEach(function (entry) { %><tr>
+                        <td><%= entry.formatted_date %></td><td><%= entry.action %></td><td><%= entry.schedule_id != null ? entry.schedule_id : '—' %></td><td><%= entry.script_name || '—' %></td><td><%= entry.client_ip || '—' %></td>
+                    </tr><% }); %>
+                </tbody></table></div>
+            <% } %>
+        </section>
+        <%- include('partials/app-footer') %>
+    </main>
+</body>
+</html>

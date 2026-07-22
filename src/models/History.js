@@ -8,11 +8,27 @@ class History {
         await schema.initialize();
     }
 
-    static async addEntry(scriptName, parameters, username, startTime = new Date().toISOString()) {
+    static async addEntry(scriptName, parameters, username, options = {}) {
         await History.initialize();
+        const normalizedOptions = typeof options === 'string' ? { startTime: options } : (options || {});
+        const startTime = normalizedOptions.startTime || new Date().toISOString();
         const result = await database.run(
-            'INSERT INTO script_history (script_name, parameters, username, start_time) VALUES (?, ?, ?, ?)',
-            [scriptName, parameters, username, startTime]
+            `INSERT INTO script_history (
+                script_name, parameters, username, start_time,
+                user_id, auth_type, client_ip, execution_source
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                scriptName,
+                parameters,
+                username,
+                startTime,
+                Number.isInteger(Number(normalizedOptions.userId)) && Number(normalizedOptions.userId) > 0
+                    ? Number(normalizedOptions.userId)
+                    : null,
+                normalizedOptions.authType || null,
+                normalizedOptions.clientIp || null,
+                normalizedOptions.executionSource || null
+            ]
         );
         return result.lastID;
     }
@@ -83,6 +99,17 @@ class History {
              AND date(start_time, 'localtime') = ?
              ORDER BY datetime(start_time) ASC, id ASC`,
             [SCHEDULE_RUN_USERNAME, date]
+        );
+    }
+
+    static async findByUser(userId, limit = 50) {
+        await History.initialize();
+        return database.all(
+            `SELECT * FROM script_history
+             WHERE user_id = ?
+             ORDER BY start_time DESC, id DESC
+             LIMIT ?`,
+            [userId, limit]
         );
     }
 }

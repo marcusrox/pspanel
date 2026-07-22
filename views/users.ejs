@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usuários e auditoria - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .toolbar, .filter-form, .filter-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; }
+        .toolbar { justify-content: space-between; margin-bottom: 1rem; }
+        .filter-form { flex: 1; }
+        .filter-form .form-group { margin: 0; min-width: min(100%, 240px); }
+        .filter-form input, .filter-form select { width: 100%; }
+        .table-card { background: var(--bg-light); border: 1px solid var(--border-color); border-radius: .5rem; padding: 1rem; overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+        .data-table th, .data-table td { padding: .7rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .data-table th { color: var(--text-secondary); background: var(--bg-darker); }
+        .user-link { color: #93c5fd; text-decoration: none; font-weight: 600; }
+        .badge { display: inline-block; padding: .2rem .5rem; border-radius: 999px; background: rgba(37,99,235,.2); color: #bfdbfe; font-size: .75rem; text-transform: uppercase; }
+        .pagination { display: flex; gap: .5rem; align-items: center; justify-content: flex-end; margin-top: 1rem; }
+        .pagination a, .pagination span { padding: .45rem .7rem; border: 1px solid var(--border-color); border-radius: .35rem; color: var(--text-primary); text-decoration: none; }
+        .pagination .disabled { color: var(--text-secondary); opacity: .55; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'users', user: user }) %>
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Usuários e auditoria</h1>
+                <p>Consulte usuários provisionados automaticamente e suas atividades.</p>
+            </div>
+            <a href="/users/audit" class="primary-btn"><i class="fas fa-clipboard-list"></i> Auditoria global</a>
+        </header>
+
+        <div class="toolbar">
+            <form method="GET" action="/users" class="filter-form">
+                <div class="form-group">
+                    <label for="search">Buscar</label>
+                    <input id="search" name="search" type="search" maxlength="255" value="<%= filters.search %>" placeholder="Usuário, nome ou e-mail">
+                </div>
+                <div class="form-group">
+                    <label for="auth_type">Autenticação</label>
+                    <select id="auth_type" name="auth_type">
+                        <option value="">Todas</option>
+                        <option value="local" <%= filters.authType === 'local' ? 'selected' : '' %>>Local</option>
+                        <option value="ldap" <%= filters.authType === 'ldap' ? 'selected' : '' %>>Active Directory</option>
+                    </select>
+                </div>
+                <div class="filter-actions">
+                    <button class="primary-btn" type="submit"><i class="fas fa-filter"></i> Filtrar</button>
+                    <% if (filters.search || filters.authType) { %><a class="secondary-btn" href="/users">Limpar</a><% } %>
+                </div>
+            </form>
+        </div>
+
+        <section class="table-card">
+            <% if (!users.length) { %>
+                <p style="color: var(--text-secondary);">Nenhum usuário encontrado.</p>
+            <% } else { %>
+                <table class="data-table">
+                    <thead><tr><th>Usuário</th><th>Nome</th><th>E-mail</th><th>Autenticação</th><th>Primeiro login</th><th>Último login</th><th>Último IP</th><th>Logins</th></tr></thead>
+                    <tbody>
+                        <% users.forEach(function (entry) { %>
+                            <tr>
+                                <td><a class="user-link" href="/users/<%= entry.id %>"><%= entry.username %></a></td>
+                                <td><%= entry.display_name || '—' %></td>
+                                <td><%= entry.email || '—' %></td>
+                                <td><span class="badge"><%= entry.auth_type === 'ldap' ? 'AD' : 'Local' %></span></td>
+                                <td><%= entry.formatted_first_login %></td>
+                                <td><%= entry.formatted_last_login %></td>
+                                <td><%= entry.last_login_ip || '—' %></td>
+                                <td><%= entry.login_count %></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            <% } %>
+
+            <% const querySuffix = '&search=' + encodeURIComponent(filters.search) + '&auth_type=' + encodeURIComponent(filters.authType); %>
+            <% if (pagination.totalPages > 1) { %>
+                <nav class="pagination" aria-label="Paginação">
+                    <% if (pagination.currentPage > 1) { %><a href="/users?page=<%= pagination.currentPage - 1 %><%= querySuffix %>">Anterior</a><% } else { %><span class="disabled">Anterior</span><% } %>
+                    <span>Página <%= pagination.currentPage %> de <%= pagination.totalPages %></span>
+                    <% if (pagination.currentPage < pagination.totalPages) { %><a href="/users?page=<%= pagination.currentPage + 1 %><%= querySuffix %>">Próxima</a><% } else { %><span class="disabled">Próxima</span><% } %>
+                </nav>
+            <% } %>
+        </section>
+        <%- include('partials/app-footer') %>
+    </main>
+</body>
+</html>
