@@ -261,7 +261,7 @@ async function collectRuntimeEnvironment() {
     return {
         collectedAt,
         summary: [
-            { label: 'Release', value: release.label || 'Nao informado', icon: 'fas fa-tag' },
+            { label: 'Release', value: release.version || 'Nao informado', icon: 'fas fa-tag' },
             { label: 'Node.js', value: process.version, icon: 'fa-brands fa-node-js' },
             { label: 'Sistema', value: `${os.type()} ${os.release()}`, icon: 'fas fa-desktop' },
             { label: 'Arquitetura', value: process.arch, icon: 'fas fa-microchip' },
@@ -270,7 +270,7 @@ async function collectRuntimeEnvironment() {
         application: [
             { name: 'Pacote', value: packageManifest.name || 'pspanel' },
             { name: 'Versao', value: packageManifest.version || 'Nao informada' },
-            { name: 'Release', value: release.label || 'Nao informado' },
+            { name: 'Release', value: release.version || 'Nao informado' },
             { name: 'Ambiente', value: normalizePublicEnvironmentValue('NODE_ENV', process.env.NODE_ENV) || 'Nao configurado' },
             { name: 'Coletado em', value: collectedAt }
         ],

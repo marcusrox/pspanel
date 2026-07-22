@@ -31,7 +31,7 @@ Leia primeiro `docs/patterns.md` para seguir o estilo do projeto. Use `docs/arch
 - Nao altere `.env`, dados SQLite, `node_modules` ou arquivos gerados.
 - Nao altere arquivos SQLite em `database/` ou `src/database/`, salvo quando a tarefa for especificamente sobre dados locais ou migracao.
 - Quando criar uma Task MD em um prompt, nao execute a task automaticamente. Espere solicitacao ou confirmacao do usuario.
-- Ao concluir a implementacao de uma Task MD, atualize o controle de release em `src/config/release.js`, usando a data/hora atual do ambiente e incrementando em 1 o numero sequencial no formato `Release DD/MM/YYYY HH:mm - NNN`.
+- Ao concluir a implementacao de uma Task MD, atualize o controle de release em `src/config/release.js`, usando a data atual do ambiente e incrementando em 1 o numero sequencial global no formato `vAAAA.MM.DD-NNN`.
 
 ### Assinatura em Task MD
 
