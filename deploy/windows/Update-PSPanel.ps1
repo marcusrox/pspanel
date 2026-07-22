@@ -238,6 +238,8 @@ function Initialize-DeploymentLog {
 function New-DeploymentLock {
     $parentDirectory = Split-Path -Parent $script:ResolvedProjectRoot
     $lockPath = Join-Path $parentDirectory 'PSPanel.deploy.lock'
+    $stream = $null
+    $writer = $null
 
     try {
         $stream = [System.IO.File]::Open(
@@ -248,12 +250,20 @@ function New-DeploymentLock {
         )
         $stream.SetLength(0)
         $writer = [System.IO.StreamWriter]::new($stream, [System.Text.UTF8Encoding]::new($false), 1024, $true)
-        $writer.Write("PID={0};StartedAt={1}" -f $PID, (Get-Date).ToString('o'))
+        $writer.Write(("PID={0};StartedAt={1}" -f $PID, (Get-Date).ToString('o')))
         $writer.Flush()
         $writer.Dispose()
+        $writer = $null
         return [pscustomobject]@{ Path = $lockPath; Stream = $stream }
     } catch {
-        throw "Outro deploy parece estar em andamento. Nao foi possivel obter o lock $lockPath."
+        $lockError = $_
+        if ($writer) {
+            try { $writer.Dispose() } catch { }
+        }
+        if ($stream) {
+            try { $stream.Dispose() } catch { }
+        }
+        throw "Nao foi possivel obter o lock $lockPath. Detalhe: $($lockError.Exception.Message)"
     }
 }
 
