@@ -39,9 +39,30 @@ function getBooleanEnvironment(name, fallback) {
   throw new Error(`${name} deve ser configurado como true ou false.`);
 }
 
+function getEnvironmentIndicator(nodeEnvironment) {
+  if (nodeEnvironment === 'production') {
+    return { visible: false, label: '', compactLabel: '' };
+  }
+
+  if (nodeEnvironment === 'development') {
+    return { visible: true, label: 'DESENVOLVIMENTO', compactLabel: 'DEV' };
+  }
+
+  if (nodeEnvironment === 'test') {
+    return { visible: true, label: 'TESTE', compactLabel: 'TESTE' };
+  }
+
+  return {
+    visible: true,
+    label: 'AMBIENTE NÃO PRODUTIVO',
+    compactLabel: 'NÃO PROD.'
+  };
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
+const environmentIndicator = getEnvironmentIndicator(process.env.NODE_ENV);
 const sessionCookieSecure = getBooleanEnvironment('SESSION_COOKIE_SECURE', isProduction);
 
 if (isProduction && !sessionCookieSecure) {
@@ -103,6 +124,7 @@ app.use((req, res, next) => {
   };
   res.locals.release = release;
   res.locals.canManageUsers = isLocalAdministrator(req.session && req.session.user);
+  res.locals.environmentIndicator = environmentIndicator;
   next();
 });
 

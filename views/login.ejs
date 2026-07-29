@@ -245,6 +245,14 @@
             <div class="login-header">
                 <i class="fas fa-terminal login-brand-icon" aria-hidden="true"></i>
                 <h1 class="login-brand-title" data-text="PS Panel">PS Panel</h1>
+                <% if (typeof environmentIndicator !== 'undefined' && environmentIndicator.visible) { %>
+                    <div>
+                    <span
+                        class="environment-indicator login-environment-indicator"
+                        aria-label="Ambiente: <%= environmentIndicator.label %>"
+                    ><%= environmentIndicator.label %></span>
+                    </div>
+                <% } %>
                 <p>Faça login para continuar</p>
             </div>
 

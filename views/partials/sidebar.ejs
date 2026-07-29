@@ -2,10 +2,22 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <a href="/" class="sidebar-brand" title="PS Panel" aria-label="PS Panel">
-            <i class="fas fa-terminal sidebar-brand-icon" aria-hidden="true"></i>
-            <h2 class="sidebar-brand-title" data-text="PS Panel">PS Panel</h2>
-        </a>
+        <div class="sidebar-branding">
+            <a href="/" class="sidebar-brand" title="PS Panel" aria-label="PS Panel">
+                <i class="fas fa-terminal sidebar-brand-icon" aria-hidden="true"></i>
+                <h2 class="sidebar-brand-title" data-text="PS Panel">PS Panel</h2>
+            </a>
+            <% if (typeof environmentIndicator !== 'undefined' && environmentIndicator.visible) { %>
+                <span
+                    class="environment-indicator sidebar-environment-indicator"
+                    title="Ambiente: <%= environmentIndicator.label %>"
+                    aria-label="Ambiente: <%= environmentIndicator.label %>"
+                >
+                    <span class="environment-indicator-full" aria-hidden="true"><%= environmentIndicator.label %></span>
+                    <span class="environment-indicator-compact" aria-hidden="true"><%= environmentIndicator.compactLabel %></span>
+                </span>
+            <% } %>
+        </div>
     </div>
     <nav class="sidebar-nav">
         <a href="/" class="<%= currentMenu === 'scripts' ? 'active' : '' %>" title="Scripts" aria-label="Scripts">

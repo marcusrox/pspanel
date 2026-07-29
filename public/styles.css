@@ -41,10 +41,14 @@ body {
 
 .sidebar-header {
     padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-branding {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
 }
 
 .sidebar-header a {
@@ -112,6 +116,33 @@ body {
 .sidebar-brand {
     position: relative;
     isolation: isolate;
+}
+
+.environment-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid rgba(251, 191, 36, 0.38);
+    border-radius: 999px;
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.12);
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.environment-indicator-compact {
+    display: none;
+}
+
+.login-environment-indicator {
+    margin: 0 auto 0.75rem;
 }
 
 .sidebar-brand:hover,
@@ -778,9 +809,15 @@ button {
 
     .sidebar-header,
     .sidebar-header a,
+    .sidebar-branding,
     .sidebar-nav a,
     .sidebar-footer-action {
         justify-content: center;
+    }
+
+    .sidebar-branding {
+        align-items: center;
+        gap: 0.55rem;
     }
 
     .sidebar-header,
@@ -792,6 +829,21 @@ button {
 
     .sidebar-brand {
         gap: 0;
+    }
+
+    .sidebar-environment-indicator {
+        max-width: 58px;
+        padding: 0.2rem 0.3rem;
+        font-size: 0.56rem;
+        letter-spacing: 0.025em;
+    }
+
+    .sidebar-environment-indicator .environment-indicator-full {
+        display: none;
+    }
+
+    .sidebar-environment-indicator .environment-indicator-compact {
+        display: inline;
     }
 
     .sidebar-nav a i {
