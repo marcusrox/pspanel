@@ -35,6 +35,8 @@
             max-width: 420px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             margin: 0 auto;
+            position: relative;
+            z-index: 2;
         }
 
         .login-header {
@@ -240,6 +242,11 @@
     </style>
 </head>
 <body>
+    <% if (typeof environmentIndicator !== 'undefined' && environmentIndicator.visible) { %>
+        <div class="environment-watermark login-environment-watermark" aria-hidden="true">
+            <span><%= environmentIndicator.label %></span>
+        </div>
+    <% } %>
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">

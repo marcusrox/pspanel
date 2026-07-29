@@ -79,3 +79,9 @@
         </div>
     </div>
 </div>
+
+<% if (typeof environmentIndicator !== 'undefined' && environmentIndicator.visible) { %>
+    <div class="environment-watermark app-environment-watermark" aria-hidden="true">
+        <span><%= environmentIndicator.label %></span>
+    </div>
+<% } %>

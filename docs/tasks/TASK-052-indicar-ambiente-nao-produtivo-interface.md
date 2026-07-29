@@ -30,6 +30,7 @@ O indicador deve:
 
 - aparecer no topo da sidebar em todas as paginas autenticadas;
 - aparecer tambem na tela de login;
+- ser reforcado por uma marca d'agua horizontal no topo das paginas;
 - adaptar-se ao modo compacto da sidebar em telas menores;
 - usar texto, e nao apenas cor, para identificar o ambiente;
 - permanecer completamente ausente em producao.
@@ -61,6 +62,29 @@ Caracteristicas esperadas:
 
 O selo deve ser tratado como informacao de contexto operacional, nao como
 mensagem de erro.
+
+### Marca d'agua horizontal no topo
+
+Exibir adicionalmente o nome controlado do ambiente em letras grandes,
+centralizado horizontalmente no topo da viewport.
+
+A marca d'agua deve:
+
+- usar o mesmo `environmentIndicator.label` recebido pelo selo;
+- permanecer atras do conteudo e dos paineis;
+- permanecer fora da area ocupada pela sidebar nas paginas autenticadas;
+- nao usar rotacao ou inclinacao no texto;
+- possuir baixo contraste em relacao ao fundo;
+- usar o mesmo cinza-azulado neutro empregado nos textos secundarios da
+  interface, sem influencia vermelha ou brilho;
+- ser recortada pela viewport sem criar barra de rolagem;
+- ignorar eventos de ponteiro e selecao de texto;
+- ser ocultada de tecnologias assistivas com `aria-hidden="true"`;
+- adaptar o tamanho da tipografia em viewports compactas;
+- permanecer completamente ausente em producao.
+
+Usar uma unica inscricao central por viewport. Nao repetir o texto em padrao
+nem aplicar animacao.
 
 ### Comportamento responsivo
 
@@ -186,7 +210,6 @@ adicional, dependencia NPM ou configuracao persistida no SQLite.
 
 ## Fora de escopo
 
-- Adicionar texto repetido ou diagonal como marca d'agua no fundo das paginas.
 - Alterar o background global da aplicacao.
 - Padronizar ou reescrever todos os cabecalhos das views.
 - Adicionar o logo da Desenbahia a paginas que hoje nao o exibem.
@@ -199,9 +222,8 @@ adicional, dependencia NPM ou configuracao persistida no SQLite.
 - Alterar o comportamento de autenticacao, login automatico local ou sessao.
 - Alterar `.env`, `.env.example`, dependencias ou `package-lock.json`.
 
-Uma marca d'agua diagonal pode ser reavaliada futuramente como reforco visual,
-mas nao deve substituir o selo textual nem fazer parte desta implementacao
-inicial.
+A marca d'agua nao substitui o selo textual e nao deve ser usada como unica
+forma de identificar o ambiente.
 
 ## Riscos e cuidados
 
@@ -218,6 +240,11 @@ inicial.
   objetivo operacional.
 - O selo nao pode alterar o `z-index`, capturar cliques ou sobrepor controles
   da sidebar.
+- A marca d'agua nao pode ficar acima de paineis, formularios ou controles.
+- A marca d'agua deve ser visivel no fundo sem reduzir a legibilidade do
+  conteudo.
+- O elemento fixo nao pode criar barras de rolagem nem ampliar a area util da
+  pagina.
 - A interface de producao nao deve reservar espaco vazio para um indicador
   oculto.
 
@@ -242,7 +269,16 @@ inicial.
 - O indicador e compreensivel sem depender apenas da cor.
 - O selo nao possui animacao e nao interfere na marca, navegacao, login ou
   controles da sidebar.
-- Nao e adicionada marca d'agua diagonal ao background.
+- O nome do ambiente aparece tambem como uma unica marca d'agua horizontal em
+  letras grandes no topo das paginas autenticadas e do login.
+- Nas paginas autenticadas, a marca d'agua comeca depois da sidebar, inclusive
+  no modo compacto, e nao ocupa a area do menu lateral.
+- A marca d'agua usa baixo contraste e tom cinza-azulado neutro, nao captura
+  cliques, nao pode ser selecionada e permanece atras do conteudo.
+- A marca d'agua e marcada com `aria-hidden="true"`.
+- A marca d'agua nao cria barras de rolagem em desktop ou viewport compacta.
+- Em producao, nenhum selo, marcador, marca d'agua ou espaco reservado e
+  renderizado.
 - Nenhuma rota, autenticacao, sessao, configuracao sensivel, dependencia ou
   dado SQLite e alterado.
 - O identificador de release e incrementado quando a task for implementada.
@@ -273,6 +309,14 @@ inicial.
     ambiente foi enviado ao navegador.
 12. Encerrar somente o processo temporario iniciado para a validacao e nunca
     iniciar, reutilizar ou interromper processos na porta `3000`.
+13. Confirmar que a marca d'agua fica atras dos paineis e nao impede cliques,
+    selecao de campos ou navegacao por teclado.
+14. Confirmar em desktop e viewport compacta que a marca d'agua nao cria barra
+    de rolagem horizontal.
+15. Em producao, confirmar que nenhum elemento `.environment-watermark` e
+    renderizado.
+16. Confirmar que o texto permanece horizontal no topo e que, nas paginas
+    autenticadas, nao invade a largura ocupada pela sidebar.
 
 Como o projeto nao possui testes automatizados reais configurados em
 `npm test`, a validacao principal deve combinar verificacao de sintaxe e
@@ -286,3 +330,39 @@ inspecao visual nas resolucoes desktop e compacta.
 - Modelo: GPT-5
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-29 10:37:19 -03:00
+- Modelo: GPT-5
+- Versao: nao informado
+- Acao: atualizacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-29 11:16:32 -03:00
+- Modelo: GPT-5
+- Versao: nao informado
+- Acao: atualizacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-29 11:24:38 -03:00
+- Modelo: GPT-5
+- Versao: nao informado
+- Acao: atualizacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-29 11:28:29 -03:00
+- Modelo: GPT-5
+- Versao: nao informado
+- Acao: atualizacao

@@ -4,7 +4,11 @@ const { spawn } = require('child_process');
 const History = require('./History');
 const database = require('../database/connection');
 const schema = require('../database/schema');
-const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
+const {
+    getPowerShellExecutable,
+    buildPowerShellCommandArgs,
+    isPowerShellExecutionSuccessful
+} = require('../services/powerShellRunner');
 const {
     SCHEDULE_TYPES,
     getNextOccurrence
@@ -411,7 +415,7 @@ class Schedule {
                 proc = { code: -1, stdout: '', stderr: String(e.message || e) };
             }
 
-            const ok = proc.code === 0;
+            const ok = isPowerShellExecutionSuccessful(proc.code, proc.stderr);
             const combined = (proc.stdout || '') + (proc.stderr ? `\n${proc.stderr}` : '');
             if (historyId) {
                 try {

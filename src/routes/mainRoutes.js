@@ -6,7 +6,11 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const History = require('../models/History');
 const { getClientIp } = require('../services/requestAuditContext');
-const { getPowerShellExecutable, buildPowerShellCommandArgs } = require('../services/powerShellRunner');
+const {
+    getPowerShellExecutable,
+    buildPowerShellCommandArgs,
+    isPowerShellExecutionSuccessful
+} = require('../services/powerShellRunner');
 const {
     parseScriptParametersFromContent,
     getMissingRequiredParameters,
@@ -340,6 +344,7 @@ router.post("/run-script", async (req, res) => {
         console.log('Código de saída:', code);
         console.log('Saída acumulada:', output);
         if (error) console.error('Erros acumulados:', error);
+        const executionSucceeded = isPowerShellExecutionSuccessful(code, error);
 
         // Atualizar registro no histórico
         if (historyId) {
@@ -347,7 +352,7 @@ router.post("/run-script", async (req, res) => {
                 await History.updateEntry(
                     historyId,
                     output || error,
-                    code === 0 ? 'success' : 'error',
+                    executionSucceeded ? 'success' : 'error',
                     error || null
                 );
             } catch (updateError) {
@@ -357,7 +362,7 @@ router.post("/run-script", async (req, res) => {
 
         const result = `Script ${script} executado com código ${code}`;
         res.set('Content-Type', 'text/html; charset=utf-8');
-        if (code === 0) {
+        if (executionSucceeded) {
             res.send(`<pre>${escapeHtml(output)}</pre><br />${escapeHtml(result)}`);
         } else {
             res.send(`<pre>Erro: ${escapeHtml(error)}</pre><br />${escapeHtml(result)}`);

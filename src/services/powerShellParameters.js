@@ -236,7 +236,7 @@ const SENSITIVE_PARAMETER_MASK = '********';
 const NAMED_PARAMETER_WITH_VALUE_PATTERN = /(-([A-Za-z_][A-Za-z0-9_]*))(\s+)(?:"([^"]*)"|'([^']*)'|((?!-)\S+))/g;
 
 function isSensitiveParameterName(name) {
-    return typeof name === 'string' && /(senha|password)/i.test(name);
+    return typeof name === 'string' && /(senha|password)|(?:api[_-]?key|token|secret)$/i.test(name);
 }
 
 function redactSensitiveParameters(rawParams) {
@@ -391,7 +391,10 @@ function formatProvidedParams(parameterDefinitions, providedParams, rawParams) {
     for (const param of parameterDefinitions || []) {
         const value = values[param.name];
         if (value !== undefined && value !== null && String(value).trim()) {
-            structuredParams.push(`-${param.name} ${formatCommandLineArg(String(value).trim())}`);
+            const formattedValue = isSensitiveParameterName(param.name)
+                ? SENSITIVE_PARAMETER_MASK
+                : formatCommandLineArg(String(value).trim());
+            structuredParams.push(`-${param.name} ${formattedValue}`);
         }
     }
 

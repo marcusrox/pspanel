@@ -37,6 +37,7 @@ body {
     flex-direction: column;
     position: fixed;
     height: 100vh;
+    z-index: 2;
 }
 
 .sidebar-header {
@@ -143,6 +144,39 @@ body {
 
 .login-environment-indicator {
     margin: 0 auto 0.75rem;
+}
+
+.environment-watermark {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: hidden;
+    padding-top: 1rem;
+    box-sizing: border-box;
+    pointer-events: none;
+    user-select: none;
+}
+
+.environment-watermark span {
+    color: rgba(148, 163, 184, 0.055);
+    font-size: clamp(3rem, 7vw, 7rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.app-environment-watermark {
+    left: 250px;
+}
+
+.login-environment-watermark {
+    z-index: 1;
 }
 
 .sidebar-brand:hover,
@@ -523,6 +557,8 @@ body {
     flex: 1;
     margin-left: 250px;
     padding: 2rem;
+    position: relative;
+    z-index: 1;
 }
 
 .top-header {
@@ -844,6 +880,14 @@ button {
 
     .sidebar-environment-indicator .environment-indicator-compact {
         display: inline;
+    }
+
+    .app-environment-watermark {
+        left: 64px;
+    }
+
+    .environment-watermark span {
+        font-size: clamp(2.75rem, 8vw, 4.5rem);
     }
 
     .sidebar-nav a i {
