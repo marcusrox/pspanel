@@ -356,7 +356,8 @@ C:\Apps\PSPanel\log\service
 
 ## 11. Instalar o worker no Agendador de Tarefas
 
-O worker não chama `Invoke-ScheduleWorker.ps1`. A tarefa criada no ambiente homologado executa diretamente:
+O worker não depende de um wrapper PowerShell. A tarefa criada no ambiente
+homologado executa diretamente:
 
 ```text
 C:\Program Files\nodejs\node.exe scripts-js/schedule-worker.js

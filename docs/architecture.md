@@ -51,7 +51,8 @@ O worker fica em `scripts-js/schedule-worker.js` e e executado por:
 
 - `npm run schedule-worker`
 - `node scripts-js/schedule-worker.js`
-- `scripts-ps/Invoke-ScheduleWorker.ps1`, conforme comentario do proprio worker, tipicamente chamado pelo Windows Task Scheduler.
+- Windows Task Scheduler, executando o Node.js diretamente com o argumento
+  `scripts-js/schedule-worker.js` e a raiz do projeto como diretorio de trabalho.
 
 O worker muda o diretorio atual para a raiz do projeto, inicializa o modelo `Schedule` e chama `Schedule.executeDueJobs(projectRoot)`.
 
@@ -363,7 +364,8 @@ npm run dev
 npm run schedule-worker
 ```
 
-Em Windows, a intencao aparente e chamar `scripts-ps/Invoke-ScheduleWorker.ps1` pelo Task Scheduler a cada 5 minutos.
+Em Windows, o Task Scheduler deve executar o Node.js diretamente com o argumento
+`scripts-js/schedule-worker.js`, tipicamente a cada 5 minutos.
 
 ## Observacoes Tecnicas
 

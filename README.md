@@ -118,7 +118,9 @@ Executar o worker de agendamentos:
 npm run schedule-worker
 ```
 
-Em operação Windows, o script `scripts-ps/Invoke-ScheduleWorker.ps1` pode ser usado pelo Agendador de Tarefas para chamar o worker periodicamente.
+Em operação Windows, configure o Agendador de Tarefas para executar periodicamente
+o Node.js com o argumento `scripts-js/schedule-worker.js` e a raiz do PS Panel
+como diretório de trabalho.
 
 ## Scripts PowerShell
 

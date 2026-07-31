@@ -1,7 +1,7 @@
 /**
  * Worker de agendamentos — executar a partir da raiz do projeto:
  *   node scripts-js/schedule-worker.js
- * Ou via scripts-ps/Invoke-ScheduleWorker.ps1 (Task Scheduler a cada 5 min).
+ * Em produção, pode ser acionado diretamente pelo Task Scheduler.
  */
 const path = require('path');
 

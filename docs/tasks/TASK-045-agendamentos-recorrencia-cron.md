@@ -292,8 +292,9 @@ job fica elegivel em `next_run_at` e roda na primeira passagem posterior do
 worker.
 
 Para suportar de forma coerente a menor cadencia oferecida pelo formulario,
-documentar e recomendar a execucao de
-`scripts-ps/Invoke-ScheduleWorker.ps1` a cada **1 minuto**.
+documentar e recomendar que o Task Scheduler execute diretamente o Node.js com
+o argumento `scripts-js/schedule-worker.js` a cada **1 minuto**, usando a raiz
+do projeto como diretorio de trabalho.
 
 Nao criar daemon, timer interno, novo processo permanente nem alterar o Task
 Scheduler do Windows automaticamente nesta task.
@@ -492,3 +493,12 @@ Usar `PORT=3100` ou a proxima porta livre, nunca a porta `3000`, conforme
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-07-31 15:13:50 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
