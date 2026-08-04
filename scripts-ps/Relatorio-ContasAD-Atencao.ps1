@@ -325,14 +325,13 @@ function New-AttentionReportHtml {
         'SEC-001' = "Conta habilitada cujo &uacute;ltimo logon aproximado ocorreu h&aacute; mais de $InactiveThreshold dias."
         'SEC-002' = "Conta habilitada, criada h&aacute; mais de $NeverLoggedGraceThreshold dias, que ainda n&atilde;o possui registro de logon."
         'SEC-003' = "Conta habilitada cuja senha foi alterada h&aacute; mais de $PasswordAgeThreshold dias ou que n&atilde;o possui PasswordLastSet v&aacute;lido."
-        'SEC-004' = 'Conta habilitada com PasswordNeverExpires, permitindo que a senha nunca expire.'
+        'SEC-004' = 'Conta habilitada, exceto Terceirizado e Service, com PasswordNeverExpires, permitindo que a senha nunca expire.'
         'SEC-005' = 'Conta habilitada com PasswordNotRequired, indicando que uma senha n&atilde;o &eacute; exigida.'
         'SEC-006' = 'Conta habilitada com a pr&eacute;-autentica&ccedil;&atilde;o Kerberos desabilitada.'
         'SEC-007' = 'Conta cuja data de expira&ccedil;&atilde;o j&aacute; passou, mas que permanece habilitada.'
         'SEC-008' = "Conta habilitada e privilegiada sem logon h&aacute; mais de $PrivilegedInactiveThreshold dias, ou sem qualquer logon depois da toler&acirc;ncia de $NeverLoggedGraceThreshold dias."
-        'SEC-009' = 'Conta desabilitada que ainda pertence, direta ou indiretamente, a um grupo privilegiado.'
-        'SEC-010' = "Conta habilitada com employeeType Service cuja senha excede $PasswordAgeThreshold dias, nunca expira ou n&atilde;o possui PasswordLastSet v&aacute;lido, independentemente da presen&ccedil;a de SPN."
-        'CAD-001' = 'Conta habilitada com campos obrigat&oacute;rios ausentes conforme seu tipo. Service exige Description; Funcionario, Estagiario e contas sem tipo tamb&eacute;m exigem employeeID, Department, Title e Manager; Terceirizado exige ainda Company.'
+        'SEC-010' = "Conta habilitada com employeeType Service cuja senha excede $PasswordAgeThreshold dias ou n&atilde;o possui PasswordLastSet v&aacute;lido, independentemente da presen&ccedil;a de SPN."
+        'CAD-001' = 'Conta habilitada com campos obrigat&oacute;rios ausentes conforme seu tipo. Service exige Description; Funcionario, Estagiario e contas sem tipo exigem Department, Title e Manager; Terceirizado exige Company e Manager.'
         'CAD-002' = 'Conta habilitada cujo atributo Manager aponta para um usu&aacute;rio desabilitado ou para uma refer&ecirc;ncia que n&atilde;o pode ser resolvida.'
         'CAD-003' = 'Conta envolvida em duplicidade de mail, UserPrincipalName ou employeeID, comparados sem diferenciar mai&uacute;sculas, min&uacute;sculas e espa&ccedil;os externos.'
         'CAD-004' = 'Conta habilitada com employeeType Estagiario ou Terceirizado, mas sem AccountExpirationDate.'
@@ -421,7 +420,11 @@ function New-AttentionReportHtml {
             }
             [void]$builder.Append("<span style=""display:inline-block;margin:0 6px 6px 0;padding:4px 8px;background:$($accountStyle.Background);border-radius:12px;color:$($accountStyle.Text);font-size:12px;font-weight:700;"">Maior severidade: $(ConvertTo-HtmlEncodedText $account.MaxSeverity)</span>")
             [void]$builder.Append('</div>')
-            [void]$builder.Append("<div style=""margin-bottom:12px;line-height:1.7;overflow-wrap:anywhere;""><strong>UPN:</strong> $(ConvertTo-HtmlEncodedText $account.UserPrincipalName)<br><strong>Habilitada:</strong> $(if ($account.Enabled) { 'Sim' } else { "N$([char]0x00E3)o" })<br><strong>employeeType original:</strong> $(ConvertTo-HtmlEncodedText -Value $account.EmployeeType -Fallback 'Vazio')<br><strong>Tipo principal:</strong> $(ConvertTo-HtmlEncodedText $account.AccountType)<br><strong>Unidade organizacional:</strong> $(ConvertTo-HtmlEncodedText $account.OrganizationalPath)")
+            [void]$builder.Append("<div style=""margin-bottom:12px;line-height:1.7;overflow-wrap:anywhere;""><strong>UPN:</strong> $(ConvertTo-HtmlEncodedText $account.UserPrincipalName)<br><strong>Habilitada:</strong> $(if ($account.Enabled) { 'Sim' } else { "N$([char]0x00E3)o" })")
+            if ([string]$account.EmployeeType -cne [string]$account.AccountType) {
+                [void]$builder.Append("<br><strong>employeeType original:</strong> $(ConvertTo-HtmlEncodedText -Value $account.EmployeeType -Fallback 'Vazio')")
+            }
+            [void]$builder.Append("<br><strong>Tipo principal:</strong> $(ConvertTo-HtmlEncodedText $account.AccountType)<br><strong>Unidade organizacional:</strong> $(ConvertTo-HtmlEncodedText $account.OrganizationalPath)")
             if ($account.PrivilegedGroups.Count -gt 0) {
                 [void]$builder.Append("<br><strong>Grupos privilegiados:</strong> $(ConvertTo-HtmlEncodedText ($account.PrivilegedGroups -join ', '))")
             }
@@ -674,6 +677,10 @@ try {
     foreach ($account in $reportAccounts) {
         $user = $account.User
         $isEnabled = [bool]$user.Enabled
+        if (-not $isEnabled) {
+            continue
+        }
+
         $createdDate = if ($null -ne $user.whenCreated) { [datetime]$user.whenCreated } else { $null }
         $lastLogonDate = if ($null -ne $user.LastLogonDate) { [datetime]$user.LastLogonDate } else { $null }
         $passwordLastSet = if ($null -ne $user.PasswordLastSet) { [datetime]$user.PasswordLastSet } else { $null }
@@ -705,7 +712,7 @@ try {
                 -RecommendedAction 'Revisar a necessidade e a politica aplicavel antes de qualquer troca de senha.'
         }
 
-        if ($isEnabled -and [bool]$user.PasswordNeverExpires) {
+        if ($account.AccountType -notin @('Terceirizado', 'Service') -and [bool]$user.PasswordNeverExpires) {
             Add-AccountFinding -Account $account -Code 'SEC-004' -Category 'Seguranca' -Severity 'Alta' `
                 -Evidence 'A propriedade PasswordNeverExpires esta habilitada.' `
                 -RecommendedAction 'Validar a excecao e adotar credencial gerenciada quando aplicavel.'
@@ -747,22 +754,13 @@ try {
             }
         }
 
-        if (-not $isEnabled -and $account.IsPrivileged) {
-            Add-AccountFinding -Account $account -Code 'SEC-009' -Category 'Seguranca' -Severity 'Alta' `
-                -Evidence "Conta desabilitada ainda associada aos grupos privilegiados: $($account.PrivilegedGroups -join ', ')." `
-                -RecommendedAction 'Remover associacoes privilegiadas residuais conforme o processo de desprovisionamento.'
-        }
-
-        if ($isEnabled -and $account.IsService -and ($null -eq $passwordAge -or $passwordAge -gt $PasswordAgeDays -or [bool]$user.PasswordNeverExpires)) {
+        if ($account.IsService -and ($null -eq $passwordAge -or $passwordAge -gt $PasswordAgeDays)) {
             $serviceEvidence = "employeeType classificado como Service; $(@($user.ServicePrincipalName).Count) SPN(s); "
             if ($null -eq $passwordAge) {
                 $serviceEvidence += 'PasswordLastSet ausente.'
             }
             else {
                 $serviceEvidence += "senha com $passwordAge dias."
-            }
-            if ([bool]$user.PasswordNeverExpires) {
-                $serviceEvidence += ' PasswordNeverExpires habilitado.'
             }
             Add-AccountFinding -Account $account -Code 'SEC-010' -Category 'Seguranca' -Severity 'Alta' `
                 -Evidence $serviceEvidence `
@@ -773,10 +771,11 @@ try {
             $missingFields = [System.Collections.Generic.List[string]]::new()
             if (Test-IsBlank $user.Description) { $missingFields.Add('Description') }
             if (-not $account.IsService) {
-                if (Test-IsBlank $user.employeeID) { $missingFields.Add('employeeID') }
                 if ($account.AccountType -eq 'Terceirizado' -and (Test-IsBlank $user.Company)) { $missingFields.Add('Company') }
-                if (Test-IsBlank $user.Department) { $missingFields.Add('Department') }
-                if (Test-IsBlank $user.Title) { $missingFields.Add('Title') }
+                if ($account.AccountType -ne 'Terceirizado') {
+                    if (Test-IsBlank $user.Department) { $missingFields.Add('Department') }
+                    if (Test-IsBlank $user.Title) { $missingFields.Add('Title') }
+                }
                 if (Test-IsBlank $user.Manager) { $missingFields.Add('Manager') }
             }
             if ($missingFields.Count -gt 0) {
@@ -886,6 +885,10 @@ try {
     }
 
     foreach ($account in $reportAccounts) {
+        if (-not $account.Enabled) {
+            continue
+        }
+
         $duplicateEvidence = $duplicateEvidenceByDn[$account.DistinguishedName]
         if ($duplicateEvidence.Count -gt 0) {
             Add-AccountFinding -Account $account -Code 'CAD-003' -Category 'Cadastro' -Severity 'Alta' `
