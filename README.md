@@ -122,6 +122,97 @@ Em operação Windows, configure o Agendador de Tarefas para executar periodicam
 o Node.js com o argumento `scripts-js/schedule-worker.js` e a raiz do PS Panel
 como diretório de trabalho.
 
+## Atualização em produção
+
+O ambiente Windows de produção é atualizado pelo script
+`deploy/windows/Update-PSPanel.ps1`, usando uma tag de release ou um hash de
+commit Git. O fluxo interrompe temporariamente o serviço web e o worker, cria um
+snapshot dos dados locais, instala a versão, valida a aplicação e tenta fazer
+rollback automático em caso de falha.
+
+### Pré-requisitos do servidor
+
+Por padrão, o atualizador espera:
+
+- PowerShell executado como administrador;
+- projeto instalado como clone Git em `C:\Apps\PSPanel`;
+- serviço Windows `PSPanelWeb` já instalado;
+- tarefa agendada `PSPanel Schedule Worker` já instalada;
+- Git, Node.js e npm disponíveis no `PATH`;
+- Node.js `v24.18.0`, salvo se outra versão for informada em
+  `-RequiredNodeVersion`;
+- `.env`, `package-lock.json` e `database\pspanel.sqlite` presentes;
+- nenhum arquivo rastreado pelo Git com alteração local.
+
+O worker pode ser instalado separadamente com
+`deploy/windows/Install-PSPanelScheduleWorker.ps1`. O script de atualização não
+instala o serviço web nem a tarefa agendada; ele pressupõe que ambos já estejam
+configurados.
+
+### Criar e publicar a release
+
+Antes da atualização, incremente `src/config/release.js` no formato
+`vAAAA.MM.DD-NNN`, faça commit e envie o branch `main`. Em uma árvore de trabalho
+limpa e sincronizada com `origin/main`, valide e publique a tag:
+
+```powershell
+.\deploy\windows\New-PSPanelReleaseTag.ps1 -WhatIf
+.\deploy\windows\New-PSPanelReleaseTag.ps1
+```
+
+O script cria uma tag Git anotada com o mesmo identificador de `release.js` e a
+publica no repositório remoto. A operação é recusada se já existir uma release
+igual ou posterior.
+
+### Aplicar a atualização
+
+No servidor de produção, abra o PowerShell como administrador e execute primeiro
+uma simulação:
+
+```powershell
+Set-Location C:\Apps\PSPanel
+
+.\deploy\windows\Update-PSPanel.ps1 `
+    -Version 'vAAAA.MM.DD-NNN' `
+    -WhatIf
+```
+
+Depois, aplique a versão:
+
+```powershell
+.\deploy\windows\Update-PSPanel.ps1 `
+    -Version 'vAAAA.MM.DD-NNN'
+```
+
+Durante o deploy, o atualizador:
+
+1. busca tags e referências do `origin` e resolve a versão para um commit;
+2. desabilita e encerra o worker e para o serviço web;
+3. salva `database/`, `.env` e, quando existente, `service/PSPanelWeb.xml`;
+4. aplica o commit em modo `detached HEAD` e executa `npm ci --omit=dev`;
+5. valida a sintaxe dos arquivos JavaScript e PowerShell versionados;
+6. inicia o serviço e testa `http://127.0.0.1:3000/login`;
+7. reativa o worker e executa um teste imediato;
+8. mantém, por padrão, os dez snapshots mais recentes.
+
+Os snapshots ficam em `C:\Apps\PSPanel-Backups\<identificador>` e os logs em
+`C:\Apps\PSPanel\log\deploy`. Existe uma janela de indisponibilidade entre a
+parada do serviço e a aprovação do health check.
+
+### Rollback
+
+Se houver falha após a parada dos componentes, o atualizador tenta restaurar
+automaticamente o commit, o banco e as configurações anteriores. Para restaurar
+manualmente um snapshot específico, use o nome do diretório de backup:
+
+```powershell
+.\deploy\windows\Update-PSPanel.ps1 `
+    -Rollback '2026-07-22_103000-12345'
+```
+
+Se o deploy e o rollback automático falharem, o worker permanece desabilitado e
+o log do deploy deve ser consultado antes da intervenção manual.
+
 ## Scripts PowerShell
 
 - Coloque scripts executáveis pela aplicação em `scripts-ps/`.
