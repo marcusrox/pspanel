@@ -167,13 +167,15 @@ igual ou posterior.
 ### Aplicar a atualização
 
 No servidor de produção, abra o PowerShell como administrador e execute primeiro
-uma simulação:
+uma simulação. Informe a tag que foi efetivamente publicada; `vAAAA.MM.DD-NNN`
+representa apenas o formato e não deve ser usado literalmente:
 
 ```powershell
 Set-Location C:\Apps\PSPanel
+$release = Read-Host 'Informe a tag publicada (ex.: v2026.07.22-034)'
 
 .\deploy\windows\Update-PSPanel.ps1 `
-    -Version 'vAAAA.MM.DD-NNN' `
+    -Version $release `
     -WhatIf
 ```
 
@@ -181,8 +183,13 @@ Depois, aplique a versão:
 
 ```powershell
 .\deploy\windows\Update-PSPanel.ps1 `
-    -Version 'vAAAA.MM.DD-NNN'
+    -Version $release
 ```
+
+Na simulação, o script valida o formato da referência e confirma que uma tag de
+release existe no `origin`. Quando um hash é informado, ele deve estar disponível
+no clone local. Nenhum checkout, instalação ou reinício é realizado pelo
+`-WhatIf`.
 
 Durante o deploy, o atualizador:
 

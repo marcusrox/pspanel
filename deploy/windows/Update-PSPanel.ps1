@@ -26,6 +26,7 @@
 param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Deploy')]
     [ValidateNotNullOrEmpty()]
+    [ValidatePattern('^(?:v\d{4}\.\d{2}\.\d{2}-\d{3}|[0-9a-fA-F]{7,40})$')]
     [string] $Version,
 
     [Parameter(Mandatory = $true, ParameterSetName = 'Rollback')]
@@ -296,6 +297,30 @@ function Resolve-TargetCommit {
     }
 
     return $resolved
+}
+
+function Assert-PreviewDeployReference {
+    param([Parameter(Mandatory = $true)][string] $Reference)
+
+    if ($Reference -match '^v\d{4}\.\d{2}\.\d{2}-\d{3}$') {
+        $remoteTag = @(Get-GitOutput `
+            -Arguments @('ls-remote', '--tags', '--refs', 'origin', "refs/tags/$Reference") `
+            -Quiet)
+        if ($remoteTag.Count -eq 0) {
+            throw "A tag '$Reference' nao foi encontrada no remote origin. Publique a release antes de executar o deploy."
+        }
+
+        Write-Host "Pre-validacao: tag '$Reference' encontrada no remote origin."
+        return
+    }
+
+    try {
+        [void](Get-GitOutput -Arguments @('cat-file', '-e', "${Reference}^{commit}") -Quiet)
+    } catch {
+        throw "O commit '$Reference' nao esta disponivel no clone local. Execute git fetch antes da simulacao ou use uma tag de release publicada."
+    }
+
+    Write-Host "Pre-validacao: commit '$Reference' encontrado no clone local."
 }
 
 function Stop-PSPanelComponents {
@@ -609,6 +634,15 @@ $operationDescription = if ($PSCmdlet.ParameterSetName -eq 'Deploy') {
     "implantar a versao '$Version'"
 } else {
     "restaurar o snapshot '$Rollback'"
+}
+
+if ($WhatIfPreference) {
+    if ($PSCmdlet.ParameterSetName -eq 'Deploy') {
+        Assert-PreviewDeployReference -Reference $Version
+    } else {
+        [void](Get-RollbackManifest -BackupId $Rollback)
+        Write-Host "Pre-validacao: snapshot '$Rollback' encontrado e manifesto valido."
+    }
 }
 
 if (-not $PSCmdlet.ShouldProcess($script:ResolvedProjectRoot, $operationDescription)) {
