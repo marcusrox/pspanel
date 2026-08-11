@@ -42,7 +42,7 @@ function Get-PSPanelEmailConfiguration {
         throw 'Nao foi possivel ler o arquivo de configuracao SMTP.'
     }
 
-    if ($config.version -ne 1 -or $null -eq $config.smtp) {
+    if ($config.version -ne 2 -or $null -eq $config.smtp) {
         throw 'Versao ou estrutura do arquivo de configuracao SMTP invalida.'
     }
 
@@ -57,7 +57,13 @@ function Get-PSPanelEmailConfiguration {
         throw 'A porta SMTP e o modo de seguranca configurado sao incompativeis.'
     }
 
-    foreach ($field in @('host', 'username', 'password', 'fromAddress')) {
+    foreach ($field in @(
+        'host',
+        'username',
+        'password',
+        'fromAddress',
+        'fromName'
+    )) {
         if ([string]::IsNullOrWhiteSpace([string]$smtp.$field)) {
             throw "Configuracao SMTP incompleta: $field."
         }
@@ -66,13 +72,27 @@ function Get-PSPanelEmailConfiguration {
         }
     }
 
+    $fromAddress = [string]$smtp.fromAddress
+    if (
+        $fromAddress -notmatch `
+            '^[^\s@<>\"]+@[^\s@<>\"]+\.[^\s@<>\"]+$'
+    ) {
+        throw 'Configuracao SMTP invalida: fromAddress deve conter somente o endereco de email.'
+    }
+
+    $fromName = ([string]$smtp.fromName).Trim()
+    if ($fromName.Length -gt 256) {
+        throw 'Configuracao SMTP invalida: fromName excede 256 caracteres.'
+    }
+
     return [PSCustomObject]@{
         Host = [string]$smtp.host
         Port = $port
         Security = $expectedSecurity
         Username = [string]$smtp.username
         Password = [string]$smtp.password
-        FromAddress = [string]$smtp.fromAddress
+        FromAddress = $fromAddress
+        FromName = $fromName
     }
 }
 
@@ -129,7 +149,11 @@ function Send-PSPanelEmail {
         [string[]]$Bcc,
 
         [Parameter(Mandatory = $false)]
-        [string[]]$ReplyTo
+        [string[]]$ReplyTo,
+
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [string]$FromName = ''
     )
 
     if ($Subject -match '[\r\n]') {
@@ -141,6 +165,12 @@ function Send-PSPanelEmail {
     if ($Body.Length -gt 5242880) {
         throw 'O corpo do email excede o limite de 5 MB.'
     }
+    if ($FromName -match '[\r\n]') {
+        throw 'O nome do remetente nao pode conter quebra de linha.'
+    }
+    if ($FromName.Length -gt 256) {
+        throw 'O nome do remetente excede o limite de 256 caracteres.'
+    }
 
     Import-PSPanelEmailAssemblies
     $config = Get-PSPanelEmailConfiguration
@@ -148,7 +178,17 @@ function Send-PSPanelEmail {
     $client = $null
 
     try {
-        $message.From.Add([MimeKit.MailboxAddress]::Parse($config.FromAddress))
+        $effectiveFromName = if ([string]::IsNullOrWhiteSpace($FromName)) {
+            $config.FromName
+        }
+        else {
+            $FromName.Trim()
+        }
+        $fromMailbox = [MimeKit.MailboxAddress]::new(
+            $effectiveFromName,
+            $config.FromAddress
+        )
+        $message.From.Add($fromMailbox)
         foreach ($address in (ConvertTo-PSPanelMailboxAddresses -Addresses $To -FieldName 'To')) { $message.To.Add($address) }
         if ($message.To.Count -eq 0) { throw 'Nenhum destinatario de email valido foi informado.' }
         if ($Cc) { foreach ($address in (ConvertTo-PSPanelMailboxAddresses -Addresses $Cc -FieldName 'Cc')) { $message.Cc.Add($address) } }

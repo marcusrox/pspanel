@@ -188,6 +188,61 @@ const ps = spawn('powershell.exe', [
 ]);
 ```
 
+### Documentacao dos scripts PowerShell
+
+Todo script executavel em `scripts-ps/` deve possuir um bloco de ajuda
+comentada (comment-based help) no inicio do arquivo, antes de
+`[CmdletBinding()]` e de `param(...)`. Quando houver uma diretiva `#requires`,
+ela pode permanecer antes do bloco de ajuda.
+
+O bloco deve conter, no minimo:
+
+- `.SYNOPSIS`: resumo objetivo do que o script faz.
+- `.DESCRIPTION`: comportamento, fluxo principal e efeitos produzidos.
+- `.PARAMETER`: uma secao para cada parametro declarado, incluindo formato,
+  valor padrao e restricoes relevantes.
+- `.EXAMPLE`: ao menos um exemplo executavel com valores ficticios e sem
+  credenciais, tokens ou outros segredos.
+- `.INPUTS`: objetos aceitos pelo pipeline ou `Nenhum`.
+- `.OUTPUTS`: objetos enviados ao pipeline e arquivos ou outros artefatos
+  criados pelo script.
+- `.NOTES`: dependencias, permissoes e pre-requisitos operacionais relevantes.
+
+Modelo minimo:
+
+```powershell
+#requires -Version 5.1
+
+<#
+.SYNOPSIS
+Resume a finalidade do script.
+
+.DESCRIPTION
+Descreve o processamento e os efeitos do script.
+
+.PARAMETER ArquivoEntrada
+Descreve o parametro, o formato esperado e suas restricoes.
+
+.EXAMPLE
+.\Nome-Do-Script.ps1 -ArquivoEntrada "C:\Temp\entrada.xlsx"
+
+Descreve o resultado esperado do exemplo.
+
+.INPUTS
+Nenhum.
+
+.OUTPUTS
+Descreve os objetos ou arquivos produzidos.
+
+.NOTES
+Lista dependencias e pre-requisitos operacionais.
+#>
+```
+
+O `.SYNOPSIS` e usado pelo PS Panel para apresentar a descricao do script na
+interface. Ao criar ou alterar parametros, mantenha o bloco de ajuda alinhado
+ao `param(...)` para que a documentacao nao descreva uma interface obsoleta.
+
 Ao adicionar novos fluxos de execucao:
 
 - Restrinja scripts ao diretorio `scripts-ps/`.

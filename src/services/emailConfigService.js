@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 const CONFIG_PATH = path.join(PROJECT_ROOT, 'database', 'email-settings.json');
 
@@ -10,14 +10,6 @@ function normalize(value) {
 
 function isValidEmailAddress(value) {
     return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(normalize(value));
-}
-
-function isValidMailbox(value) {
-    const mailbox = normalize(value);
-    if (isValidEmailAddress(mailbox)) return true;
-
-    const match = mailbox.match(/^(?:"(?:[^"\\\r\n]|\\.)+"|[^<>"\r\n]+)\s*<([^<>\r\n]+)>$/);
-    return Boolean(match && isValidEmailAddress(match[1]));
 }
 
 function getSecurityForPort(port) {
@@ -33,14 +25,15 @@ function normalizeEmailConfig(input, existingConfig = null) {
     const suppliedPassword = smtp.password == null ? '' : String(smtp.password);
 
     return {
-        version: CONFIG_VERSION,
+        version: Number(input && input.version),
         smtp: {
             host: normalize(smtp.host),
             port,
             security: normalize(smtp.security) || getSecurityForPort(port),
             username: normalize(smtp.username),
             password: suppliedPassword === '' ? String(existingSmtp.password || '') : suppliedPassword,
-            fromAddress: normalize(smtp.fromAddress)
+            fromAddress: normalize(smtp.fromAddress),
+            fromName: normalize(smtp.fromName)
         }
     };
 }
@@ -55,8 +48,10 @@ function validateEmailConfig(config) {
     if (smtp.security !== getSecurityForPort(smtp.port)) errors.push('modo de segurança SMTP');
     if (!normalize(smtp.username)) errors.push('usuário SMTP');
     if (!String(smtp.password || '')) errors.push('senha SMTP');
-    if (!isValidMailbox(smtp.fromAddress)) errors.push('email remetente');
-    if ([smtp.host, smtp.username, smtp.password, smtp.fromAddress].some((value) => /[\r\n]/.test(String(value || '')))) {
+    if (!isValidEmailAddress(smtp.fromAddress)) errors.push('email remetente');
+    if (!normalize(smtp.fromName)) errors.push('nome do remetente');
+    if (normalize(smtp.fromName).length > 256) errors.push('nome do remetente com no máximo 256 caracteres');
+    if ([smtp.host, smtp.username, smtp.password, smtp.fromAddress, smtp.fromName].some((value) => /[\r\n]/.test(String(value || '')))) {
         errors.push('quebra de linha não permitida');
     }
 
@@ -137,6 +132,7 @@ function getPublicEmailConfig(config) {
         security: normalize(smtp.security) || 'starttls',
         username: normalize(smtp.username),
         fromAddress: normalize(smtp.fromAddress),
+        fromName: normalize(smtp.fromName),
         passwordConfigured: Boolean(smtp.password)
     };
 }

@@ -115,18 +115,20 @@ class SettingsController {
                 security: smtpPort === 465 ? 'tls' : 'starttls',
                 username: getBodyValue(req.body, 'smtp.username'),
                 password: getBodyValue(req.body, 'smtp.password'),
-                fromAddress: getBodyValue(req.body, 'smtp.fromAddress')
+                fromAddress: getBodyValue(req.body, 'smtp.fromAddress'),
+                fromName: getBodyValue(req.body, 'smtp.fromName')
             };
             const currentSmtpConfig = await loadEmailConfig({ allowMissing: true }).catch(() => null);
             const hasSmtpInput = [
                 smtpInput.host,
                 smtpInput.username,
                 smtpInput.password,
-                smtpInput.fromAddress
+                smtpInput.fromAddress,
+                smtpInput.fromName
             ].some((value) => String(value || '').trim());
 
             if (hasSmtpInput || currentSmtpConfig) {
-                await saveEmailConfig({ version: 1, smtp: smtpInput });
+                await saveEmailConfig({ version: 2, smtp: smtpInput });
             }
 
             // Atualizar cada configuração

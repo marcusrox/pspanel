@@ -8,21 +8,14 @@ function isValidEmail(value) {
     return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(normalize(value));
 }
 
-function isValidMailbox(value) {
-    const mailbox = normalize(value);
-    if (isValidEmail(mailbox)) return true;
-
-    const match = mailbox.match(/^(?:"(?:[^"\\\r\n]|\\.)+"|[^<>"\r\n]+)\s*<([^<>\r\n]+)>$/);
-    return Boolean(match && isValidEmail(match[1]));
-}
-
 function getMissingEmailConfig(config, recipient) {
     const missing = [];
     if (!config.host) missing.push('host SMTP');
     if (![587, 465].includes(config.port)) missing.push('porta SMTP');
     if (!config.username) missing.push('usuário SMTP');
     if (!config.password) missing.push('senha SMTP');
-    if (!config.fromAddress || !isValidMailbox(config.fromAddress)) missing.push('email remetente');
+    if (!config.fromAddress || !isValidEmail(config.fromAddress)) missing.push('email remetente');
+    if (!normalize(config.fromName) || normalize(config.fromName).length > 256) missing.push('nome do remetente');
     if (!recipient || !isValidEmail(recipient)) missing.push('email destinatário');
     return missing;
 }
@@ -46,7 +39,10 @@ async function sendMail(config, message) {
     });
 
     return transporter.sendMail({
-        from: config.fromAddress,
+        from: {
+            address: config.fromAddress,
+            name: config.fromName
+        },
         to: message.to,
         subject: message.subject,
         text: message.text,
