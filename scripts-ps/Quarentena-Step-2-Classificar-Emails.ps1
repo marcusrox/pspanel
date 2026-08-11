@@ -2,20 +2,105 @@
 
 <#
 .SYNOPSIS
-Classifica mensagens exportadas da quarentena e gera uma planilha auditável.
+Classifica mensagens de quarentena e gera uma planilha com auditoria de risco.
 
 .DESCRIPTION
-Mantém na aba Quarentena as mensagens potencialmente válidas e as que exigem
-revisão manual. Mensagens que atingem o limite de descarte ficam apenas na aba
-Auditoria, com pontuação, motivos, assunto normalizado e dados da campanha.
+Analisa uma exportação bruta da quarentena, atribui pontuação de risco às
+mensagens e valida destinatários internos no catálogo do Outlook clássico.
 
-A análise usa somente as seis colunas do exportador atual. A existência de
-destinatários internos continua sendo validada exatamente no catálogo do
-Outlook, com caches separados de endereços existentes e inexistentes.
+O arquivo gerado contém a aba Quarentena, com as mensagens potencialmente
+válidas e as que exigem revisão manual, e a aba Auditoria, com todos os
+registros, classificações, pontuações, motivos e dados históricos das
+campanhas. Mensagens que atingem o limite de descarte ficam somente na aba
+Auditoria.
+
+A análise usa o arquivo alvo e exportações brutas anteriores do mesmo
+diretório para identificar padrões históricos. Somente as linhas do arquivo
+alvo são classificadas e validadas no catálogo. Consultas ao Outlook são
+armazenadas em arquivos de cache diários para evitar validações repetidas.
+
+O script requer Windows PowerShell 5.1, Microsoft Excel e Outlook clássico
+instalados. O Outlook deve estar configurado e autenticado para consultar o
+catálogo corporativo.
+
+.PARAMETER ArquivoEntrada
+Caminho do arquivo XLSX bruto que será classificado. O nome deve seguir o
+padrão Quarentena-Emails-AAAA-MM-DD_AAAA-MM-DD_HHMMSS.xlsx, e a primeira
+planilha deve conter exatamente as colunas Para, Date, From, Subject,
+Web Actions e Email Actions, iniciando na célula A1.
+
+.PARAMETER DiretorioSaida
+Diretório no qual a planilha classificada será criada. Quando omitido ou
+vazio, utiliza o diretório do arquivo de entrada. O diretório é criado
+automaticamente quando não existe.
+
+.PARAMETER DiretorioCache
+Diretório dos arquivos diários de cache dos destinatários encontrados e não
+encontrados no catálogo do Outlook. Quando omitido ou vazio, utiliza a pasta
+cache-outlook dentro do diretório de saída. A pasta é criada automaticamente
+quando não existe.
+
+.PARAMETER DominiosInternos
+Lista de domínios cujos destinatários devem ser validados no catálogo do
+Outlook. Aceita valores separados por vírgula, ponto e vírgula ou espaços.
+O valor padrão é "desenbahia.ba.gov.br".
+
+.PARAMETER PontuacaoRevisao
+Pontuação mínima para classificar uma mensagem como "Revisão manual". Deve
+ser menor que PontuacaoDescarte. O valor padrão é 50.
+
+.PARAMETER PontuacaoDescarte
+Pontuação mínima para classificar uma mensagem como "Inválida" e removê-la
+da aba Quarentena. O valor padrão é 60.
+
+.PARAMETER MinimoDestinatariosCampanha
+Quantidade mínima de destinatários distintos usada pelas regras de detecção
+de campanha. O valor padrão é 5.
+
+.PARAMETER QuantidadeArquivosHistorico
+Quantidade máxima de exportações brutas usadas na análise histórica,
+incluindo o arquivo de entrada. Os arquivos anteriores são selecionados no
+mesmo diretório, do mais recente para o mais antigo. O valor padrão é 5.
 
 .EXAMPLE
-.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v3.ps1 `
-    -ArquivoEntrada "C:\temp\quarentena\Quarentena-Emails.xlsx"
+.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx"
+
+Classifica o arquivo informado usando os limites, domínios e diretórios
+padrão. A saída é criada no mesmo diretório do arquivo de entrada.
+
+.EXAMPLE
+.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
+    -DiretorioSaida "D:\Relatorios\Quarentena" `
+    -QuantidadeArquivosHistorico 10
+
+Classifica o arquivo usando até dez exportações no contexto histórico e salva
+o resultado em um diretório personalizado.
+
+.EXAMPLE
+.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
+    -DominiosInternos "empresa.com.br;subsidiaria.com.br" `
+    -PontuacaoRevisao 40 `
+    -PontuacaoDescarte 70 `
+    -MinimoDestinatariosCampanha 8
+
+Executa a classificação com domínios internos, limites de pontuação e
+quantidade mínima de destinatários personalizados.
+
+.INPUTS
+Nenhum. O script não aceita objetos pela entrada do pipeline.
+
+.OUTPUTS
+Nenhum objeto é enviado ao pipeline. O script cria uma planilha XLSX com as
+abas Quarentena e Auditoria, atualiza os arquivos de cache e exibe um resumo
+da classificação no console.
+
+.NOTES
+Execute o script com o mesmo usuário do Windows que utiliza o perfil do
+Outlook. O arquivo de entrada não pode estar corrompido ou protegido por
+senha. A pontuação de revisão deve ser menor que a pontuação de descarte.
 #>
 
 [CmdletBinding()]
@@ -31,13 +116,16 @@ param(
     [string]$DominiosInternos = "desenbahia.ba.gov.br",
 
     [ValidateRange(1, 1000)]
-    [int]$PontuacaoRevisao = 40,
+    [int]$PontuacaoRevisao = 50,
 
     [ValidateRange(1, 1000)]
-    [int]$PontuacaoDescarte = 80,
+    [int]$PontuacaoDescarte = 60,
 
     [ValidateRange(2, 1000)]
-    [int]$MinimoDestinatariosCampanha = 3
+    [int]$MinimoDestinatariosCampanha = 5,
+
+    [ValidateRange(1, 30)]
+    [int]$QuantidadeArquivosHistorico = 5
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,6 +140,14 @@ $olExchangeDistributionListAddressEntry = 1
 $olExchangeRemoteUserAddressEntry = 5
 $prProxyAddressesUnicode = "http://schemas.microsoft.com/mapi/proptag/0x800F101F"
 $prProxyAddressesAnsi = "http://schemas.microsoft.com/mapi/proptag/0x800F101E"
+$cabecalhosEsperados = @(
+    "Para",
+    "Date",
+    "From",
+    "Subject",
+    "Web Actions",
+    "Email Actions"
+)
 
 function ConvertTo-TextoComparavel {
     param(
@@ -225,11 +321,38 @@ function Get-EstatisticasCampanhas {
                 Destinatarios = [Collections.Generic.HashSet[string]]::new(
                     [StringComparer]::OrdinalIgnoreCase
                 )
+                Arquivos = [Collections.Generic.HashSet[string]]::new(
+                    [StringComparer]::OrdinalIgnoreCase
+                )
+                Datas = [Collections.Generic.HashSet[string]]::new(
+                    [StringComparer]::OrdinalIgnoreCase
+                )
+                PrimeiraOcorrencia = $null
+                UltimaOcorrencia = $null
             }
         }
 
         $campanha = $campanhas[$chave]
         $campanha.Mensagens++
+        [void]$campanha.Arquivos.Add([string]$registro.ArquivoOrigem)
+        $dataOcorrencia = Get-DataOcorrenciaRegistro -Registro $registro
+        [void]$campanha.Datas.Add(
+            $dataOcorrencia.ToString("yyyy-MM-dd")
+        )
+
+        if (
+            $null -eq $campanha.PrimeiraOcorrencia -or
+            $dataOcorrencia -lt $campanha.PrimeiraOcorrencia
+        ) {
+            $campanha.PrimeiraOcorrencia = $dataOcorrencia
+        }
+
+        if (
+            $null -eq $campanha.UltimaOcorrencia -or
+            $dataOcorrencia -gt $campanha.UltimaOcorrencia
+        ) {
+            $campanha.UltimaOcorrencia = $dataOcorrencia
+        }
 
         foreach ($destinatario in @(
             Get-DestinatariosRegistro `
@@ -671,6 +794,7 @@ function Get-AvaliacaoRisco {
     $dominioRemetente = Get-DominioEndereco `
         -Endereco ([string]$Registro.From)
     $pontuacao = 0
+    $pontuacaoHistorica = 0
     $motivos = [Collections.Generic.List[string]]::new()
 
     $padroesRespostaAutomatica = @(
@@ -741,6 +865,7 @@ function Get-AvaliacaoRisco {
         -not [string]::IsNullOrWhiteSpace($assuntoCanonico)
     ) {
         $pontuacao += 35
+        $pontuacaoHistorica += 35
         $motivos.Add(
             "Campanha para $($Campanha.Destinatarios.Count) destinatários com assunto normalizado equivalente (+35)"
         )
@@ -786,8 +911,8 @@ function Get-AvaliacaoRisco {
         $assunto -match `
             "\b(acao necessaria|urgente|imediata|imediato|ultima notificacao|bloqueio|suspensao|irregularidade|pendente)\b"
     ) {
-        $pontuacao += 15
-        $motivos.Add("Linguagem de urgência, ameaça ou pendência (+15)")
+        $pontuacao += 25
+        $motivos.Add("Linguagem de urgência, ameaça ou pendência (+25)")
     }
 
     if (
@@ -827,8 +952,8 @@ function Get-AvaliacaoRisco {
     }
 
     if ($assunto -match "[\u4E00-\u9FFF\u3040-\u30FF]") {
-        $pontuacao += 30
-        $motivos.Add("Assunto em alfabeto incomum para o contexto corporativo (+30)")
+        $pontuacao += 50
+        $motivos.Add("Assunto em alfabeto incomum para o contexto corporativo (+50)")
     }
 
     if (-not [string]::IsNullOrWhiteSpace($dominioRemetente)) {
@@ -841,6 +966,46 @@ function Get-AvaliacaoRisco {
         }
     }
 
+    if ($Campanha.Arquivos.Count -ge 3) {
+        $pontuacao += 15
+        $pontuacaoHistorica += 15
+        $motivos.Add(
+            "Padrão presente em $($Campanha.Arquivos.Count) arquivos distintos (+15)"
+        )
+    }
+
+    if ($Campanha.Datas.Count -ge 3) {
+        $pontuacao += 15
+        $pontuacaoHistorica += 15
+        $motivos.Add(
+            "Padrão recorrente em $($Campanha.Datas.Count) datas distintas (+15)"
+        )
+    }
+
+    if ($Campanha.Destinatarios.Count -ge 10) {
+        $pontuacao += 15
+        $pontuacaoHistorica += 15
+        $motivos.Add(
+            "Padrão histórico alcançou $($Campanha.Destinatarios.Count) destinatários distintos (+15)"
+        )
+    }
+
+    $pontuacaoNaoHistorica = $pontuacao - $pontuacaoHistorica
+
+    if (
+        (
+            $Campanha.Arquivos.Count -ge 2 -or
+            $Campanha.Datas.Count -ge 2
+        ) -and
+        $pontuacaoNaoHistorica -ge 40
+    ) {
+        $pontuacao += 20
+        $pontuacaoHistorica += 20
+        $motivos.Add(
+            "Padrão recorrente combinado com outros sinais de risco (+20)"
+        )
+    }
+
     return [PSCustomObject]@{
         Pontuacao = $pontuacao
         Motivos = @($motivos)
@@ -848,7 +1013,294 @@ function Get-AvaliacaoRisco {
         DominioRemetente = $dominioRemetente
         QuantidadeCampanha = $Campanha.Mensagens
         DestinatariosCampanha = $Campanha.Destinatarios.Count
+        ArquivosCampanha = $Campanha.Arquivos.Count
+        DatasCampanha = $Campanha.Datas.Count
+        PrimeiraOcorrencia = $Campanha.PrimeiraOcorrencia
+        UltimaOcorrencia = $Campanha.UltimaOcorrencia
+        PontuacaoHistorica = $pontuacaoHistorica
     }
+}
+
+function Get-InformacaoArquivoQuarentena {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Caminho
+    )
+
+    $caminhoResolvido = (Resolve-Path -LiteralPath $Caminho).Path
+    $nome = [IO.Path]::GetFileName($caminhoResolvido)
+    $padrao = "^Quarentena-Emails-(?<dataMensagens>\d{4}-\d{2}-\d{2})_(?<dataExecucao>\d{4}-\d{2}-\d{2})_(?<horaExecucao>\d{6})[.]xlsx$"
+
+    if ($nome -notmatch $padrao) {
+        return $null
+    }
+
+    $dataMensagens = [datetime]::MinValue
+    $dataExecucao = [datetime]::MinValue
+    $cultura = [Globalization.CultureInfo]::InvariantCulture
+    $estilos = [Globalization.DateTimeStyles]::None
+    $valorDataExecucao = "$($Matches.dataExecucao)_$($Matches.horaExecucao)"
+
+    if (
+        -not [datetime]::TryParseExact(
+            $Matches.dataMensagens,
+            "yyyy-MM-dd",
+            $cultura,
+            $estilos,
+            [ref]$dataMensagens
+        ) -or
+        -not [datetime]::TryParseExact(
+            $valorDataExecucao,
+            "yyyy-MM-dd_HHmmss",
+            $cultura,
+            $estilos,
+            [ref]$dataExecucao
+        )
+    ) {
+        return $null
+    }
+
+    return [PSCustomObject]@{
+        Caminho = $caminhoResolvido
+        Nome = $nome
+        DataMensagens = $dataMensagens.Date
+        DataExecucao = $dataExecucao
+    }
+}
+
+function Get-ArquivosContextoHistorico {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CaminhoEntrada,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Quantidade
+    )
+
+    $arquivoAlvo = Get-InformacaoArquivoQuarentena `
+        -Caminho $CaminhoEntrada
+
+    if ($null -eq $arquivoAlvo) {
+        throw @"
+O arquivo de entrada não segue o padrão esperado:
+Quarentena-Emails-AAAA-MM-DD_AAAA-MM-DD_HHMMSS.xlsx
+"@
+    }
+
+    $diretorio = Split-Path -Parent $arquivoAlvo.Caminho
+    $candidatos = [Collections.Generic.List[object]]::new()
+
+    foreach ($arquivo in @(
+        Get-ChildItem `
+            -LiteralPath $diretorio `
+            -Filter "*.xlsx" `
+            -File
+    )) {
+        $informacao = Get-InformacaoArquivoQuarentena `
+            -Caminho $arquivo.FullName
+
+        if (
+            $null -eq $informacao -or
+            $informacao.Caminho -ieq $arquivoAlvo.Caminho -or
+            $informacao.DataExecucao -gt $arquivoAlvo.DataExecucao
+        ) {
+            continue
+        }
+
+        $candidatos.Add($informacao)
+    }
+
+    $selecionados = [Collections.Generic.List[object]]::new()
+    $selecionados.Add($arquivoAlvo)
+
+    if ($Quantidade -gt 1) {
+        foreach ($candidato in @(
+            $candidatos |
+                Sort-Object DataExecucao -Descending |
+                Select-Object -First ($Quantidade - 1)
+        )) {
+            $selecionados.Add($candidato)
+        }
+    }
+
+    return @($selecionados)
+}
+
+function Read-RegistrosQuarentenaExcel {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Excel,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Arquivo
+    )
+
+    $workbookLeitura = $null
+    $worksheetLeitura = $null
+    $usedRangeLeitura = $null
+
+    try {
+        $workbookLeitura = $Excel.Workbooks.Open(
+            $Arquivo.Caminho,
+            0,
+            $true
+        )
+        $worksheetLeitura = $workbookLeitura.Worksheets.Item(1)
+        $usedRangeLeitura = $worksheetLeitura.UsedRange
+
+        if (
+            $usedRangeLeitura.Row -ne 1 -or
+            $usedRangeLeitura.Column -ne 1
+        ) {
+            throw "A tabela deve começar na célula A1: $($Arquivo.Nome)"
+        }
+
+        if ($usedRangeLeitura.Columns.Count -ne 6) {
+            throw "A planilha deve possuir exatamente seis colunas: $($Arquivo.Nome)"
+        }
+
+        $valoresEntrada = $usedRangeLeitura.Value2
+        $primeiraLinha = $valoresEntrada.GetLowerBound(0)
+        $ultimaLinha = $valoresEntrada.GetUpperBound(0)
+        $primeiraColuna = $valoresEntrada.GetLowerBound(1)
+
+        for ($indice = 0; $indice -lt $script:cabecalhosEsperados.Count; $indice++) {
+            $valorCabecalho = [string]$valoresEntrada[
+                $primeiraLinha,
+                ($primeiraColuna + $indice)
+            ]
+
+            if ($valorCabecalho -cne $script:cabecalhosEsperados[$indice]) {
+                throw "Cabeçalho inválido na coluna $($indice + 1) de '$($Arquivo.Nome)': esperado '$($script:cabecalhosEsperados[$indice])'."
+            }
+        }
+
+        $registros = [Collections.Generic.List[object]]::new()
+
+        for ($linha = $primeiraLinha + 1; $linha -le $ultimaLinha; $linha++) {
+            $valores = New-Object "object[]" 6
+            $possuiConteudo = $false
+
+            for ($coluna = 0; $coluna -lt 6; $coluna++) {
+                $valores[$coluna] = $valoresEntrada[
+                    $linha,
+                    ($primeiraColuna + $coluna)
+                ]
+
+                if (
+                    $null -ne $valores[$coluna] -and
+                    [string]$valores[$coluna] -ne ""
+                ) {
+                    $possuiConteudo = $true
+                }
+            }
+
+            if (-not $possuiConteudo) {
+                continue
+            }
+
+            $registros.Add([PSCustomObject]@{
+                Para = [string]$valores[0]
+                Date = $valores[1]
+                From = [string]$valores[2]
+                Subject = [string]$valores[3]
+                WebActions = [string]$valores[4]
+                EmailActions = [string]$valores[5]
+                Valores = $valores
+                LinhaOrigem = $linha
+                ArquivoOrigem = $Arquivo.Nome
+                DataArquivo = $Arquivo.DataMensagens
+            })
+        }
+
+        return [PSCustomObject]@{
+            Registros = @($registros)
+        }
+    }
+    finally {
+        if ($null -ne $workbookLeitura) {
+            try {
+                $workbookLeitura.Close($false)
+            }
+            catch {
+                # Ignora erros ao fechar uma planilha usada no histórico.
+            }
+        }
+
+        foreach ($objeto in @(
+            $usedRangeLeitura,
+            $worksheetLeitura,
+            $workbookLeitura
+        )) {
+            if (
+                $null -ne $objeto -and
+                [Runtime.InteropServices.Marshal]::IsComObject($objeto)
+            ) {
+                try {
+                    [void][Runtime.InteropServices.Marshal]::ReleaseComObject(
+                        $objeto
+                    )
+                }
+                catch {
+                    # Ignora erros durante a liberação dos objetos COM.
+                }
+            }
+        }
+    }
+}
+
+function Get-AssinaturaRegistro {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Registro
+    )
+
+    $cultura = [Globalization.CultureInfo]::InvariantCulture
+    $partes = @(
+        $Registro.Para,
+        [Convert]::ToString($Registro.Date, $cultura),
+        $Registro.From,
+        $Registro.Subject,
+        $Registro.WebActions,
+        $Registro.EmailActions
+    )
+
+    return (($partes | ForEach-Object { ([string]$_).Trim() }) -join [char]0x1F)
+}
+
+function Get-DataOcorrenciaRegistro {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Registro
+    )
+
+    if (
+        $Registro.Date -is [double] -or
+        $Registro.Date -is [decimal] -or
+        $Registro.Date -is [int]
+    ) {
+        try {
+            return [datetime]::FromOADate([double]$Registro.Date)
+        }
+        catch {
+            # Usa a data do arquivo quando o número não for uma data Excel.
+        }
+    }
+
+    $data = [datetimeoffset]::MinValue
+
+    if (
+        [datetimeoffset]::TryParse(
+            [string]$Registro.Date,
+            [Globalization.CultureInfo]::GetCultureInfo("pt-BR"),
+            [Globalization.DateTimeStyles]::AllowWhiteSpaces,
+            [ref]$data
+        )
+    ) {
+        return $data.DateTime
+    }
+
+    return [datetime]$Registro.DataArquivo
 }
 
 function Add-HyperlinkSeguro {
@@ -980,88 +1432,60 @@ try {
     $horaArquivo = (Get-Date).ToString("HHmmss")
     $arquivoSaida = Join-Path `
         -Path $diretorioResolvido `
-        -ChildPath "$nomeBase-Potencialmente-Validos-v3-$horaArquivo.xlsx"
+        -ChildPath "$nomeBase-Potencialmente-Validos-v4-$horaArquivo.xlsx"
 
-    Write-Host "Lendo a planilha de quarentena..." -ForegroundColor Cyan
+    $arquivosHistorico = @(
+        Get-ArquivosContextoHistorico `
+            -CaminhoEntrada $caminhoEntrada `
+            -Quantidade $QuantidadeArquivosHistorico
+    )
 
-    $outlook = New-Object -ComObject Outlook.Application
-    $namespace = $outlook.GetNamespace("MAPI")
+    Write-Host "Lendo o arquivo alvo e o histórico..." -ForegroundColor Cyan
+
+    foreach ($arquivoHistorico in $arquivosHistorico) {
+        Write-Host "  - $($arquivoHistorico.Nome)"
+    }
+
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
     $excel.DisplayAlerts = $false
-    $workbookEntrada = $excel.Workbooks.Open($caminhoEntrada, 0, $true)
-    $worksheetEntrada = $workbookEntrada.Worksheets.Item(1)
-    $usedRangeEntrada = $worksheetEntrada.UsedRange
-
-    if ($usedRangeEntrada.Row -ne 1 -or $usedRangeEntrada.Column -ne 1) {
-        throw "A tabela de entrada deve começar na célula A1."
-    }
-
-    $valoresEntrada = $usedRangeEntrada.Value2
-    $primeiraLinha = $valoresEntrada.GetLowerBound(0)
-    $ultimaLinha = $valoresEntrada.GetUpperBound(0)
-    $primeiraColuna = $valoresEntrada.GetLowerBound(1)
-    $ultimaColuna = $valoresEntrada.GetUpperBound(1)
-    $cabecalhosEsperados = @(
-        "Para",
-        "Date",
-        "From",
-        "Subject",
-        "Web Actions",
-        "Email Actions"
-    )
-
-    if ($ultimaColuna - $primeiraColuna + 1 -ne $cabecalhosEsperados.Count) {
-        throw "A planilha deve possuir exatamente as seis colunas esperadas."
-    }
-
-    for ($indice = 0; $indice -lt $cabecalhosEsperados.Count; $indice++) {
-        $valorCabecalho = [string]$valoresEntrada[
-            $primeiraLinha,
-            ($primeiraColuna + $indice)
-        ]
-
-        if ($valorCabecalho -cne $cabecalhosEsperados[$indice]) {
-            throw "Cabeçalho inválido na coluna $($indice + 1): esperado '$($cabecalhosEsperados[$indice])'."
-        }
-    }
-
     $registros = [Collections.Generic.List[object]]::new()
+    $registrosHistorico = [Collections.Generic.List[object]]::new()
+    $assinaturasHistorico = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::Ordinal
+    )
+    $registrosDuplicadosHistorico = 0
 
-    for ($linha = $primeiraLinha + 1; $linha -le $ultimaLinha; $linha++) {
-        $valores = New-Object "object[]" 6
-        $possuiConteudo = $false
+    foreach ($arquivoHistorico in $arquivosHistorico) {
+        $leitura = Read-RegistrosQuarentenaExcel `
+            -Excel $excel `
+            -Arquivo $arquivoHistorico
 
-        for ($coluna = 0; $coluna -lt 6; $coluna++) {
-            $valores[$coluna] = $valoresEntrada[
-                $linha,
-                ($primeiraColuna + $coluna)
-            ]
-
-            if ($null -ne $valores[$coluna] -and [string]$valores[$coluna] -ne "") {
-                $possuiConteudo = $true
+        if ($arquivoHistorico.Caminho -ieq $caminhoEntrada) {
+            foreach ($registroAlvo in $leitura.Registros) {
+                $registros.Add($registroAlvo)
             }
         }
 
-        if (-not $possuiConteudo) {
-            continue
-        }
+        foreach ($registroHistorico in $leitura.Registros) {
+            $assinatura = Get-AssinaturaRegistro `
+                -Registro $registroHistorico
 
-        $registro = [PSCustomObject]@{
-            Para = [string]$valores[0]
-            Date = $valores[1]
-            From = [string]$valores[2]
-            Subject = [string]$valores[3]
-            WebActions = [string]$valores[4]
-            EmailActions = [string]$valores[5]
-            Valores = $valores
-            LinhaOrigem = $linha
+            if ($assinaturasHistorico.Add($assinatura)) {
+                $registrosHistorico.Add($registroHistorico)
+            }
+            else {
+                $registrosDuplicadosHistorico++
+            }
         }
-        $registros.Add($registro)
     }
 
     $totalRegistros = $registros.Count
-    $campanhas = Get-EstatisticasCampanhas -Registros @($registros)
+    $campanhas = Get-EstatisticasCampanhas `
+        -Registros @($registrosHistorico)
+
+    $outlook = New-Object -ComObject Outlook.Application
+    $namespace = $outlook.GetNamespace("MAPI")
     $registrosValidos = [Collections.Generic.List[object]]::new()
     $auditoria = [Collections.Generic.List[object]]::new()
     $motivosDescarte = @{}
@@ -1136,6 +1560,11 @@ try {
             DominioRemetente = $avaliacao.DominioRemetente
             QuantidadeCampanha = $avaliacao.QuantidadeCampanha
             DestinatariosCampanha = $avaliacao.DestinatariosCampanha
+            ArquivosCampanha = $avaliacao.ArquivosCampanha
+            DatasCampanha = $avaliacao.DatasCampanha
+            PrimeiraOcorrencia = $avaliacao.PrimeiraOcorrencia
+            UltimaOcorrencia = $avaliacao.UltimaOcorrencia
+            PontuacaoHistorica = $avaliacao.PontuacaoHistorica
             ResultadoCatalogo = $resultadoCatalogo
         })
     }
@@ -1146,20 +1575,6 @@ try {
     Save-CacheEnderecos `
         -Caminho $arquivoCacheInvalidos `
         -Enderecos $cacheInvalidos
-
-    $workbookEntrada.Close($false)
-    [void][Runtime.InteropServices.Marshal]::ReleaseComObject(
-        $usedRangeEntrada
-    )
-    $usedRangeEntrada = $null
-    [void][Runtime.InteropServices.Marshal]::ReleaseComObject(
-        $worksheetEntrada
-    )
-    $worksheetEntrada = $null
-    [void][Runtime.InteropServices.Marshal]::ReleaseComObject(
-        $workbookEntrada
-    )
-    $workbookEntrada = $null
 
     Write-Host "Criando a planilha com mensagens potencialmente válidas..." `
         -ForegroundColor Cyan
@@ -1261,12 +1676,17 @@ try {
         "Domínio do Remetente",
         "Mensagens na Campanha",
         "Destinatários na Campanha",
+        "Arquivos no Histórico",
+        "Datas no Histórico",
+        "Primeira Ocorrência",
+        "Última Ocorrência",
+        "Pontuação Histórica",
         "Validação no Catálogo"
     )
-    $headerRangeAuditoria = $worksheetAuditoria.Range("A1", "N1")
-    $matrizCabecalhosAuditoria = New-Object "object[,]" 1, 14
+    $headerRangeAuditoria = $worksheetAuditoria.Range("A1", "S1")
+    $matrizCabecalhosAuditoria = New-Object "object[,]" 1, 19
 
-    for ($coluna = 0; $coluna -lt 14; $coluna++) {
+    for ($coluna = 0; $coluna -lt 19; $coluna++) {
         $matrizCabecalhosAuditoria[0, $coluna] = `
             $cabecalhosAuditoria[$coluna]
     }
@@ -1274,7 +1694,7 @@ try {
     $headerRangeAuditoria.Value2 = $matrizCabecalhosAuditoria
 
     if ($auditoria.Count -gt 0) {
-        $matrizAuditoria = New-Object "object[,]" $auditoria.Count, 14
+        $matrizAuditoria = New-Object "object[,]" $auditoria.Count, 19
 
         for ($linha = 0; $linha -lt $auditoria.Count; $linha++) {
             $itemAuditoria = $auditoria[$linha]
@@ -1293,14 +1713,29 @@ try {
                 $itemAuditoria.QuantidadeCampanha
             $matrizAuditoria[$linha, 12] = `
                 $itemAuditoria.DestinatariosCampanha
-            $matrizAuditoria[$linha, 13] = `
+            $matrizAuditoria[$linha, 13] = $itemAuditoria.ArquivosCampanha
+            $matrizAuditoria[$linha, 14] = $itemAuditoria.DatasCampanha
+
+            if ($null -ne $itemAuditoria.PrimeiraOcorrencia) {
+                $matrizAuditoria[$linha, 15] = `
+                    $itemAuditoria.PrimeiraOcorrencia.ToOADate()
+            }
+
+            if ($null -ne $itemAuditoria.UltimaOcorrencia) {
+                $matrizAuditoria[$linha, 16] = `
+                    $itemAuditoria.UltimaOcorrencia.ToOADate()
+            }
+
+            $matrizAuditoria[$linha, 17] = `
+                $itemAuditoria.PontuacaoHistorica
+            $matrizAuditoria[$linha, 18] = `
                 $itemAuditoria.ResultadoCatalogo
         }
 
         $ultimaLinhaAuditoria = $auditoria.Count + 1
         $dataRangeAuditoria = $worksheetAuditoria.Range(
             "A2",
-            "N$ultimaLinhaAuditoria"
+            "S$ultimaLinhaAuditoria"
         )
         $dataRangeAuditoria.Value2 = $matrizAuditoria
         $dataRangeAuditoria.VerticalAlignment = $xlTop
@@ -1313,9 +1748,13 @@ try {
             "G2",
             "G$ultimaLinhaAuditoria"
         ).NumberFormat = "0"
+        $worksheetAuditoria.Range(
+            "P2",
+            "Q$ultimaLinhaAuditoria"
+        ).NumberFormat = "dd/mm/yyyy hh:mm:ss"
         $usedRangeAuditoria = $worksheetAuditoria.Range(
             "A1",
-            "N$ultimaLinhaAuditoria"
+            "S$ultimaLinhaAuditoria"
         )
         $listObjectAuditoria = $worksheetAuditoria.ListObjects.Add(
             $xlSrcRange,
@@ -1323,7 +1762,7 @@ try {
             $null,
             $xlYes
         )
-        $listObjectAuditoria.Name = "TabelaAuditoriaQuarentenaV3"
+        $listObjectAuditoria.Name = "TabelaAuditoriaQuarentenaV4"
         $listObjectAuditoria.TableStyle = "TableStyleMedium2"
 
         for ($linha = 0; $linha -lt $auditoria.Count; $linha++) {
@@ -1371,7 +1810,12 @@ try {
     $worksheetAuditoria.Columns.Item("K").ColumnWidth = 30
     $worksheetAuditoria.Columns.Item("L").ColumnWidth = 20
     $worksheetAuditoria.Columns.Item("M").ColumnWidth = 22
-    $worksheetAuditoria.Columns.Item("N").ColumnWidth = 48
+    $worksheetAuditoria.Columns.Item("N").ColumnWidth = 20
+    $worksheetAuditoria.Columns.Item("O").ColumnWidth = 18
+    $worksheetAuditoria.Columns.Item("P").ColumnWidth = 22
+    $worksheetAuditoria.Columns.Item("Q").ColumnWidth = 22
+    $worksheetAuditoria.Columns.Item("R").ColumnWidth = 20
+    $worksheetAuditoria.Columns.Item("S").ColumnWidth = 48
     $worksheetAuditoria.Rows.Item(1).RowHeight = 24
     $worksheetAuditoria.Activate()
     $excel.ActiveWindow.SplitRow = 1
@@ -1388,6 +1832,9 @@ try {
     Write-Host ""
     Write-Host "Validação concluída." -ForegroundColor Green
     Write-Host "Registros analisados: $totalRegistros"
+    Write-Host "Arquivos usados no histórico: $($arquivosHistorico.Count)"
+    Write-Host "Registros históricos após deduplicação: $($registrosHistorico.Count)"
+    Write-Host "Duplicidades históricas ignoradas: $registrosDuplicadosHistorico"
     Write-Host "Potencialmente válidos: $quantidadePotencialmenteValidas"
     Write-Host "Para revisão manual: $quantidadeRevisao"
     Write-Host "Descartados como inválidos: $quantidadeInvalidas"
@@ -1412,11 +1859,12 @@ Não foi possível validar a planilha de quarentena.
 Erro: $($_.Exception.Message)
 
 Confirme que:
-1. O arquivo de entrada é um .xlsx gerado pelo exportador da quarentena.
+1. O arquivo de entrada é um .xlsx bruto gerado pelo exportador da quarentena.
 2. O arquivo possui as colunas Para, Date, From, Subject, Web Actions e Email Actions.
 3. O Microsoft Excel está instalado.
 4. O Outlook clássico está instalado, configurado e autenticado.
 5. O arquivo de entrada não está corrompido ou protegido por senha.
+6. O nome segue Quarentena-Emails-AAAA-MM-DD_AAAA-MM-DD_HHMMSS.xlsx.
 "@
 
     exit 1

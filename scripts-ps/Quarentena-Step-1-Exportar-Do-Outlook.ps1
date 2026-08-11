@@ -22,7 +22,8 @@ O valor padrão é "quarentena-email@desenbahia.ba.gov.br".
 
 .PARAMETER DiretorioSaida
 Diretório no qual a planilha XLSX será criada. O diretório é criado
-automaticamente quando não existe. O valor padrão é "C:\Temp\quarentena".
+automaticamente quando não existe. Por padrão, usa a subpasta Quarentena do
+diretório onde este script está localizado.
 
 .PARAMETER DataMensagens
 Data das mensagens que serão exportadas. Aceita os formatos yyyy-MM-dd e
@@ -66,7 +67,7 @@ From, Subject, Web Actions e Email Actions.
 [CmdletBinding()]
 param(
     [string]$CaixaCompartilhada = "quarentena-email@desenbahia.ba.gov.br",
-    [string]$DiretorioSaida = "C:\Temp\quarentena",
+    [string]$DiretorioSaida = (Join-Path -Path $PSScriptRoot -ChildPath "Quarentena"),
     [string]$DataMensagens = ""
 )
 

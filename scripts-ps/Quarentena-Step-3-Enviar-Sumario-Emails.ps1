@@ -17,7 +17,8 @@ e-mails são redirecionados ao DestinatarioSimulacao.
 Caminho opcional do arquivo XLSX a processar.
 
 .PARAMETER DiretorioEntrada
-Pasta pesquisada quando ArquivoEntrada não é informado.
+Pasta pesquisada quando ArquivoEntrada não é informado. Por padrão, usa a
+subpasta Quarentena do diretório onde este script está localizado.
 
 .PARAMETER WhatIf
 Redireciona os e-mails ao endereço de simulação. Este parâmetro ainda realiza
@@ -34,7 +35,7 @@ Nome de exibição associado ao endereço remetente configurado no PS Panel.
 
 .EXAMPLE
 .\Enviar-Sumario-Emails-Quarentena.ps1 `
-    -ArquivoEntrada "C:\temp\quarentena\Quarentena-Emails-2026-08-06_2026-08-06_141718-Potencialmente-Validos-v4-142403.xlsx" `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-06_2026-08-06_141718-Potencialmente-Validos-v4-142403.xlsx" `
     -WhatIf `
     -DestinatarioSimulacao "msouza@desenbahia.ba.gov.br"
 #>
@@ -44,7 +45,7 @@ param(
     [string]$ArquivoEntrada = "",
 
     [ValidateNotNullOrEmpty()]
-    [string]$DiretorioEntrada = "C:\temp\quarentena",
+    [string]$DiretorioEntrada = (Join-Path -Path $PSScriptRoot -ChildPath "Quarentena"),
 
     [switch]$WhatIf,
 
