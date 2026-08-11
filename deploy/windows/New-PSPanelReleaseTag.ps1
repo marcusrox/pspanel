@@ -45,8 +45,23 @@ function Invoke-GitCommand {
         [switch] $Quiet
     )
 
-    $output = @(& $script:GitPath -C $script:ResolvedProjectRoot @Arguments 2>&1)
-    $exitCode = $LASTEXITCODE
+    # No Windows PowerShell 5.1, stderr redirecionado por 2>&1 pode se tornar
+    # um erro terminante quando ErrorActionPreference esta definido como Stop.
+    # O Git usa stderr tambem para mensagens normais de progresso, inclusive
+    # em pushes bem-sucedidos. Capture a saida com Continue e determine o
+    # sucesso exclusivamente pelo codigo de saida do processo nativo.
+    $previousErrorActionPreference = $ErrorActionPreference
+
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(
+            & $script:GitPath -C $script:ResolvedProjectRoot @Arguments 2>&1
+        )
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 
     if (-not $Quiet) {
         $output | ForEach-Object { Write-Host ([string]$_) }
@@ -213,7 +228,7 @@ if (-not $PSCmdlet.ShouldProcess($target, 'criar tag anotada e publicar no repos
 try {
     [void](Invoke-GitCommand -Arguments @('push', $Remote, "refs/tags/$tagName"))
 } catch {
-    throw "A tag local $tagName foi criada, mas o push falhou. Corrija o acesso remoto e execute: git push $Remote refs/tags/$tagName"
+    throw "A tag local $tagName foi criada, mas o push falhou. Detalhes: $($_.Exception.Message). Corrija o acesso remoto e execute: git push $Remote refs/tags/$tagName"
 }
 
 [pscustomobject]@{
