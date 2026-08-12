@@ -97,6 +97,9 @@
         .schedule-detail-list p {
             margin: 0;
         }
+        .schedule-history-link {
+            width: fit-content;
+        }
         .output-container {
             background-color: var(--bg-darker);
             padding: 1rem;
@@ -214,6 +217,10 @@
                 <p><strong>Parâmetros:</strong> <span id="detailParameters"></span></p>
                 <p><strong>Última execução:</strong> <span id="detailLastRun"></span></p>
                 <p><strong>Código de saída:</strong> <span id="detailExitCode"></span></p>
+                <a id="detailHistoryLink" class="secondary-btn schedule-history-link" href="/history">
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                    Ver histórico deste script
+                </a>
             </div>
             <h3>Saída</h3>
             <div id="detailOutput" class="output-container"></div>
@@ -228,12 +235,14 @@
 
         function showScheduleDetails(button) {
             const modal = document.getElementById('scheduleDetailsModal');
+            const scriptName = button.dataset.script || '';
 
-            setDetailText('detailScript', button.dataset.script, '—');
+            setDetailText('detailScript', scriptName, '—');
             setDetailText('detailParameters', button.dataset.parameters, 'Nenhum');
             setDetailText('detailLastRun', button.dataset.lastRun, 'Ainda não executado');
             setDetailText('detailExitCode', button.dataset.exitCode, 'Não registrado');
             setDetailText('detailOutput', button.dataset.output, 'Sem saída registrada');
+            document.getElementById('detailHistoryLink').href = `/history?search=${encodeURIComponent(scriptName)}`;
 
             modal.style.display = 'block';
             modal.setAttribute('aria-hidden', 'false');

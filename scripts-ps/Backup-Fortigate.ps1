@@ -224,25 +224,39 @@ try {
 
     if (-not (Test-Path ".git")) {
         Write-Host "Repositório Git não encontrado. Inicializando um novo repositório..."
-        git init | Out-Null
+        git -c "safe.directory=$BackupDir" init | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao inicializar o repositório Git (código $LASTEXITCODE)."
+        }
         Write-Host "Repositório Git criado com sucesso."
     }
     else {
         Write-Host "Repositório Git já existe."
     }
 
-    git add .
+    git -c "safe.directory=$BackupDir" add .
+    if ($LASTEXITCODE -ne 0) {
+        throw "Falha ao adicionar os arquivos ao repositório Git (código $LASTEXITCODE)."
+    }
 
-    try {
+    git -c "safe.directory=$BackupDir" diff --cached --quiet
+    $GitDiffExitCode = $LASTEXITCODE
+
+    if ($GitDiffExitCode -eq 1) {
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        git commit -m "Backup automático FortiGate - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-    }
-    catch {
-        # Aqui você pode ignorar erros, por exemplo quando não há alterações para commitar
-        Write-Host "Nada novo para commitar ou erro no commit." -ForegroundColor Yellow
-    }
+        git -c "safe.directory=$BackupDir" commit -m "Backup automático FortiGate - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao criar o commit do backup (código $LASTEXITCODE)."
+        }
 
-    Write-Host "Backup commitado no repositório Git." -ForegroundColor Green
+        Write-Host "Backup commitado no repositório Git." -ForegroundColor Green
+    }
+    elseif ($GitDiffExitCode -eq 0) {
+        Write-Host "Nenhuma alteração nova para commitar." -ForegroundColor Yellow
+    }
+    else {
+        throw "Falha ao verificar alterações no repositório Git (código $GitDiffExitCode)."
+    }
 }
 catch {
     Write-Host "Erro ao executar comandos Git: $_" -ForegroundColor Red
