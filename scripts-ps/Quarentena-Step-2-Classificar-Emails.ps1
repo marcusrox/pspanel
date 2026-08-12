@@ -116,7 +116,7 @@ param(
     [string]$DominiosInternos = "desenbahia.ba.gov.br",
 
     [ValidateRange(1, 1000)]
-    [int]$PontuacaoRevisao = 50,
+    [int]$PontuacaoRevisao = 60,
 
     [ValidateRange(1, 1000)]
     [int]$PontuacaoDescarte = 60,
@@ -1432,7 +1432,7 @@ try {
     $horaArquivo = (Get-Date).ToString("HHmmss")
     $arquivoSaida = Join-Path `
         -Path $diretorioResolvido `
-        -ChildPath "$nomeBase-Potencialmente-Validos-v4-$horaArquivo.xlsx"
+        -ChildPath "$nomeBase-Classificados-$horaArquivo.xlsx"
 
     $arquivosHistorico = @(
         Get-ArquivosContextoHistorico `

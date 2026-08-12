@@ -457,6 +457,19 @@ try {
     $referenceTime = Get-Date
 
     $stage = 'carregamento do modulo ActiveDirectory'
+
+    # O modulo ActiveDirectory faz parte das ferramentas RSAT do Windows e nao
+    # deve ser instalado com Install-Module. A instalacao precisa ser executada
+    # uma unica vez em uma sessao do Windows PowerShell aberta como Administrador.
+    #
+    # Windows Server:
+    # Install-WindowsFeature -Name RSAT-AD-PowerShell
+    #
+    # Windows 10/11:
+    # Add-WindowsCapability -Online `
+    #     -Name 'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
+    #
+    # Depois da instalacao, esta importacao carrega o modulo para a execucao.
     Import-Module ActiveDirectory -ErrorAction Stop
 
     $stage = 'descoberta do dominio e do PDC Emulator'
