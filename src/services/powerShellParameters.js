@@ -368,12 +368,33 @@ function formatCommandLineArg(value) {
     return `"${text.replace(/"/g, '\\"')}"`;
 }
 
+function isSwitchParameter(parameter) {
+    return String(parameter && parameter.type ? parameter.type : '').toLowerCase() === 'switch';
+}
+
+function isSwitchEnabled(value) {
+    if (value === true || value === 1) {
+        return true;
+    }
+
+    return ['true', '1', 'yes', 'on', 'sim'].includes(
+        String(value === undefined || value === null ? '' : value).trim().toLowerCase()
+    );
+}
+
 function buildPowerShellArgs(parameterDefinitions, providedParams, rawParams) {
     const args = [];
     const values = providedParams && typeof providedParams === 'object' ? providedParams : {};
 
     for (const param of parameterDefinitions || []) {
         const value = values[param.name];
+        if (isSwitchParameter(param)) {
+            if (isSwitchEnabled(value)) {
+                args.push(`-${param.name}`);
+            }
+            continue;
+        }
+
         if (value !== undefined && value !== null && String(value).trim()) {
             args.push(`-${param.name}`, String(value).trim());
         }
@@ -390,6 +411,13 @@ function formatProvidedParams(parameterDefinitions, providedParams, rawParams) {
 
     for (const param of parameterDefinitions || []) {
         const value = values[param.name];
+        if (isSwitchParameter(param)) {
+            if (isSwitchEnabled(value)) {
+                structuredParams.push(`-${param.name}`);
+            }
+            continue;
+        }
+
         if (value !== undefined && value !== null && String(value).trim()) {
             const formattedValue = isSensitiveParameterName(param.name)
                 ? SENSITIVE_PARAMETER_MASK

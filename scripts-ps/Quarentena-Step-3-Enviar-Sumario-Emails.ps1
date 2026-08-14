@@ -2,16 +2,19 @@
 
 <#
 .SYNOPSIS
-Envia um sumário das mensagens de quarentena agrupado por destinatário.
+Envia um sumário classificado das mensagens de quarentena por destinatário.
 
 .DESCRIPTION
-Lê a planilha Quarentena de uma exportação produzida pelo filtro v4 e envia
+Lê a planilha Auditoria de uma exportação produzida pelo classificador e envia
 um único e-mail HTML para cada endereço encontrado na coluna Para. O resumo
-contém todas as mensagens destinadas àquele endereço.
+separa as mensagens nas classificações Potencialmente válida e Inválida.
 
-Quando ArquivoEntrada não é informado, usa o arquivo v4 mais recente do
-DiretorioEntrada. Com WhatIf, os grupos são mantidos separados, mas todos os
-e-mails são redirecionados ao DestinatarioSimulacao.
+Registros com outras classificações, como Revisão manual, não são enviados e
+são informados como aviso na saída do script.
+
+Quando ArquivoEntrada não é informado, usa o arquivo classificado mais recente
+do DiretorioEntrada. Com WhatIf, os grupos são mantidos separados, mas todos
+os e-mails são redirecionados ao DestinatarioSimulacao.
 
 .PARAMETER ArquivoEntrada
 Caminho opcional do arquivo XLSX a processar.
@@ -19,6 +22,10 @@ Caminho opcional do arquivo XLSX a processar.
 .PARAMETER DiretorioEntrada
 Pasta pesquisada quando ArquivoEntrada não é informado. Por padrão, usa a
 subpasta Quarentena do diretório onde este script está localizado.
+
+.PARAMETER FiltroPara
+Endereço opcional da coluna Para cujas mensagens devem compor o relatório.
+Quando omitido, gera um resumo para cada destinatário encontrado.
 
 .PARAMETER WhatIf
 Redireciona os e-mails ao endereço de simulação. Este parâmetro ainda realiza
@@ -31,13 +38,24 @@ Endereço que recebe os e-mails quando WhatIf é usado.
 Nome de exibição associado ao endereço remetente configurado no PS Panel.
 
 .EXAMPLE
-.\Enviar-Sumario-Emails-Quarentena.ps1
+.\Quarentena-Step-3-Enviar-Sumario-Emails.ps1
 
 .EXAMPLE
-.\Enviar-Sumario-Emails-Quarentena.ps1 `
-    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-06_2026-08-06_141718-Potencialmente-Validos-v4-142403.xlsx" `
+.\Quarentena-Step-3-Enviar-Sumario-Emails.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-06_2026-08-06_141718-Classificados-142403.xlsx" `
+    -FiltroPara "usuario@desenbahia.ba.gov.br" `
     -WhatIf `
     -DestinatarioSimulacao "msouza@desenbahia.ba.gov.br"
+
+.INPUTS
+Nenhum.
+
+.OUTPUTS
+Mensagens de progresso e aviso no pipeline de host. Envia e-mails HTML via SMTP.
+
+.NOTES
+Requer PowerShell 5.1, Microsoft Excel instalado, configuração SMTP salva no
+PS Panel e o módulo local PSPanel.Email.
 #>
 
 [CmdletBinding()]
@@ -46,6 +64,9 @@ param(
 
     [ValidateNotNullOrEmpty()]
     [string]$DiretorioEntrada = (Join-Path -Path $PSScriptRoot -ChildPath "Quarentena"),
+
+    [ValidateLength(0, 320)]
+    [string]$FiltroPara = "",
 
     [switch]$WhatIf,
 
@@ -58,8 +79,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$script:PadraoArquivo = '^Quarentena-Emails-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_\d{6}-Potencialmente-Validos-v4-\d{6}\.xlsx$'
-$script:CabecalhosObrigatorios = @("Para", "Date", "From", "Subject")
+$script:PadraoArquivo = '^Quarentena-Emails-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_\d{6}-Classificados-\d{6}\.xlsx$'
+$script:CabecalhosObrigatorios = @(
+    "Para",
+    "Date",
+    "From",
+    "Subject",
+    "Classificação"
+)
 
 function Resolve-ArquivoEntradaQuarentena {
     param(
@@ -97,7 +124,7 @@ function Resolve-ArquivoEntradaQuarentena {
         Select-Object -First 1
 
     if ($null -eq $arquivoMaisRecente) {
-        throw "Nenhum arquivo Potencialmente-Validos-v4 foi encontrado em: $Diretorio"
+        throw "Nenhum arquivo classificado foi encontrado em: $Diretorio"
     }
 
     return $arquivoMaisRecente
@@ -240,16 +267,16 @@ function Read-RegistrosQuarentena {
         $workbook = $excel.Workbooks.Open($Arquivo.FullName, 0, $true)
 
         try {
-            $worksheet = $workbook.Worksheets.Item("Quarentena")
+            $worksheet = $workbook.Worksheets.Item("Auditoria")
         }
         catch {
-            throw "A planilha 'Quarentena' não foi encontrada em '$($Arquivo.Name)'."
+            throw "A planilha 'Auditoria' não foi encontrada em '$($Arquivo.Name)'."
         }
 
         $usedRange = $worksheet.UsedRange
 
         if ($usedRange.Row -ne 1 -or $usedRange.Column -ne 1) {
-            throw "A tabela da planilha 'Quarentena' deve começar na célula A1."
+            throw "A tabela da planilha 'Auditoria' deve começar na célula A1."
         }
 
         $quantidadeLinhas = $usedRange.Rows.Count
@@ -270,7 +297,7 @@ function Read-RegistrosQuarentena {
             }
 
             if ($cabecalhos.ContainsKey($nomeCabecalho)) {
-                throw "Cabeçalho duplicado na planilha Quarentena: $nomeCabecalho"
+                throw "Cabeçalho duplicado na planilha Auditoria: $nomeCabecalho"
             }
 
             $cabecalhos[$nomeCabecalho] = $coluna
@@ -278,7 +305,7 @@ function Read-RegistrosQuarentena {
 
         foreach ($cabecalho in $script:CabecalhosObrigatorios) {
             if (-not $cabecalhos.ContainsKey($cabecalho)) {
-                throw "Coluna obrigatória ausente na planilha Quarentena: $cabecalho"
+                throw "Coluna obrigatória ausente na planilha Auditoria: $cabecalho"
             }
         }
 
@@ -288,6 +315,9 @@ function Read-RegistrosQuarentena {
             $para = ([string]$valores[$linha, $cabecalhos["Para"]]).Trim()
             $remetente = ([string]$valores[$linha, $cabecalhos["From"]]).Trim()
             $assunto = ([string]$valores[$linha, $cabecalhos["Subject"]]).Trim()
+            $classificacao = (
+                [string]$valores[$linha, $cabecalhos["Classificação"]]
+            ).Trim()
             $dataOriginal = $valores[$linha, $cabecalhos["Date"]]
 
             if (
@@ -306,6 +336,7 @@ function Read-RegistrosQuarentena {
                 DataHora = ConvertTo-DataHoraQuarentena -Valor $dataOriginal
                 From = $remetente
                 Subject = $assunto
+                Classificacao = $classificacao
             })
         }
 
@@ -345,8 +376,17 @@ function Group-RegistrosPorDestinatario {
 
     $grupos = @{}
     $linhasIgnoradas = [Collections.Generic.List[int]]::new()
+    $linhasClassificacaoIgnorada = [Collections.Generic.List[int]]::new()
 
     foreach ($registro in $Registros) {
+        if ($registro.Classificacao -notin @(
+            "Potencialmente válida",
+            "Inválida"
+        )) {
+            $linhasClassificacaoIgnorada.Add([int]$registro.Linha)
+            continue
+        }
+
         $enderecos = @(Get-EnderecosEmail -Texto $registro.Para)
 
         if ($enderecos.Count -eq 0) {
@@ -368,7 +408,8 @@ function Group-RegistrosPorDestinatario {
             $assinatura = @(
                 [string]$registro.Date,
                 $registro.From,
-                $registro.Subject
+                $registro.Subject,
+                $registro.Classificacao
             ) -join [char]0x1F
 
             if ($grupos[$endereco].Assinaturas.Add($assinatura)) {
@@ -380,6 +421,7 @@ function Group-RegistrosPorDestinatario {
     return [PSCustomObject]@{
         Grupos = @($grupos.Values | Sort-Object Destinatario)
         LinhasIgnoradas = @($linhasIgnoradas)
+        LinhasClassificacaoIgnorada = @($linhasClassificacaoIgnorada)
     }
 }
 
@@ -413,27 +455,22 @@ function Format-DataHoraMensagem {
     return [string]$Registro.Date
 }
 
-function New-CorpoEmailQuarentena {
+function New-SecaoMensagensQuarentena {
     param(
+        [Parameter(Mandatory = $true)]
+        [string]$Titulo,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Explicacao,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CorDestaque,
+
         [Parameter(Mandatory = $true)]
         [string]$DestinatarioOriginal,
 
         [Parameter(Mandatory = $true)]
-        [object[]]$Mensagens,
-
-        [Parameter(Mandatory = $true)]
-        [datetime]$DataReferencia,
-
-        [Parameter(Mandatory = $true)]
-        [string]$NomeScript,
-
-        [Parameter(Mandatory = $true)]
-        [datetime]$DataExecucao,
-
-        [switch]$Simulacao,
-
-        [AllowEmptyString()]
-        [string]$DestinatarioEntrega = ""
+        [object[]]$Mensagens
     )
 
     $linhasTabela = [Text.StringBuilder]::new()
@@ -459,6 +496,61 @@ function New-CorpoEmailQuarentena {
         $indice++
     }
 
+    $tituloSeguro = ConvertTo-HtmlSeguro $Titulo
+    $explicacaoSegura = ConvertTo-HtmlSeguro $Explicacao
+    $quantidade = $Mensagens.Count
+
+    return @"
+<div style="margin:0 0 28px;">
+  <div style="margin:0 0 8px;font-size:18px;font-weight:600;color:$CorDestaque;">$tituloSeguro ($quantidade)</div>
+  <div style="margin:0 0 12px;padding:12px 15px;border-left:5px solid $CorDestaque;background-color:#f7f9fb;color:#334e68;line-height:1.55;">$explicacaoSegura</div>
+  <div style="width:100%;overflow-x:auto;">
+    <table role="table" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;border:1px solid #bcccdc;font-size:13px;line-height:1.4;">
+      <thead>
+        <tr style="background-color:$CorDestaque;color:#ffffff;">
+          <th align="left" style="padding:11px 10px;border-right:1px solid #ffffff;white-space:nowrap;">Data/Hora</th>
+          <th align="left" style="padding:11px 10px;border-right:1px solid #ffffff;">Destinatário</th>
+          <th align="left" style="padding:11px 10px;border-right:1px solid #ffffff;">Remetente</th>
+          <th align="left" style="padding:11px 10px;">Assunto</th>
+        </tr>
+      </thead>
+      <tbody>
+$($linhasTabela.ToString())
+      </tbody>
+    </table>
+  </div>
+</div>
+"@
+}
+
+function New-CorpoEmailQuarentena {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DestinatarioOriginal,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$MensagensPotencialmenteValidas,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$MensagensInvalidas,
+
+        [Parameter(Mandatory = $true)]
+        [datetime]$DataReferencia,
+
+        [Parameter(Mandatory = $true)]
+        [string]$NomeScript,
+
+        [Parameter(Mandatory = $true)]
+        [datetime]$DataExecucao,
+
+        [switch]$Simulacao,
+
+        [AllowEmptyString()]
+        [string]$DestinatarioEntrega = ""
+    )
+
     $avisoSimulacao = ""
 
     if ($Simulacao) {
@@ -471,7 +563,9 @@ function New-CorpoEmailQuarentena {
 "@
     }
 
-    $quantidade = $Mensagens.Count
+    $quantidade = (
+        $MensagensPotencialmenteValidas.Count + $MensagensInvalidas.Count
+    )
     $descricaoQuantidade = if ($quantidade -eq 1) {
         "1 mensagem retida"
     }
@@ -481,6 +575,25 @@ function New-CorpoEmailQuarentena {
     $dataReferenciaTexto = $DataReferencia.ToString("dd/MM/yyyy")
     $dataExecucaoTexto = $DataExecucao.ToString("dd/MM/yyyy HH:mm:ss")
     $nomeScriptSeguro = ConvertTo-HtmlSeguro $NomeScript
+    $secoesMensagens = [Text.StringBuilder]::new()
+
+    if ($MensagensPotencialmenteValidas.Count -gt 0) {
+        [void]$secoesMensagens.AppendLine((New-SecaoMensagensQuarentena `
+            -Titulo "Mensagens potencialmente válidas" `
+            -Explicacao "Os remetentes não possuem as devidas configurações de segurança (SPF, DKIM ou DMARC)." `
+            -CorDestaque "#2f75b5" `
+            -DestinatarioOriginal $DestinatarioOriginal `
+            -Mensagens $MensagensPotencialmenteValidas))
+    }
+
+    if ($MensagensInvalidas.Count -gt 0) {
+        [void]$secoesMensagens.AppendLine((New-SecaoMensagensQuarentena `
+            -Titulo "Mensagens inválidas" `
+            -Explicacao "Estas mensagens têm alta probabilidade de serem falsas. Além de o remetente não possuir as devidas configurações de segurança, elas apresentam características de spam ou falsidade." `
+            -CorDestaque "#b42318" `
+            -DestinatarioOriginal $DestinatarioOriginal `
+            -Mensagens $MensagensInvalidas))
+    }
 
     return @"
 <!DOCTYPE html>
@@ -505,25 +618,11 @@ function New-CorpoEmailQuarentena {
           <tr>
             <td style="padding:24px 28px 28px;">
               $avisoSimulacao
-              <div style="margin:0 0 22px;padding:16px 18px;border-left:5px solid #d9822b;background-color:#fff7e6;color:#5c3b00;line-height:1.55;">
-                <strong style="display:block;margin-bottom:5px;color:#7a4100;">Atenção</strong>
-                A seguir estão as mensagens que ficaram retidas em quarentena por suspeita de fraude. Os remetentes dessas mensagens não possuem os requisitos mínimos de segurança para que elas fossem reconhecidas como autênticas. Caso queira liberar alguma dessas mensagens e recebê-la em sua caixa de entrada, abra um chamado na Central de Serviços da GTI.
-              </div>
-              <div style="margin:0 0 10px;font-size:17px;font-weight:600;color:#174a7e;">Mensagens retidas</div>
-              <div style="width:100%;overflow-x:auto;">
-                <table role="table" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;border:1px solid #bcccdc;font-size:13px;line-height:1.4;">
-                  <thead>
-                    <tr style="background-color:#2f75b5;color:#ffffff;">
-                      <th align="left" style="padding:11px 10px;border-right:1px solid #6ea1cf;white-space:nowrap;">Data/Hora</th>
-                      <th align="left" style="padding:11px 10px;border-right:1px solid #6ea1cf;">Destinatário</th>
-                      <th align="left" style="padding:11px 10px;border-right:1px solid #6ea1cf;">Remetente</th>
-                      <th align="left" style="padding:11px 10px;">Assunto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-$($linhasTabela.ToString())
-                  </tbody>
-                </table>
+              $($secoesMensagens.ToString())
+              <div style="margin:4px 0 24px;padding:16px 18px;border:1px solid #d9e2ec;background-color:#f7f9fb;color:#334e68;line-height:1.6;border-radius:6px;">
+                Caso queira evitar que mensagens legítimas fiquem retidas em quarentena, notifique o remetente e solicite a configuração adequada de SPF, DKIM e DMARC.<br>
+                Para mais esclarecimentos, consulte:
+                <a href="https://www.cloudflare.com/pt-br/learning/email-security/dmarc-dkim-spf/" style="color:#174a7e;font-weight:600;">SPF, DKIM e DMARC</a>.
               </div>
               <div style="margin-top:24px;padding-top:18px;border-top:1px solid #d9e2ec;color:#52616b;font-size:12px;line-height:1.55;">
                 <strong style="color:#334e68;">Mensagem enviada por GTI - Gerência de Tecnologia da Informação</strong><br>
@@ -567,12 +666,29 @@ Write-Host "Arquivo selecionado: $($arquivo.FullName)"
 $registros = @(Read-RegistrosQuarentena -Arquivo $arquivo)
 
 if ($registros.Count -eq 0) {
-    Write-Host "A planilha Quarentena não possui mensagens para envio."
+    Write-Host "A planilha Auditoria não possui mensagens para envio."
     return
+}
+
+$filtroParaNormalizado = ""
+
+if (-not [string]::IsNullOrWhiteSpace($FiltroPara)) {
+    $filtroParaNormalizado = $FiltroPara.Trim().ToLowerInvariant()
+
+    if (-not (Test-EnderecoEmail -Endereco $filtroParaNormalizado)) {
+        throw "Filtro da coluna Para inválido: $FiltroPara"
+    }
 }
 
 $agrupamento = Group-RegistrosPorDestinatario -Registros $registros
 $grupos = @($agrupamento.Grupos)
+
+if (-not [string]::IsNullOrWhiteSpace($filtroParaNormalizado)) {
+    $grupos = @($grupos | Where-Object {
+        $_.Destinatario -ieq $filtroParaNormalizado
+    })
+    Write-Host "Filtro da coluna Para aplicado: $filtroParaNormalizado"
+}
 
 if ($agrupamento.LinhasIgnoradas.Count -gt 0) {
     Write-Warning (
@@ -582,8 +698,29 @@ if ($agrupamento.LinhasIgnoradas.Count -gt 0) {
     )
 }
 
+if ($agrupamento.LinhasClassificacaoIgnorada.Count -gt 0) {
+    Write-Warning (
+        (
+            "Foram ignoradas {0} linha(s) cuja classificação não é " +
+            "'Potencialmente válida' nem 'Inválida': {1}"
+        ) -f
+        $agrupamento.LinhasClassificacaoIgnorada.Count,
+        ($agrupamento.LinhasClassificacaoIgnorada -join ", ")
+    )
+}
+
 if ($grupos.Count -eq 0) {
-    throw "Nenhum endereço de e-mail válido foi encontrado na coluna Para."
+    if (-not [string]::IsNullOrWhiteSpace($filtroParaNormalizado)) {
+        throw (
+            "Nenhuma mensagem com classificação 'Potencialmente válida' ou " +
+            "'Inválida' foi encontrada para: $filtroParaNormalizado"
+        )
+    }
+
+    throw (
+        "Nenhuma mensagem com classificação 'Potencialmente válida' ou " +
+        "'Inválida' e destinatário válido foi encontrada."
+    )
 }
 
 if ($WhatIf -and -not (Test-EnderecoEmail -Endereco $DestinatarioSimulacao)) {
@@ -628,10 +765,23 @@ foreach ($grupo in $grupos) {
         $grupo.Destinatario
     }
 
-    $mensagens = @($grupo.Mensagens)
+    $mensagensPotencialmenteValidas = @(
+        $grupo.Mensagens | Where-Object {
+            $_.Classificacao -ieq "Potencialmente válida"
+        }
+    )
+    $mensagensInvalidas = @(
+        $grupo.Mensagens | Where-Object {
+            $_.Classificacao -ieq "Inválida"
+        }
+    )
+    $quantidadeMensagens = (
+        $mensagensPotencialmenteValidas.Count + $mensagensInvalidas.Count
+    )
     $corpo = New-CorpoEmailQuarentena `
         -DestinatarioOriginal $grupo.Destinatario `
-        -Mensagens $mensagens `
+        -MensagensPotencialmenteValidas $mensagensPotencialmenteValidas `
+        -MensagensInvalidas $mensagensInvalidas `
         -DataReferencia $dataReferencia `
         -NomeScript $nomeScript `
         -DataExecucao $dataExecucao `
@@ -651,7 +801,7 @@ foreach ($grupo in $grupos) {
         Write-Host (
             "Resumo enviado: {0} ({1} mensagem(ns); entrega: {2})" -f
             $grupo.Destinatario,
-            $mensagens.Count,
+            $quantidadeMensagens,
             $destinatarioEntrega
         )
     }

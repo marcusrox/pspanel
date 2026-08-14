@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Consulta contas de usuario bloqueadas no Active Directory e envia um relatorio por email.
+    Consulta situacoes de bloqueio, senha expirada e desativacao de contas no Active Directory.
 
 .DESCRIPTION
     Descobre o dominio atual, consulta todos os seus controladores de dominio e consolida
-    as contas de usuario bloqueadas e os atributos locais de senha incorreta. O relatorio
-    HTML apresenta o inventario dos controladores e uma visao consolidada por conta. O
-    script e somente leitura e tambem envia um relatorio quando nenhuma conta esta
-    bloqueada.
+    as contas de usuario bloqueadas por autenticacao invalida e os atributos locais de
+    senha incorreta. No PDC Emulator, tambem consulta contas com senha expirada e contas
+    desativadas. O relatorio HTML apresenta cada situacao em um topico independente. O
+    script e somente leitura e envia o relatorio mesmo quando as listas estao vazias.
 
 .PARAMETER MailTo
     Um ou mais destinatarios. Enderecos em uma unica string podem ser separados por
@@ -18,6 +18,16 @@
 
 .EXAMPLE
     .\Relatorio-ContasAD-Bloqueadas.ps1 -MailTo 'seguranca@exemplo.local;suporte@exemplo.local'
+
+.INPUTS
+    Nenhum.
+
+.OUTPUTS
+    Mensagens de resumo no pipeline e um relatorio HTML enviado por email.
+
+.NOTES
+    Requer Windows PowerShell, modulo ActiveDirectory, acesso de leitura ao dominio e
+    configuracao valida do modulo PSPanel.Email.
 #>
 [CmdletBinding()]
 param(
@@ -129,6 +139,137 @@ function ConvertTo-HtmlEncodedMultilineText {
     return ($encodedValue -replace '\r\n|\r|\n', '<br>')
 }
 
+function Add-AccountStatusTableHtml {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Text.StringBuilder]$Builder,
+
+        [Parameter(Mandatory = $true)]
+        [int]$SectionNumber,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Title,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EmptyMessage,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$ShowDeletionCandidate,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Accounts
+    )
+
+    $accountList = @($Accounts)
+    [void]$Builder.Append("<h2 style=""margin:28px 0 10px;color:#243b53;font-size:18px;"">$SectionNumber. $(ConvertTo-HtmlEncodedText $Title)</h2>")
+    [void]$Builder.Append("<p style=""margin:0 0 12px;color:#52606d;"">$(ConvertTo-HtmlEncodedText $Description)</p>")
+
+    if ($accountList.Count -eq 0) {
+        [void]$Builder.Append("<p style=""padding:14px;background:#ecfdf3;border:1px solid #86d7a2;border-radius:4px;color:#166534;font-weight:600;"">$(ConvertTo-HtmlEncodedText $EmptyMessage)</p>")
+        return
+    }
+
+    [void]$Builder.Append("<p style=""padding:14px;background:#fff4e5;border:1px solid #f5bd65;border-radius:4px;color:#8a4b08;font-weight:600;"">Foram encontradas $($accountList.Count) conta(s).</p>")
+    [void]$Builder.Append('<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;border:1px solid #bcccdc;font-size:12px;">')
+    [void]$Builder.Append('<thead><tr style="background:#334e68;color:#ffffff;text-align:left;">')
+    $headings = if ($ShowDeletionCandidate) {
+        @('Conta', 'Nome', 'Senha expirada', '&Uacute;ltima altera&ccedil;&atilde;o da senha', 'Cria&ccedil;&atilde;o', 'Candidata &agrave; exclus&atilde;o')
+    }
+    else {
+        @('Conta', 'Nome', 'UPN', 'Habilitada', 'Senha expirada', '&Uacute;ltima altera&ccedil;&atilde;o da senha', 'Cria&ccedil;&atilde;o', 'Distinguished Name')
+    }
+    foreach ($heading in $headings) {
+        [void]$Builder.Append("<th style=""padding:7px 8px;border:1px solid #486581;white-space:nowrap;"">$heading</th>")
+    }
+    [void]$Builder.Append('</tr></thead><tbody>')
+
+    $rowIndex = 0
+    foreach ($account in $accountList) {
+        $background = if (($rowIndex % 2) -eq 0) { '#f8fafc' } else { '#eef2f6' }
+        $rowIndex++
+        [void]$Builder.Append("<tr style=""background:$background;"">")
+        $rowValues = if ($ShowDeletionCandidate) {
+            @(
+                $account.SamAccountName,
+                $account.DisplayName,
+                $(if ($account.PasswordExpired) { 'Sim' } else { "N$([char]0x00E3)o" }),
+                (ConvertTo-ReportDateText $account.PasswordLastSet),
+                (ConvertTo-ReportDateText $account.CreatedDate),
+                $(if ($account.DeletionCandidate) { 'Sim' } else { "N$([char]0x00E3)o" })
+            )
+        }
+        else {
+            @(
+                $account.SamAccountName,
+                $account.DisplayName,
+                $account.UserPrincipalName,
+                $(if ($account.Enabled) { 'Sim' } else { "N$([char]0x00E3)o" }),
+                $(if ($account.PasswordExpired) { 'Sim' } else { "N$([char]0x00E3)o" }),
+                (ConvertTo-ReportDateText $account.PasswordLastSet),
+                (ConvertTo-ReportDateText $account.CreatedDate),
+                $account.DistinguishedName
+            )
+        }
+        $valueIndex = 0
+        foreach ($value in $rowValues) {
+            $candidateStyle = if ($ShowDeletionCandidate -and $account.DeletionCandidate -and $valueIndex -eq ($rowValues.Count - 1)) {
+                'color:#b91c1c;font-weight:700;'
+            }
+            else {
+                ''
+            }
+            [void]$Builder.Append("<td style=""padding:6px 8px;border:1px solid #d9e2ec;vertical-align:top;overflow-wrap:anywhere;$candidateStyle"">$(ConvertTo-HtmlEncodedText $value)</td>")
+            $valueIndex++
+        }
+        [void]$Builder.Append('</tr>')
+    }
+
+    [void]$Builder.Append('</tbody>')
+    if ($ShowDeletionCandidate) {
+        [void]$Builder.Append('<tfoot><tr><td colspan="6" style="padding:10px 12px;border:1px solid #bcccdc;background:#f8fafc;color:#52606d;line-height:1.5;"><strong>Crit&eacute;rio para candidatura &agrave; exclus&atilde;o:</strong> o campo Notes deve conter uma das palavras <strong>candidato</strong> ou <strong>candidata</strong>.</td></tr></tfoot>')
+    }
+    [void]$Builder.Append('</table></div>')
+}
+
+function Get-AccountStatusDetails {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Accounts,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Server
+    )
+
+    return @(
+        foreach ($account in @($Accounts)) {
+            $user = Get-ADUser `
+                -Identity $account.DistinguishedName `
+                -Server $Server `
+                -Properties DisplayName, UserPrincipalName, Enabled, PasswordExpired, whenCreated, pwdLastSet, info, DistinguishedName `
+                -ErrorAction Stop
+            $notes = [string]$user.info
+
+            [PSCustomObject]@{
+                SamAccountName = [string]$user.SamAccountName
+                DisplayName = [string]$user.DisplayName
+                UserPrincipalName = [string]$user.UserPrincipalName
+                Enabled = [bool]$user.Enabled
+                PasswordExpired = [bool]$user.PasswordExpired
+                PasswordLastSet = ConvertFrom-ActiveDirectoryFileTime $user.pwdLastSet
+                CreatedDate = $user.whenCreated
+                DistinguishedName = [string]$user.DistinguishedName
+                Notes = $notes
+                DeletionCandidate = $notes -match '\b(?:candidat[oa]|canditad[oa])\b'
+            }
+        }
+    )
+}
+
 function Test-MailRecipients {
     param(
         [Parameter(Mandatory = $true)]
@@ -163,11 +304,19 @@ function Test-MailRecipients {
     }
 }
 
-function New-LockedAccountsEmailHtml {
+function New-AccountStatusEmailHtml {
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
-        [object[]]$ConsolidatedAccounts,
+        [object[]]$LockedAccounts,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$PasswordExpiredAccounts,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$DisabledAccounts,
 
         [Parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
@@ -186,7 +335,9 @@ function New-LockedAccountsEmailHtml {
         [datetime]$SentAt
     )
 
-    $accountList = @($ConsolidatedAccounts)
+    $accountList = @($LockedAccounts)
+    $passwordExpiredList = @($PasswordExpiredAccounts)
+    $disabledList = @($DisabledAccounts)
     $controllerList = @($ControllerResults)
     $count = $accountList.Count
     $routineName = [System.IO.Path]::GetFileName($PSCommandPath)
@@ -197,15 +348,20 @@ function New-LockedAccountsEmailHtml {
     [void]$builder.Append('<!DOCTYPE html><html><head><meta charset="utf-8"></head>')
     [void]$builder.Append('<body style="margin:0;padding:24px;background:#f5f7fa;font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#1f2933;">')
     [void]$builder.Append('<div style="max-width:1200px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ec;border-radius:8px;padding:24px;">')
-    [void]$builder.Append('<h1 style="margin:0 0 18px;color:#173f5f;font-size:24px;">Contas bloqueadas no Active Directory</h1>')
+    [void]$builder.Append('<h1 style="margin:0 0 18px;color:#173f5f;font-size:24px;">Situa&ccedil;&otilde;es de contas no Active Directory</h1>')
     [void]$builder.Append('<table role="presentation" style="border-collapse:collapse;margin-bottom:18px;">')
-    [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Total encontrado:</td><td style=""padding:3px 0;font-weight:600;"">$count</td></tr>")
+    [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Bloqueadas por autentica&ccedil;&atilde;o inv&aacute;lida:</td><td style=""padding:3px 0;font-weight:600;"">$count</td></tr>")
+    [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Com senha expirada:</td><td style=""padding:3px 0;font-weight:600;"">$($passwordExpiredList.Count)</td></tr>")
+    [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Desativadas:</td><td style=""padding:3px 0;font-weight:600;"">$($disabledList.Count)</td></tr>")
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Dom&iacute;nio:</td><td style=""padding:3px 0;font-weight:600;"">$(ConvertTo-HtmlEncodedText $DomainName)</td></tr>")
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">PDC Emulator:</td><td style=""padding:3px 0;font-weight:600;"">$(ConvertTo-HtmlEncodedText $PdcEmulator)</td></tr>")
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Controladores consultados:</td><td style=""padding:3px 0;font-weight:600;"">$($controllerList.Count)</td></tr>")
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Hor&aacute;rio da coleta:</td><td style=""padding:3px 0;font-weight:600;"">$(ConvertTo-HtmlEncodedText $collectedAtText)</td></tr>")
     [void]$builder.Append('</table>')
-    [void]$builder.Append('<p style="padding:12px;background:#eaf2f8;border:1px solid #9fb3c8;border-radius:4px;color:#243b53;">Este relat&oacute;rio representa coletas sequenciais em todos os controladores do dom&iacute;nio. Os atributos <strong>badPasswordTime</strong> e <strong>badPwdCount</strong> n&atilde;o s&atilde;o replicados; por isso, a vis&atilde;o consolidada usa o hor&aacute;rio mais recente e o maior contador local observados, sem somar contadores. O estado pode mudar durante ou depois da coleta.</p>')
+    [void]$builder.Append('<p style="padding:12px;background:#eaf2f8;border:1px solid #9fb3c8;border-radius:4px;color:#243b53;">Uma mesma conta pode aparecer em mais de um t&oacute;pico quando atender a mais de um crit&eacute;rio. O estado pode mudar durante ou depois da coleta.</p>')
+
+    [void]$builder.Append('<h2 style="margin:28px 0 10px;color:#243b53;font-size:18px;">1. Contas bloqueadas por autentica&ccedil;&atilde;o inv&aacute;lida</h2>')
+    [void]$builder.Append('<p style="margin:0 0 12px;color:#52606d;">Contas bloqueadas pela pol&iacute;tica do Active Directory ap&oacute;s tentativas de autentica&ccedil;&atilde;o inv&aacute;lidas. Os atributos <strong>badPasswordTime</strong> e <strong>badPwdCount</strong> n&atilde;o s&atilde;o replicados; a consolida&ccedil;&atilde;o usa o hor&aacute;rio mais recente e o maior contador local observados, sem somar contadores.</p>')
 
     [void]$builder.Append('<h2 style="margin:24px 0 10px;color:#243b53;font-size:18px;">Controladores consultados</h2>')
     [void]$builder.Append('<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;border:1px solid #bcccdc;font-size:12px;">')
@@ -234,10 +390,10 @@ function New-LockedAccountsEmailHtml {
     [void]$builder.Append('</tbody></table></div>')
 
     if ($count -eq 0) {
-        [void]$builder.Append('<p style="padding:14px;background:#ecfdf3;border:1px solid #86d7a2;border-radius:4px;color:#166534;font-weight:600;">Nenhuma conta de usu&aacute;rio estava bloqueada no momento da coleta.</p>')
+        [void]$builder.Append('<p style="padding:14px;background:#ecfdf3;border:1px solid #86d7a2;border-radius:4px;color:#166534;font-weight:600;">Nenhuma conta estava bloqueada por autentica&ccedil;&atilde;o inv&aacute;lida no momento da coleta.</p>')
     }
     else {
-        [void]$builder.Append("<p style=""padding:14px;background:#fff4e5;border:1px solid #f5bd65;border-radius:4px;color:#8a4b08;font-weight:600;"">Foram encontradas $count conta(s) de usu&aacute;rio bloqueada(s).</p>")
+        [void]$builder.Append("<p style=""padding:14px;background:#fff4e5;border:1px solid #f5bd65;border-radius:4px;color:#8a4b08;font-weight:600;"">Foram encontradas $count conta(s) bloqueada(s) por autentica&ccedil;&atilde;o inv&aacute;lida.</p>")
         [void]$builder.Append('<h2 style="margin:24px 0 12px;color:#243b53;font-size:18px;">Listagem detalhada por conta</h2>')
 
         $rowIndex = 0
@@ -288,6 +444,23 @@ function New-LockedAccountsEmailHtml {
             [void]$builder.Append('</div>')
         }
     }
+
+    Add-AccountStatusTableHtml `
+        -Builder $builder `
+        -SectionNumber 2 `
+        -Title 'Contas com senha expirada' `
+        -Description 'Contas cuja senha expirou e que precisam trocar a senha para voltar a autenticar normalmente.' `
+        -EmptyMessage 'Nenhuma conta com senha expirada foi encontrada no momento da coleta.' `
+        -Accounts $passwordExpiredList
+
+    Add-AccountStatusTableHtml `
+        -Builder $builder `
+        -SectionNumber 3 `
+        -Title 'Contas desativadas' `
+        -Description 'Contas de usuario desabilitadas administrativamente no Active Directory. A candidatura a exclusao considera os termos candidato ou candidata no campo Notes.' `
+        -EmptyMessage 'Nenhuma conta desativada foi encontrada no momento da coleta.' `
+        -ShowDeletionCandidate `
+        -Accounts $disabledList
 
     [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #d9e2ec;color:#627d98;font-size:12px;line-height:1.6;"">Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(ConvertTo-HtmlEncodedText $routineName)</strong><br>Enviado em: <strong>$(ConvertTo-HtmlEncodedText $sentAtText)</strong></div>")
     [void]$builder.Append('</div></body></html>')
@@ -400,7 +573,7 @@ try {
         }
     )
 
-    $reportAccounts = @(
+    $lockedAccounts = @(
         foreach ($accountGroup in ($detailedObservations | Group-Object DistinguishedName)) {
             $observations = @($accountGroup.Group)
             $profile = @($observations | Where-Object { $_.IsPdc } | Select-Object -First 1)
@@ -441,24 +614,40 @@ try {
         }
     )
 
-    $reportAccounts = @($reportAccounts | Sort-Object @{ Expression = { ([string]$_.SamAccountName).ToLowerInvariant() } })
+    $lockedAccounts = @($lockedAccounts | Sort-Object @{ Expression = { ([string]$_.SamAccountName).ToLowerInvariant() } })
+
+    $stage = 'consulta de contas com senha expirada no PDC Emulator'
+    $passwordExpiredCandidates = @(
+        Search-ADAccount -PasswordExpired -UsersOnly -Server $pdcEmulator -ErrorAction Stop
+    )
+    $passwordExpiredAccounts = @(
+        Get-AccountStatusDetails -Accounts $passwordExpiredCandidates -Server $pdcEmulator |
+            Sort-Object @{ Expression = { ([string]$_.SamAccountName).ToLowerInvariant() } }
+    )
+
+    $stage = 'consulta de contas desativadas no PDC Emulator'
+    $disabledCandidates = @(
+        Search-ADAccount -AccountDisabled -UsersOnly -Server $pdcEmulator -ErrorAction Stop
+    )
+    $disabledAccounts = @(
+        Get-AccountStatusDetails -Accounts $disabledCandidates -Server $pdcEmulator |
+            Sort-Object @{ Expression = { ([string]$_.SamAccountName).ToLowerInvariant() } }
+    )
+
     $stage = 'geracao do relatorio HTML'
     $collectedAt = Get-Date
     $sentAt = Get-Date
-    $emailBody = New-LockedAccountsEmailHtml `
-        -ConsolidatedAccounts $reportAccounts `
+    $emailBody = New-AccountStatusEmailHtml `
+        -LockedAccounts $lockedAccounts `
+        -PasswordExpiredAccounts $passwordExpiredAccounts `
+        -DisabledAccounts $disabledAccounts `
         -ControllerResults $controllerResults `
         -DomainName $domainName `
         -PdcEmulator $pdcEmulator `
         -CollectedAt $collectedAt `
         -SentAt $sentAt
 
-    $emailSubject = if ($reportAccounts.Count -eq 0) {
-        'PS Panel - Nenhuma conta bloqueada no AD'
-    }
-    else {
-        "PS Panel - Contas bloqueadas no AD ($($reportAccounts.Count))"
-    }
+    $emailSubject = "PS Panel - Contas AD: bloqueadas $($lockedAccounts.Count), senhas expiradas $($passwordExpiredAccounts.Count), desativadas $($disabledAccounts.Count)"
 
     $stage = 'carregamento do modulo de email'
     $emailModulePath = Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1'
@@ -470,7 +659,9 @@ try {
     Write-Output "Dominio consultado: $domainName"
     Write-Output "PDC Emulator: $pdcEmulator"
     Write-Output "Controladores consultados: $($controllerResults.Count)"
-    Write-Output "Contas bloqueadas encontradas: $($reportAccounts.Count)"
+    Write-Output "Contas bloqueadas por autenticacao invalida: $($lockedAccounts.Count)"
+    Write-Output "Contas com senha expirada: $($passwordExpiredAccounts.Count)"
+    Write-Output "Contas desativadas: $($disabledAccounts.Count)"
     Write-Output 'Relatorio enviado por email com sucesso.'
     exit 0
 }

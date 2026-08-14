@@ -1614,7 +1614,8 @@
                     labelRow.appendChild(helpWrapper);
                 }
 
-                const input = Array.isArray(param.validateSet) && param.validateSet.length
+                const isSwitch = String(param.type || '').toLowerCase() === 'switch';
+                const input = (Array.isArray(param.validateSet) && param.validateSet.length) || isSwitch
                     ? document.createElement('select')
                     : document.createElement('input');
 
@@ -1625,15 +1626,22 @@
                 if (input.tagName === 'SELECT') {
                     const emptyOption = document.createElement('option');
                     emptyOption.value = '';
-                    emptyOption.textContent = param.description || 'Selecione...';
+                    emptyOption.textContent = isSwitch ? 'Não' : (param.description || 'Selecione...');
                     input.appendChild(emptyOption);
 
-                    param.validateSet.forEach((optionValue) => {
-                        const option = document.createElement('option');
-                        option.value = optionValue;
-                        option.textContent = optionValue;
-                        input.appendChild(option);
-                    });
+                    if (isSwitch) {
+                        const enabledOption = document.createElement('option');
+                        enabledOption.value = 'true';
+                        enabledOption.textContent = 'Sim';
+                        input.appendChild(enabledOption);
+                    } else {
+                        param.validateSet.forEach((optionValue) => {
+                            const option = document.createElement('option');
+                            option.value = optionValue;
+                            option.textContent = optionValue;
+                            input.appendChild(option);
+                        });
+                    }
                 } else {
                     input.type = 'text';
                     input.placeholder = param.description || (param.defaultValue
