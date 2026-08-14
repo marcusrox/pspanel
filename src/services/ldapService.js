@@ -1,108 +1,74 @@
-const ldap = require('ldapjs');
+const { Client, InvalidCredentialsError, escapeFilter } = require('ldapts');
 
 function createLDAPClient() {
-  console.log('Criando novo cliente LDAP...');
-  const client = ldap.createClient({
-    url: process.env.LDAP_URL,
-    tlsOptions: { rejectUnauthorized: false }
-  });
+    const url = process.env.LDAP_URL;
+    const options = { url };
 
-  client.on('error', (err) => {
-    console.error('Erro no cliente LDAP:', {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack
-    });
-  });
+    if (new URL(url).protocol === 'ldaps:') {
+        options.tlsOptions = { rejectUnauthorized: false };
+    }
 
-  client.on('connectError', (err) => {
-    console.error('Erro de conexão LDAP:', {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack
-    });
-  });
-
-  return client;
+    return new Client(options);
 }
 
 async function bindLDAP(client, dn, password) {
-  console.log(`\nTentando bind LDAP com DN: ${dn}`);
-  
-  return new Promise((resolve, reject) => {
-    client.bind(dn, password, (err) => {
-      if (err) {
-        console.error('Erro durante bind LDAP:', {
-          message: err.message,
-          code: err.code,
-          name: err.name,
-          stack: err.stack
-        });
-        reject(err);
-        return;
-      }
-      console.log('Bind LDAP bem sucedido!');
-      resolve();
+    await client.bind(dn, password);
+}
+
+function getAttributeValue(entry, attributeName) {
+    const matchingKey = Object.keys(entry).find(
+        (key) => key.toLocaleLowerCase('en-US') === attributeName.toLocaleLowerCase('en-US')
+    );
+
+    if (matchingKey) {
+        return entry[matchingKey];
+    }
+
+    if (attributeName.toLocaleLowerCase('en-US') === 'distinguishedname') {
+        return entry.dn;
+    }
+
+    return undefined;
+}
+
+function normalizeSearchEntry(entry, attributes = []) {
+    const normalizedEntry = {};
+
+    attributes.forEach((attributeName) => {
+        const value = getAttributeValue(entry, attributeName);
+        if (value !== undefined) {
+            normalizedEntry[attributeName] = value;
+        }
     });
-  });
+
+    return normalizedEntry;
 }
 
 async function searchLDAP(client, base, opts) {
-  console.log('\nIniciando busca LDAP...');
-  console.log('Base:', base);
-  console.log('Filtro:', opts.filter);
-  console.log('Atributos solicitados:', opts.attributes);
+    const { searchEntries } = await client.search(base, opts);
+    return searchEntries.map((entry) => normalizeSearchEntry(entry, opts.attributes));
+}
 
-  return new Promise((resolve, reject) => {
-    const results = [];
-    client.search(base, opts, (err, res) => {
-      if (err) {
-        console.error('Erro ao iniciar busca LDAP:', {
-          message: err.message,
-          code: err.code,
-          name: err.name,
-          stack: err.stack
-        });
-        reject(err);
-        return;
-      }
+async function unbindLDAP(client) {
+    if (client) {
+        await client.unbind();
+    }
+}
 
-      res.on('searchEntry', (entry) => {
-        console.log('\nEntrada LDAP encontrada:');
-        console.log('DN:', entry.objectName);
-        
-        const obj = {};
-        if (entry.pojo && entry.pojo.attributes) {
-          entry.pojo.attributes.forEach(attr => {
-            obj[attr.type] = attr.values && attr.values.length === 1 ? attr.values[0] : attr.values;
-            //console.log(`Atributo ${attr.type}:`, obj[attr.type]);
-          });
-        }
-        results.push(obj);
-      });
+function buildUserSearchFilter(username) {
+    return escapeFilter`(&(objectClass=user)(objectCategory=person)(sAMAccountName=${String(username || '')}))`;
+}
 
-      res.on('error', (err) => {
-        console.error('Erro durante busca LDAP:', {
-          message: err.message,
-          code: err.code,
-          name: err.name,
-          stack: err.stack
-        });
-        reject(err);
-      });
-
-      res.on('end', (result) => {
-        console.log(`\nBusca LDAP finalizada. ${results.length} resultados encontrados.`);
-        resolve(results);
-      });
-    });
-  });
+function isInvalidCredentialsError(error) {
+    return error instanceof InvalidCredentialsError;
 }
 
 module.exports = {
-  createLDAPClient,
-  bindLDAP,
-  searchLDAP
-}; 
+    bindLDAP,
+    buildUserSearchFilter,
+    createLDAPClient,
+    isInvalidCredentialsError,
+    normalizeSearchEntry,
+    searchLDAP,
+    unbindLDAP
+};

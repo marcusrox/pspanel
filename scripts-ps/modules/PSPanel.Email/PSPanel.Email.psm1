@@ -153,7 +153,10 @@ function Send-PSPanelEmail {
 
         [Parameter(Mandatory = $false)]
         [AllowEmptyString()]
-        [string]$FromName = ''
+        [string]$FromName = '',
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$AttachmentPath
     )
 
     if ($Subject -match '[\r\n]') {
@@ -204,6 +207,19 @@ function Send-PSPanelEmail {
         }
         else {
             $builder.TextBody = $Body
+        }
+        if ($AttachmentPath) {
+            foreach ($path in $AttachmentPath) {
+                if ([string]::IsNullOrWhiteSpace($path)) {
+                    throw 'O caminho de um anexo esta vazio.'
+                }
+
+                $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($path)
+                if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
+                    throw "Arquivo de anexo nao encontrado: $path"
+                }
+                [void]$builder.Attachments.Add($resolvedPath)
+            }
         }
         $message.Body = $builder.ToMessageBody()
 

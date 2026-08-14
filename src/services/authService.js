@@ -1,4 +1,11 @@
-const { createLDAPClient, bindLDAP, searchLDAP } = require('./ldapService');
+const {
+  bindLDAP,
+  buildUserSearchFilter,
+  createLDAPClient,
+  isInvalidCredentialsError,
+  searchLDAP,
+  unbindLDAP
+} = require('./ldapService');
 const Settings = require('../models/Settings');
 const { isUserInAllowedAdGroup } = require('./adAccessService');
 
@@ -15,7 +22,6 @@ async function authenticateLocal(username, password) {
   console.log('Configurações:');
   console.log('Admin User configurado:', process.env.ADMIN_USER ? 'sim' : 'não');
   console.log('Admin Password configurado:', process.env.ADMIN_PASSWORD ? 'sim' : 'não');
-
   console.log('Senha fornecida:', password ? '[REDACTED]' : '[vazia]');
 
   if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
@@ -37,35 +43,45 @@ async function authenticateLocal(username, password) {
   };
 }
 
+function logLdapError(context, error) {
+  console.error(context, {
+    message: error && error.message,
+    code: error && error.code,
+    name: error && error.name
+  });
+}
+
+async function closeLDAPClient(client, description) {
+  if (!client) {
+    return;
+  }
+
+  try {
+    await unbindLDAP(client);
+  } catch (error) {
+    logLdapError(`Erro ao desconectar ${description}:`, error);
+  }
+}
+
 async function authenticateLDAP(username, password) {
   console.log('\n=== Iniciando autenticação LDAP ===');
   console.log('Configurações:');
   console.log('URL LDAP configurada:', process.env.LDAP_URL ? 'sim' : 'não');
   console.log('Bind DN configurado:', process.env.LDAP_BIND_DN ? 'sim' : 'não');
   console.log('Search Base configurado:', process.env.LDAP_SEARCH_BASE ? 'sim' : 'não');
-  console.log('Usuário tentando autenticar:', username);
 
-  const client = createLDAPClient();
-  console.log('Cliente LDAP criado');
-
+  let serviceClient;
   try {
-    console.log('\n1. Tentando conectar com credenciais de serviço...');
-    await bindLDAP(client, process.env.LDAP_BIND_DN, process.env.LDAP_BIND_PASSWORD);
-    console.log('✓ Conexão com credenciais de serviço bem sucedida!');
+    serviceClient = createLDAPClient();
+    await bindLDAP(serviceClient, process.env.LDAP_BIND_DN, process.env.LDAP_BIND_PASSWORD);
 
-    console.log('\n2. Buscando usuário no AD...');
-    console.log('Filtro de busca:', `(&(objectClass=user)(objectCategory=person)(sAMAccountName=${username}))`);
-    
-    const users = await searchLDAP(client, process.env.LDAP_SEARCH_BASE, {
+    const users = await searchLDAP(serviceClient, process.env.LDAP_SEARCH_BASE, {
       scope: 'sub',
-      filter: `(&(objectClass=user)(objectCategory=person)(sAMAccountName=${username}))`,
+      filter: buildUserSearchFilter(username),
       attributes: ['sAMAccountName', 'displayName', 'mail', 'distinguishedName', 'memberOf']
     });
 
-    console.log(`Resultados encontrados: ${users.length}`);
-    
     if (users.length === 0) {
-      console.log('✗ Usuário não encontrado no AD');
       return {
         success: false,
         message: 'Usuário não encontrado',
@@ -75,16 +91,8 @@ async function authenticateLDAP(username, password) {
     }
 
     const user = users[0];
-    console.log('\nDados do usuário encontrado:');
-    console.log('- sAMAccountName:', user.sAMAccountName);
-    console.log('- displayName:', user.displayName);
-    console.log('- mail:', user.mail);
-    console.log('- distinguishedName:', user.distinguishedName);
-    console.log('- Total de grupos:', Array.isArray(user.memberOf) ? user.memberOf.length : 'N/A');
-
     const userDN = user.distinguishedName;
     if (!userDN) {
-      console.log('✗ DN do usuário não encontrado nos atributos');
       return {
         success: false,
         message: 'Erro ao obter informações do usuário',
@@ -93,21 +101,16 @@ async function authenticateLDAP(username, password) {
       };
     }
 
-    console.log('\n3. Tentando autenticar com as credenciais do usuário...');
-    console.log('DN para autenticação:', userDN);
-    
-    const testClient = createLDAPClient();
-    console.log('Novo cliente LDAP criado para teste de autenticação');
-
+    let userClient;
     try {
-      await bindLDAP(testClient, userDN, password);
-      console.log('✓ Autenticação do usuário bem sucedida!');
+      userClient = createLDAPClient();
+      await bindLDAP(userClient, userDN, password);
 
       let allowedGroupDn;
       try {
         allowedGroupDn = await Settings.get('auth.allowed_ad_group_dn');
       } catch (error) {
-        console.error('Erro ao carregar configuração de acesso do Active Directory:', error.message || error);
+        logLdapError('Erro ao carregar configuração de acesso do Active Directory:', error);
         return {
           success: false,
           message: 'Erro interno durante autenticação',
@@ -136,31 +139,28 @@ async function authenticateLDAP(username, password) {
           type: 'ldap'
         }
       };
-
     } catch (error) {
-      console.error('\n✗ Falha na autenticação do usuário:', error.message);
-      console.error('Código do erro:', error.code);
-      console.error('Nome do erro:', error.name);
-      if (error.stack) {
-        console.error('Stack trace:', error.stack);
+      logLdapError('Falha na autenticação do usuário LDAP:', error);
+      if (isInvalidCredentialsError(error)) {
+        return {
+          success: false,
+          message: 'Senha inválida',
+          reasonCode: 'INVALID_CREDENTIALS',
+          auditAction: 'LOGIN_FAILURE'
+        };
       }
+
       return {
         success: false,
-        message: 'Senha inválida',
-        reasonCode: 'INVALID_CREDENTIALS',
+        message: 'Erro interno durante autenticação',
+        reasonCode: 'AUTH_INTERNAL_ERROR',
         auditAction: 'LOGIN_FAILURE'
       };
     } finally {
-      console.log('Desconectando cliente de teste...');
-      testClient.unbind();
+      await closeLDAPClient(userClient, 'cliente LDAP do usuário');
     }
   } catch (error) {
-    console.error('\n✗ Erro durante o processo de autenticação:', error.message);
-    console.error('Código do erro:', error.code);
-    console.error('Nome do erro:', error.name);
-    if (error.stack) {
-      console.error('Stack trace:', error.stack);
-    }
+    logLdapError('Erro durante o processo de autenticação LDAP:', error);
     return {
       success: false,
       message: 'Erro interno durante autenticação',
@@ -168,11 +168,10 @@ async function authenticateLDAP(username, password) {
       auditAction: 'LOGIN_FAILURE'
     };
   } finally {
-    console.log('Desconectando cliente principal...');
-    client.unbind();
+    await closeLDAPClient(serviceClient, 'cliente LDAP de serviço');
   }
 }
 
 module.exports = {
   authenticateUser
-}; 
+};
