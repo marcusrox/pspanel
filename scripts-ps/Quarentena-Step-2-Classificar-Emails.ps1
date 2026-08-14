@@ -9,10 +9,9 @@ Analisa uma exportação bruta da quarentena, atribui pontuação de risco às
 mensagens e valida destinatários internos no catálogo do Outlook clássico.
 
 O arquivo gerado contém a aba Quarentena, com as mensagens potencialmente
-válidas e as que exigem revisão manual, e a aba Auditoria, com todos os
-registros, classificações, pontuações, motivos e dados históricos das
-campanhas. Mensagens que atingem o limite de descarte ficam somente na aba
-Auditoria.
+válidas, e a aba Auditoria, com todos os registros, classificações,
+pontuações, motivos e dados históricos das campanhas. Mensagens que atingem o
+limite de descarte ficam somente na aba Auditoria.
 
 A análise usa o arquivo alvo e exportações brutas anteriores do mesmo
 diretório para identificar padrões históricos. Somente as linhas do arquivo
@@ -45,13 +44,10 @@ Lista de domínios cujos destinatários devem ser validados no catálogo do
 Outlook. Aceita valores separados por vírgula, ponto e vírgula ou espaços.
 O valor padrão é "desenbahia.ba.gov.br".
 
-.PARAMETER PontuacaoRevisao
-Pontuação mínima para classificar uma mensagem como "Revisão manual". Deve
-ser menor que PontuacaoDescarte. O valor padrão é 50.
-
 .PARAMETER PontuacaoDescarte
 Pontuação mínima para classificar uma mensagem como "Inválida" e removê-la
-da aba Quarentena. O valor padrão é 60.
+da aba Quarentena. O valor padrão é 61, portanto mensagens com pontuação
+acima de 60 são descartadas.
 
 .PARAMETER MinimoDestinatariosCampanha
 Quantidade mínima de destinatários distintos usada pelas regras de detecção
@@ -82,11 +78,10 @@ o resultado em um diretório personalizado.
 .\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
     -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
     -DominiosInternos "empresa.com.br;subsidiaria.com.br" `
-    -PontuacaoRevisao 40 `
-    -PontuacaoDescarte 70 `
+    -PontuacaoDescarte 61 `
     -MinimoDestinatariosCampanha 8
 
-Executa a classificação com domínios internos, limites de pontuação e
+Executa a classificação com domínios internos, limite de pontuação e
 quantidade mínima de destinatários personalizados.
 
 .INPUTS
@@ -100,7 +95,7 @@ da classificação no console.
 .NOTES
 Execute o script com o mesmo usuário do Windows que utiliza o perfil do
 Outlook. O arquivo de entrada não pode estar corrompido ou protegido por
-senha. A pontuação de revisão deve ser menor que a pontuação de descarte.
+senha.
 #>
 
 [CmdletBinding()]
@@ -116,10 +111,7 @@ param(
     [string]$DominiosInternos = "desenbahia.ba.gov.br",
 
     [ValidateRange(1, 1000)]
-    [int]$PontuacaoRevisao = 60,
-
-    [ValidateRange(1, 1000)]
-    [int]$PontuacaoDescarte = 60,
+    [int]$PontuacaoDescarte = 61,
 
     [ValidateRange(2, 1000)]
     [int]$MinimoDestinatariosCampanha = 5,
@@ -1371,10 +1363,6 @@ $outlook = $null
 $namespace = $null
 
 try {
-    if ($PontuacaoRevisao -ge $PontuacaoDescarte) {
-        throw "A pontuação de revisão deve ser menor que a pontuação de descarte."
-    }
-
     if (-not (Test-Path -LiteralPath $ArquivoEntrada -PathType Leaf)) {
         throw "O arquivo de entrada não foi encontrado: $ArquivoEntrada"
     }
@@ -1490,7 +1478,6 @@ try {
     $auditoria = [Collections.Generic.List[object]]::new()
     $motivosDescarte = @{}
     $quantidadePotencialmenteValidas = 0
-    $quantidadeRevisao = 0
     $quantidadeInvalidas = 0
 
     foreach ($registro in $registros) {
@@ -1539,11 +1526,6 @@ try {
 
                 $motivosDescarte[$motivo]++
             }
-        }
-        elseif ($pontuacao -ge $PontuacaoRevisao) {
-            $classificacaoFinal = "Revisão manual"
-            $quantidadeRevisao++
-            $registrosValidos.Add($registro)
         }
         else {
             $classificacaoFinal = "Potencialmente válida"
@@ -1775,9 +1757,6 @@ try {
                 "Inválida" {
                     $celulaClassificacao.Interior.Color = 13421812
                 }
-                "Revisão manual" {
-                    $celulaClassificacao.Interior.Color = 13431551
-                }
                 default {
                     $celulaClassificacao.Interior.Color = 13888217
                 }
@@ -1836,10 +1815,8 @@ try {
     Write-Host "Registros históricos após deduplicação: $($registrosHistorico.Count)"
     Write-Host "Duplicidades históricas ignoradas: $registrosDuplicadosHistorico"
     Write-Host "Potencialmente válidos: $quantidadePotencialmenteValidas"
-    Write-Host "Para revisão manual: $quantidadeRevisao"
     Write-Host "Descartados como inválidos: $quantidadeInvalidas"
     Write-Host "Linhas mantidas na aba Quarentena: $($registrosValidos.Count)"
-    Write-Host "Limite para revisão: $PontuacaoRevisao pontos"
     Write-Host "Limite para descarte: $PontuacaoDescarte pontos"
     Write-Host "Consultas ao catálogo do Outlook: $($estatisticasCatalogo.ConsultasOutlook)"
     Write-Host "Resultados obtidos do cache: $($estatisticasCatalogo.CacheValidos + $estatisticasCatalogo.CacheInvalidos)"

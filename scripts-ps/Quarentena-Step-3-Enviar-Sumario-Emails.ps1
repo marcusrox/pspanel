@@ -579,7 +579,7 @@ function New-CorpoEmailQuarentena {
 
     if ($MensagensPotencialmenteValidas.Count -gt 0) {
         [void]$secoesMensagens.AppendLine((New-SecaoMensagensQuarentena `
-            -Titulo "Mensagens potencialmente válidas" `
+            -Titulo "Mensagens suspeitas e retidas" `
             -Explicacao "Os remetentes não possuem as devidas configurações de segurança (SPF, DKIM ou DMARC)." `
             -CorDestaque "#2f75b5" `
             -DestinatarioOriginal $DestinatarioOriginal `
@@ -588,7 +588,7 @@ function New-CorpoEmailQuarentena {
 
     if ($MensagensInvalidas.Count -gt 0) {
         [void]$secoesMensagens.AppendLine((New-SecaoMensagensQuarentena `
-            -Titulo "Mensagens inválidas" `
+            -Titulo "Mensagens com fortes indícios de invalidade" `
             -Explicacao "Estas mensagens têm alta probabilidade de serem falsas. Além de o remetente não possuir as devidas configurações de segurança, elas apresentam características de spam ou falsidade." `
             -CorDestaque "#b42318" `
             -DestinatarioOriginal $DestinatarioOriginal `
@@ -618,6 +618,10 @@ function New-CorpoEmailQuarentena {
           <tr>
             <td style="padding:24px 28px 28px;">
               $avisoSimulacao
+              <div style="margin:0 0 22px;padding:16px 18px;border-left:5px solid #d9822b;background-color:#fff7e6;color:#5c3b00;line-height:1.55;">
+                <strong style="display:block;margin-bottom:5px;color:#7a4100;">Atenção</strong>
+                A seguir estão as mensagens que ficaram retidas em quarentena por suspeita de fraude. Os remetentes dessas mensagens não possuem os requisitos mínimos de segurança para que elas fossem reconhecidas como autênticas. Caso queira liberar alguma dessas mensagens e recebê-la em sua caixa de entrada, abra um chamado na Central de Serviços da GTI.
+              </div>
               $($secoesMensagens.ToString())
               <div style="margin:4px 0 24px;padding:16px 18px;border:1px solid #d9e2ec;background-color:#f7f9fb;color:#334e68;line-height:1.6;border-radius:6px;">
                 Caso queira evitar que mensagens legítimas fiquem retidas em quarentena, notifique o remetente e solicite a configuração adequada de SPF, DKIM e DMARC.<br>
