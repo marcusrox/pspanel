@@ -59,15 +59,15 @@ incluindo o arquivo de entrada. Os arquivos anteriores são selecionados no
 mesmo diretório, do mais recente para o mais antigo. O valor padrão é 5.
 
 .EXAMPLE
-.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
-    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx"
+.\Quarentena-Step-2-Classificar-Emails.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx"
 
 Classifica o arquivo informado usando os limites, domínios e diretórios
 padrão. A saída é criada no mesmo diretório do arquivo de entrada.
 
 .EXAMPLE
-.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
-    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
+.\Quarentena-Step-2-Classificar-Emails.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
     -DiretorioSaida "D:\Relatorios\Quarentena" `
     -QuantidadeArquivosHistorico 10
 
@@ -75,8 +75,8 @@ Classifica o arquivo usando até dez exportações no contexto histórico e salv
 o resultado em um diretório personalizado.
 
 .EXAMPLE
-.\Filtrar-Emails-Potencialmente-Validos-Quarentena-v4.ps1 `
-    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
+.\Quarentena-Step-2-Classificar-Emails.ps1 `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena-Emails-2026-08-11_2026-08-11_114341.xlsx" `
     -DominiosInternos "empresa.com.br;subsidiaria.com.br" `
     -PontuacaoDescarte 61 `
     -MinimoDestinatariosCampanha 8

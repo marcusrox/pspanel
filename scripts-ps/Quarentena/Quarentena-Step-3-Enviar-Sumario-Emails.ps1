@@ -12,6 +12,9 @@ separa as mensagens nas classificações Potencialmente válida e Inválida.
 Registros com outras classificações, como Revisão manual, não são enviados e
 são informados como aviso na saída do script.
 
+Quando nenhuma mensagem qualificada é encontrada, registra a situação na
+saída e encerra normalmente, sem realizar envios.
+
 Quando ArquivoEntrada não é informado, usa o arquivo classificado mais recente
 do DiretorioEntrada. Com WhatIf, os grupos são mantidos separados, mas todos
 os e-mails são redirecionados ao DestinatarioSimulacao.
@@ -20,8 +23,8 @@ os e-mails são redirecionados ao DestinatarioSimulacao.
 Caminho opcional do arquivo XLSX a processar.
 
 .PARAMETER DiretorioEntrada
-Pasta pesquisada quando ArquivoEntrada não é informado. Por padrão, usa a
-subpasta Quarentena do diretório onde este script está localizado.
+Pasta pesquisada quando ArquivoEntrada não é informado. Por padrão, usa o
+diretório onde este script está localizado.
 
 .PARAMETER FiltroPara
 Endereço opcional da coluna Para cujas mensagens devem compor o relatório.
@@ -42,7 +45,7 @@ Nome de exibição associado ao endereço remetente configurado no PS Panel.
 
 .EXAMPLE
 .\Quarentena-Step-3-Enviar-Sumario-Emails.ps1 `
-    -ArquivoEntrada "$PSScriptRoot\Quarentena\Quarentena-Emails-2026-08-06_2026-08-06_141718-Classificados-142403.xlsx" `
+    -ArquivoEntrada "$PSScriptRoot\Quarentena-Emails-2026-08-06_2026-08-06_141718-Classificados-142403.xlsx" `
     -FiltroPara "usuario@desenbahia.ba.gov.br" `
     -WhatIf `
     -DestinatarioSimulacao "msouza@desenbahia.ba.gov.br"
@@ -62,8 +65,8 @@ PS Panel e o módulo local PSPanel.Email.
 param(
     [string]$ArquivoEntrada = "",
 
-    [ValidateNotNullOrEmpty()]
-    [string]$DiretorioEntrada = (Join-Path -Path $PSScriptRoot -ChildPath "Quarentena"),
+    [AllowEmptyString()]
+    [string]$DiretorioEntrada = "",
 
     [ValidateLength(0, 320)]
     [string]$FiltroPara = "",
@@ -662,6 +665,10 @@ function Test-EnderecoEmail {
     }
 }
 
+if ([string]::IsNullOrWhiteSpace($DiretorioEntrada)) {
+    $DiretorioEntrada = $PSScriptRoot
+}
+
 $arquivo = Resolve-ArquivoEntradaQuarentena `
     -Caminho $ArquivoEntrada `
     -Diretorio $DiretorioEntrada
@@ -715,16 +722,20 @@ if ($agrupamento.LinhasClassificacaoIgnorada.Count -gt 0) {
 
 if ($grupos.Count -eq 0) {
     if (-not [string]::IsNullOrWhiteSpace($filtroParaNormalizado)) {
-        throw (
+        Write-Host (
             "Nenhuma mensagem com classificação 'Potencialmente válida' ou " +
-            "'Inválida' foi encontrada para: $filtroParaNormalizado"
+            "'Inválida' foi encontrada para: $filtroParaNormalizado. " +
+            "Nenhum e-mail foi enviado."
         )
+        return
     }
 
-    throw (
+    Write-Host (
         "Nenhuma mensagem com classificação 'Potencialmente válida' ou " +
-        "'Inválida' e destinatário válido foi encontrada."
+        "'Inválida' e destinatário válido foi encontrada. " +
+        "Nenhum e-mail foi enviado."
     )
+    return
 }
 
 if ($WhatIf -and -not (Test-EnderecoEmail -Endereco $DestinatarioSimulacao)) {
@@ -737,8 +748,9 @@ $dataReferencia = Get-DataReferenciaArquivo `
 $dataExecucao = Get-Date
 $nomeScript = [IO.Path]::GetFileName($PSCommandPath)
 $assunto = "Sumário de e-mails na quarentena - Dia $($dataReferencia.ToString('dd/MM/yyyy'))"
+$diretorioScripts = Split-Path -Parent $PSScriptRoot
 $caminhoModulo = Join-Path `
-    $PSScriptRoot `
+    $diretorioScripts `
     "modules\PSPanel.Email\PSPanel.Email.psm1"
 
 if (-not (Test-Path -LiteralPath $caminhoModulo -PathType Leaf)) {

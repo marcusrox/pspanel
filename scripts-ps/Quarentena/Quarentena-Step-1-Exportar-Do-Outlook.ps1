@@ -22,26 +22,26 @@ O valor padrão é "quarentena-email@desenbahia.ba.gov.br".
 
 .PARAMETER DiretorioSaida
 Diretório no qual a planilha XLSX será criada. O diretório é criado
-automaticamente quando não existe. Por padrão, usa a subpasta Quarentena do
-diretório onde este script está localizado.
+automaticamente quando não existe. Por padrão, usa o diretório onde este
+script está localizado.
 
 .PARAMETER DataMensagens
 Data das mensagens que serão exportadas. Aceita os formatos yyyy-MM-dd e
 dd/MM/yyyy. Quando omitida ou vazia, utiliza a data atual.
 
 .EXAMPLE
-.\Exportar-Quarentena-Outlook.ps1
+.\Quarentena-Step-1-Exportar-Do-Outlook.ps1
 
 Exporta as mensagens do dia atual usando a caixa compartilhada e o diretório
 de saída padrão.
 
 .EXAMPLE
-.\Exportar-Quarentena-Outlook.ps1 -DataMensagens "2026-08-11"
+.\Quarentena-Step-1-Exportar-Do-Outlook.ps1 -DataMensagens "2026-08-11"
 
 Exporta as mensagens recebidas em 11/08/2026 usando o formato ISO.
 
 .EXAMPLE
-.\Exportar-Quarentena-Outlook.ps1 `
+.\Quarentena-Step-1-Exportar-Do-Outlook.ps1 `
     -CaixaCompartilhada "quarentena@empresa.com.br" `
     -DiretorioSaida "D:\Relatorios\Quarentena" `
     -DataMensagens "11/08/2026"
@@ -67,7 +67,7 @@ From, Subject, Web Actions e Email Actions.
 [CmdletBinding()]
 param(
     [string]$CaixaCompartilhada = "quarentena-email@desenbahia.ba.gov.br",
-    [string]$DiretorioSaida = (Join-Path -Path $PSScriptRoot -ChildPath "Quarentena"),
+    [string]$DiretorioSaida = "",
     [string]$DataMensagens = ""
 )
 
@@ -613,6 +613,10 @@ $hyperlinks = $null
 try {
     $inicioDataMensagens = ConvertTo-DataMensagens -Valor $DataMensagens
     $fimDataMensagens = $inicioDataMensagens.AddDays(1)
+
+    if ([string]::IsNullOrWhiteSpace($DiretorioSaida)) {
+        $DiretorioSaida = $PSScriptRoot
+    }
 
     Write-Host "Acessando o perfil do Outlook..." -ForegroundColor Cyan
 

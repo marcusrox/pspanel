@@ -45,6 +45,8 @@ debug/
 # Arquivos específicos do projeto
 scripts-ps/*.log
 scripts-ps/output/ 
+scripts-ps/Quarentena/*.xlsx
+scripts-ps/Quarentena/cache-outlook/*.txt
 database/*.sqlite
 database/*.sqlite-*
 database/backups/
