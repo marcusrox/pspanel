@@ -1,3 +1,6 @@
+// Integracao manual opt-in: executa PowerShell e abre um servidor HTTP local.
+// Nao mover para test/, pois `npm test` deve permanecer isolado de processos
+// externos, scripts .ps1 e rede.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');

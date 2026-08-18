@@ -112,12 +112,12 @@ function runPowerShell(scriptPath, argList) {
     });
 }
 
-async function recordHistoryFailure(scriptName, parameters, message) {
+async function recordHistoryFailure(scriptName, parameters, message, history = History) {
     try {
-        const historyId = await History.addEntry(scriptName, parameters || '', SCHEDULE_RUN_USERNAME, {
+        const historyId = await history.addEntry(scriptName, parameters || '', SCHEDULE_RUN_USERNAME, {
             executionSource: 'schedule_worker'
         });
-        await History.updateEntry(historyId, message, 'error', message);
+        await history.updateEntry(historyId, message, 'error', message);
     } catch (e) {
         console.error('History validation failure:', e);
     }
@@ -389,15 +389,28 @@ class Schedule {
     /**
      * Executa todos os agendamentos vencidos (uso pelo worker Node ou tarefa agendada).
      */
-    static async executeDueJobs(projectRoot = process.cwd()) {
+    static async executeDueJobs(projectRoot = process.cwd(), dependencyOverrides = {}) {
+        const dependencies = {
+            fileSystem: fs,
+            executeProcess: runPowerShell,
+            history: History,
+            loadRetryPolicy: loadScheduleRetryPolicy,
+            parseParameters: parseScriptParametersFromContent,
+            getMissingParameters: getMissingRequiredParameters,
+            parseProvidedParameters: parseRawNamedParameters,
+            tokenizeArguments: tokenizePowerShellArgs,
+            now: () => new Date(),
+            ...dependencyOverrides
+        };
+
         await Schedule.clearStaleLocks();
         const due = await Schedule.findDueCandidates();
-        const retryPolicy = await loadScheduleRetryPolicy();
+        const retryPolicy = await dependencies.loadRetryPolicy();
         const scriptsDir = path.join(projectRoot, 'scripts-ps');
         const results = [];
 
         for (const row of due) {
-            const lockUntil = new Date(Date.now() + LOCK_MS).toISOString();
+            const lockUntil = new Date(dependencies.now().getTime() + LOCK_MS).toISOString();
             const lockAcquired = await Schedule.setLock(row.id, lockUntil);
             if (!lockAcquired) continue;
             await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, {
@@ -407,14 +420,14 @@ class Schedule {
 
             const scriptPath = path.join(scriptsDir, row.script_name);
             if (
-                !fs.existsSync(scriptPath)
+                !dependencies.fileSystem.existsSync(scriptPath)
                 || !row.script_name.endsWith('.ps1')
                 || row.script_name.includes('..')
                 || row.script_name.includes('/')
                 || row.script_name.includes('\\')
             ) {
                 const message = 'Arquivo de script não encontrado ou nome inválido.';
-                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                await recordHistoryFailure(row.script_name, row.parameters || '', message, dependencies.history);
                 const state = await Schedule.recordFailure(row, retryPolicy, {
                     exitCode: -1,
                     output: message,
@@ -427,14 +440,14 @@ class Schedule {
 
             let parameterDefinitions = [];
             try {
-                const source = fs.readFileSync(scriptPath, 'utf8');
-                const parameterInfo = parseScriptParametersFromContent(source);
+                const source = dependencies.fileSystem.readFileSync(scriptPath, 'utf8');
+                const parameterInfo = dependencies.parseParameters(source);
                 parameterDefinitions = parameterInfo && Array.isArray(parameterInfo.parameters)
                     ? parameterInfo.parameters
                     : [];
             } catch (e) {
                 const message = 'Não foi possível validar parâmetros do script antes da execução.';
-                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                await recordHistoryFailure(row.script_name, row.parameters || '', message, dependencies.history);
                 const state = await Schedule.recordFailure(row, retryPolicy, {
                     exitCode: -1,
                     output: message,
@@ -445,11 +458,11 @@ class Schedule {
                 continue;
             }
 
-            const providedParamValues = parseRawNamedParameters(row.parameters, parameterDefinitions);
-            const missingRequiredParameters = getMissingRequiredParameters(parameterDefinitions, providedParamValues);
+            const providedParamValues = dependencies.parseProvidedParameters(row.parameters, parameterDefinitions);
+            const missingRequiredParameters = dependencies.getMissingParameters(parameterDefinitions, providedParamValues);
             if (missingRequiredParameters.length) {
                 const message = `Informe os parâmetros obrigatórios: ${missingRequiredParameters.join(', ')}.`;
-                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                await recordHistoryFailure(row.script_name, row.parameters || '', message, dependencies.history);
                 const state = await Schedule.recordFailure(row, retryPolicy, {
                     exitCode: -1,
                     output: message,
@@ -460,11 +473,11 @@ class Schedule {
                 continue;
             }
 
-            const filteredArgs = tokenizePowerShellArgs(row.parameters);
+            const filteredArgs = dependencies.tokenizeArguments(row.parameters);
 
             let historyId;
             try {
-                historyId = await History.addEntry(row.script_name, row.parameters || '', SCHEDULE_RUN_USERNAME, {
+                historyId = await dependencies.history.addEntry(row.script_name, row.parameters || '', SCHEDULE_RUN_USERNAME, {
                     executionSource: 'schedule_worker'
                 });
             } catch (e) {
@@ -473,7 +486,7 @@ class Schedule {
 
             let proc;
             try {
-                proc = await runPowerShell(scriptPath, filteredArgs);
+                proc = await dependencies.executeProcess(scriptPath, filteredArgs);
             } catch (e) {
                 proc = { code: -1, stdout: '', stderr: String(e.message || e) };
             }
@@ -482,7 +495,7 @@ class Schedule {
             const combined = (proc.stdout || '') + (proc.stderr ? `\n${proc.stderr}` : '');
             if (historyId) {
                 try {
-                    await History.updateEntry(
+                    await dependencies.history.updateEntry(
                         historyId,
                         combined || proc.stderr || '',
                         ok ? 'success' : 'error',
@@ -498,7 +511,7 @@ class Schedule {
                 let enabled = !!row.enabled;
                 if (row.schedule_type === SCHEDULE_TYPES.CRON) {
                     nextRun = getNextOccurrence(row.cron_expression, {
-                        after: new Date(),
+                        after: dependencies.now(),
                         timezone: row.schedule_timezone
                     });
                 } else {
@@ -507,7 +520,7 @@ class Schedule {
                 }
 
                 await Schedule.recordRunResult(row.id, {
-                    last_run_at: nowIso(),
+                    last_run_at: dependencies.now().toISOString(),
                     last_run_exit_code: proc.code,
                     last_run_output: combined,
                     next_run_at: nextRun,

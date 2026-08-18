@@ -93,7 +93,12 @@ router.get('/', isAuthenticated, async (req, res) => {
 // Get history entry details
 router.get('/entry/:id', isAuthenticated, async (req, res) => {
     try {
-        const entry = await History.getEntryById(req.params.id);
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'Identificador inválido' });
+        }
+
+        const entry = await History.getEntryById(id);
         if (!entry) {
             return res.status(404).json({ error: 'Registro não encontrado' });
         }
