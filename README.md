@@ -225,6 +225,37 @@ parada do serviço e a aprovação do health check.
 
 ### Execução não interativa e PowerShell Remoting
 
+Na estação DEV, use o wrapper para simular e solicitar o deploy de uma tag já
+publicada:
+
+```powershell
+.\deploy\windows\Invoke-PSPanelRemoteDeploy.ps1 `
+    -ComputerName 'pspanel-prod.exemplo.local' `
+    -Version $release `
+    -WhatIf
+
+.\deploy\windows\Invoke-PSPanelRemoteDeploy.ps1 `
+    -ComputerName 'pspanel-prod.exemplo.local' `
+    -Version $release
+```
+
+O wrapper confirma a tag em `origin`, testa WSMan com Kerberos, abre uma
+PSSession, valida o ambiente remoto e executa primeiro a simulação do
+atualizador no servidor. No modo efetivo, apresenta uma única confirmação local
+e chama remotamente `Update-PSPanel.ps1 -Confirm:$false`. A sessão é encerrada
+mesmo em caso de erro.
+
+Endereços IP não são aceitos no fluxo Kerberos. `TrustedHosts`, CredSSP, WinRM,
+firewall, contas e endpoints não são configurados pelo script. Quando
+necessário, `-Credential` mantém a credencial somente em memória e
+`-ConfigurationName` seleciona um endpoint já existente. `-HealthCheckUrl`
+adiciona uma verificação HTTP/HTTPS a partir da estação, sem aceitar usuário,
+senha, query ou fragmento na URL.
+
+O retorno `PSPanel.RemoteDeploymentResult` reúne tag, commits, snapshot,
+serviço, worker, health checks, rollback e caminho do log remoto. Uma falha no
+servidor ou no health check externo permanece perceptível como erro local.
+
 Quando a ausência de prompts for explicitamente desejada, use
 `-Confirm:$false`:
 
@@ -241,7 +272,8 @@ automático. O `-WhatIf` também retorna esse objeto, com status
 `SimulacaoAprovada`, sem parar componentes, criar log ou alterar dados.
 
 Em uma sessão remota já autorizada e configurada pela equipe responsável, o
-mesmo retorno pode ser capturado por `Invoke-Command`:
+contrato de baixo nível também pode ser capturado diretamente por
+`Invoke-Command`:
 
 ```powershell
 $result = Invoke-Command -ComputerName 'PSPANEL-PROD' -ScriptBlock {

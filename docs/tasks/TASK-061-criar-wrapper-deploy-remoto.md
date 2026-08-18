@@ -120,3 +120,63 @@ src/config/release.js
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Resultado da implementacao
+
+Status: implementada em 2026-08-18.
+
+Foi criado `deploy/windows/Invoke-PSPanelRemoteDeploy.ps1`. O wrapper valida
+hostname/FQDN, tag e caminho, confirma a tag no `origin`, testa WSMan com
+Kerberos, abre a PSSession e verifica remotamente raiz, atualizador, Git,
+Node.js, npm, servico e worker.
+
+Antes de qualquer deploy, o wrapper executa `Update-PSPanel.ps1 -WhatIf` no
+servidor. O modo efetivo usa uma unica confirmacao local e chama o atualizador
+com `-Confirm:$false`. Valores remotos sao enviados por `-ArgumentList`, sem
+construcao de codigo por concatenacao. A PSSession e removida em `finally`.
+
+O resultado `PSPanel.RemoteDeploymentResult` preserva tag, commits, snapshot,
+servico, worker, health checks, rollback e log remoto. Falhas remotas produzem
+erro local terminante com o resultado anexado. O health check opcional da
+estacao aceita apenas URL HTTP/HTTPS sem credenciais, query ou fragmento.
+
+Controles confirmados:
+
+- Kerberos fixado como autenticacao padrao;
+- IP rejeitado como destino;
+- nenhum uso de TrustedHosts, CredSSP ou Enable-PSRemoting;
+- nenhuma transferencia de codigo, banco ou `.env`;
+- credencial opcional usada somente nos cmdlets WSMan/PSSession;
+- nenhum hostname, usuario ou segredo corporativo fixado.
+
+Validacoes executadas com `origin`, tag e PSSession simulados:
+
+- parser no PowerShell 7.6.4 e no Windows PowerShell 5.1: sem erros;
+- tag e endereco IP invalidos rejeitados antes de conexao;
+- `-WhatIf`: uma pre-validacao remota, nenhum deploy e sessao fechada;
+- sucesso sem health check externo: pre-validacao e deploy executados uma vez,
+  resultado estruturado capturado e sessao fechada;
+- health check externo simulado: HTTP 204 aprovado;
+- atualizador remoto ausente: falha local e sessao fechada;
+- falha critica remota simulada: snapshot, componentes e rollback preservados
+  no resultado, excecao local propagada e sessao fechada;
+- falha do health check externo depois de sucesso remoto: falha local
+  preservando o resultado do servidor;
+- `npm test`: 47 testes aprovados;
+- `git diff --check`.
+
+Nenhum servidor corporativo foi acessado e nenhuma configuracao WinRM, firewall,
+conta, servico ou tarefa foi alterada. O primeiro teste integrado ainda deve ser
+feito contra um servidor DEV autorizado. O release foi atualizado para
+`v2026.08.18-062`.
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-08-18 15:07:38 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
