@@ -125,3 +125,29 @@ somente a arquitetura relevante em `docs/architecture.md`.
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Resultado da implementacao
+
+- Status: implementada em 2026-08-18.
+- O `INSTALL.md` passou a conter o runbook completo de preparação externa,
+  acesso Git não interativo, geração da release, deploy remoto, verificação,
+  rollback e contingência local.
+- O `README.md` recebeu um resumo operacional com referência ao runbook.
+- `docs/architecture.md` documenta as fronteiras entre estação DEV, Git,
+  WinRM/Kerberos, VM e dados locais.
+- A contingência usa o atualizador oficial e preserva snapshot, `.env`, banco e
+  configuração do serviço.
+- Nenhum comando de infraestrutura foi executado e nenhum identificador ou
+  segredo real foi incluído.
+- O release foi atualizado para `v2026.08.18-063`.
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-08-18 15:30:03 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao

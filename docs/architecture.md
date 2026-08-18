@@ -355,6 +355,37 @@ Pontos de atencao:
 
 ## Operacao
 
+### Release e deploy remoto
+
+O fluxo de implantação preserva uma separação explícita entre código, controle
+remoto e dados locais:
+
+```text
+estação DEV -> origin/main + tag imutável -> WinRM/Kerberos -> VM de produção
+     testes       fonte da release          orquestração       Update-PSPanel.ps1
+                                                               |-- serviço WinSW
+                                                               |-- worker agendado
+                                                               `-- dados e snapshots locais
+```
+
+- A estação DEV valida a candidata, publica o commit e cria a tag com
+  `New-PSPanelReleaseTag.ps1`.
+- `Invoke-PSPanelRemoteDeploy.ps1` valida a tag, abre uma sessão Kerberos e
+  orquestra o atualizador já existente na VM.
+- O código não é copiado pelo WinRM. A VM consulta o `origin` com uma identidade
+  Git não interativa provisionada externamente.
+- `.env`, bancos SQLite e snapshots não saem da VM pelo wrapper. O atualizador
+  preserva esses dados localmente antes de trocar o commit.
+- WinRM, firewall, DNS, Kerberos, contas e endpoints são limites externos ao
+  repositório. O modelo atual exige uma sessão administrativa na VM.
+- A simulação retorna `SimulacaoAprovada` sem interromper componentes. No modo
+  efetivo, uma confirmação local precede a execução remota não interativa.
+- `PSPanel.RemoteDeploymentResult` agrega o `PSPanel.DeploymentResult`, incluindo
+  commits, snapshot, serviço, worker, health checks, log e rollback automático.
+
+O fluxo recorrente está em `UPDATE.md`. A preparação de WinRM, Kerberos e acesso
+Git permanece em `INSTALL.md`.
+
 ### Subir a aplicacao
 
 ```bash

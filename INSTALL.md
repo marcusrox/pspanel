@@ -1,10 +1,11 @@
 # Instalação do PS Panel em produção
 
-Este guia descreve a instalação homologada do PS Panel em uma VM Windows Server 2022.
+Este guia descreve a instalação homologada do PS Panel em uma VM Windows Server
+2019 ou versão posterior aprovada pela organização.
 
 Arquitetura adotada:
 
-- Windows Server 2022 em VM;
+- Windows Server 2019 ou posterior em VM;
 - PowerShell 7.6.3;
 - Node.js 24.18.0 LTS x64;
 - Git for Windows;
@@ -21,7 +22,7 @@ Arquitetura adotada:
 
 Antes da instalação, providencie:
 
-- VM Windows Server 2022 atualizada;
+- VM Windows Server 2019 ou posterior atualizada;
 - PowerShell 7.6.3 instalado em `C:\Program Files\PowerShell\7`;
 - resolução DNS e sincronização de horário funcionando;
 - uma conta de serviço, por exemplo `DOMINIO\svc_pspanel`;
@@ -498,131 +499,89 @@ Libere somente o necessário:
 
 Não publique a porta 3000 na internet.
 
-## 15. Atualização da aplicação
+## 15. Preparação para release e implantação remota
 
-Na estação de desenvolvimento, depois de concluir, commitar e enviar a release
-para `origin/main`, valide e crie a tag correspondente ao valor de
-`src/config/release.js`:
+Este runbook separa as responsabilidades da estação DEV, do repositório Git e
+da VM de produção. Os comandos de infraestrutura desta seção são exemplos para
+a equipe responsável pelo ambiente; eles não são executados nem configurados
+pelo PS Panel.
 
-```powershell
-Set-Location C:\Projects\PSPanel
+### 15.1 Preparação externa do PowerShell Remoting
 
-.\deploy\windows\New-PSPanelReleaseTag.ps1 -WhatIf
-.\deploy\windows\New-PSPanelReleaseTag.ps1
-```
+Em domínio Active Directory, prefira WSMan com Kerberos e identifique a VM pelo
+hostname ou FQDN. DNS e relógios da estação, da VM e do domínio precisam estar
+sincronizados. O wrapper rejeita endereço IP porque ele não representa a
+identidade esperada pelo fluxo Kerberos.
 
-O script recusa uma árvore de trabalho com alterações, confirma que o commit
-atual já está publicado em `origin/main` e consulta tags locais e remotas. Se
-existir uma release igual ou posterior, nenhuma tag será criada. Em caso de
-sucesso, ele cria uma tag anotada e a envia ao `origin`.
-
-Antes de criar a tag, o comando executa obrigatoriamente
-`deploy\windows\Test-PSPanelRelease.ps1`, incluindo `npm ci`, `npm test` e as
-validações de sintaxe dos arquivos versionados. Uma falha impede tanto a tag
-local quanto o push. O `-WhatIf` também executa toda essa barreira, mas permanece
-sem efeitos colaterais Git. Como `npm ci` recria `node_modules`, encerre antes os
-processos locais que estejam usando as dependências do projeto. Não existe
-opção para ignorar os testes.
-
-Prefira implantar uma tag de release ou um hash de commit imutável com o script
-semi-automático. Abra o PowerShell 7 como administrador e faça primeiro uma
-simulação:
+Um administrador autorizado deve habilitar e conferir o remoting no servidor:
 
 ```powershell
-Set-Location C:\Apps\PSPanel
-
-.\deploy\windows\Update-PSPanel.ps1 `
-    -Version 'HASH_OU_TAG' `
-    -WhatIf
+Enable-PSRemoting -Force
+Get-Service WinRM
+Get-PSSessionConfiguration
 ```
 
-Se o plano e as verificações preliminares estiverem corretos, execute sem
-`-WhatIf`:
+Use TCP 5985 para HTTP protegido por Kerberos ou TCP 5986 quando a política da
+organização exigir HTTPS. Restrinja a regra de firewall, via GPO ou ferramenta
+corporativa, à estação ou sub-rede administrativa aprovada. Autorize somente um
+grupo operacional dedicado. Como `Update-PSPanel.ps1` exige administrador, o
+endpoint atual precisa entregar uma sessão elevada a esse grupo.
+
+Confira a restrição no servidor e a conectividade a partir da estação DEV:
 
 ```powershell
-.\deploy\windows\Update-PSPanel.ps1 -Version 'HASH_OU_TAG'
+Get-NetFirewallRule -DisplayGroup 'Windows Remote Management' |
+    Get-NetFirewallAddressFilter
+
+Test-NetConnection '<FQDN_DO_SERVIDOR>' -Port 5985
 ```
 
-Para automação não interativa, a ausência de confirmação deve ser explícita:
+No domínio, não adicione o servidor a `TrustedHosts` e não habilite CredSSP para
+este fluxo. Workgroup, acesso por IP ou um endpoint JEA exigem um desenho de
+segurança separado. Nunca registre credenciais, tokens, chaves ou conteúdo do
+`.env` na documentação ou nos logs de implantação.
+
+### 15.2 Acesso Git não interativo na VM
+
+Antes da primeira implantação remota, valide com a mesma identidade usada pelo
+remoting que a VM consegue consultar `origin` sem prompt:
 
 ```powershell
-$result = .\deploy\windows\Update-PSPanel.ps1 `
-    -Version 'HASH_OU_TAG' `
-    -Confirm:$false
+$server = '<FQDN_DO_SERVIDOR>'
+
+Invoke-Command -ComputerName $server -Authentication Kerberos -ScriptBlock {
+    Set-Location C:\Apps\PSPanel
+    git fetch origin --tags --prune
+    if ($LASTEXITCODE -ne 0) {
+        throw 'A consulta não interativa ao origin falhou.'
+    }
+}
 ```
 
-O objeto `PSPanel.DeploymentResult` retornado contém os commits, snapshot, log,
-estado do serviço, estado e último resultado do worker, health check e situação
-do rollback automático. O `-WhatIf` também devolve esse contrato, mas não cria
-log, snapshot ou lock e não interrompe componentes.
+Para repositório HTTPS público, nenhuma credencial é necessária. Quando houver
+autenticação, use uma chave SSH de deploy somente leitura protegida por ACL ou
+uma credencial Git dedicada no perfil da conta de implantação, conforme a
+política corporativa. Não coloque PAT, chave ou senha na URL, nos parâmetros,
+nos scripts ou nos logs. Não use CredSSP para contornar o segundo salto.
 
-Se PowerShell Remoting já estiver configurado e autorizado fora deste projeto,
-o mesmo comando pode ser executado com `Invoke-Command`. A sessão precisa ter
-privilégios administrativos na VM. O atualizador não habilita WinRM, não altera
-firewall e não provisiona contas ou endpoints. A identidade remota é registrada
-somente quando fornecida pela própria sessão, nunca junto com credenciais.
+### 15.3 Confirmar que o ambiente está pronto
 
-Em falha, o resultado estruturado é enviado antes da exceção terminante e
-também fica disponível como `TargetObject` do erro, permitindo registrar o
-estado final sem transformar a falha em sucesso.
+Antes de liberar o ambiente para atualizações recorrentes, confirme:
 
-O script:
+- resolução DNS, sincronização de horário e autenticação Kerberos;
+- regra WinRM restrita à origem administrativa aprovada;
+- grupo operacional com privilégio suficiente no endpoint;
+- clone Git em `C:\Apps\PSPanel`, sem alterações rastreadas;
+- `git fetch origin --tags --prune` não interativo na sessão remota;
+- serviço `PSPanelWeb` e tarefa `PSPanel Schedule Worker` instalados;
+- Node.js `v24.18.0`, npm e Git disponíveis na VM;
+- diretórios de log e snapshot graváveis pela identidade de implantação.
 
-- exige execução como administrador e a versão homologada do Node.js;
-- recusa alterações locais em arquivos versionados;
-- atualiza as referências Git antes de interromper a aplicação;
-- para o serviço e desabilita o worker;
-- salva `.env`, `database` e a configuração local do WinSW em
-  `C:\Apps\PSPanel-Backups`;
-- executa `npm ci --omit=dev` e valida a sintaxe dos arquivos JavaScript e
-  PowerShell versionados;
-- inicia o serviço, testa `http://127.0.0.1:3000/login` e reativa o worker;
-- tenta voltar automaticamente ao commit e aos dados anteriores se o deploy
-  falhar.
-
-Os logs ficam em `C:\Apps\PSPanel\log\deploy`. Por padrão, os dez snapshots
-mais recentes são mantidos. O teste imediato do worker pode executar jobs
-vencidos; quando isso não for desejado, use `-SkipWorkerTest`. A versão é
-implantada em modo detached HEAD para que o servidor permaneça exatamente no
-commit escolhido.
-
-Para rollback manual, informe o nome do snapshot mostrado no resumo ou na pasta
-de backups:
-
-```powershell
-.\deploy\windows\Update-PSPanel.ps1 `
-    -Rollback '2026-07-22_103000-12345'
-```
-
-O rollback cria antes um novo snapshot do estado corrente. Branches móveis não
-são aceitos por padrão; para atualizar diretamente de `origin/main`, é
-necessário optar explicitamente por esse risco:
-
-```powershell
-.\deploy\windows\Update-PSPanel.ps1 -Version 'origin/main' -Force
-```
-
-Se o script não puder ser usado, o procedimento manual de contingência é:
-
-```powershell
-Stop-Service PSPanelWeb
-Disable-ScheduledTask -TaskName 'PSPanel Schedule Worker'
-Stop-ScheduledTask -TaskName 'PSPanel Schedule Worker' -ErrorAction SilentlyContinue
-
-Set-Location C:\Apps\PSPanel
-git status
-git fetch origin --tags --prune
-git switch --detach HASH_OU_TAG
-npm ci --omit=dev
-
-node --check app.js
-node --check scripts-js\schedule-worker.js
-
-Enable-ScheduledTask -TaskName 'PSPanel Schedule Worker'
-Start-Service PSPanelWeb
-```
-
-Não use `git reset --hard`, não sobrescreva o `.env` e não substitua os arquivos SQLite durante uma atualização normal.
+Depois que esses pré-requisitos estiverem aprovados, use o
+[runbook operacional de atualização](UPDATE.md) para criar a release, simular,
+implantar, verificar e executar rollback. Problemas de infraestrutura devem
+voltar às seções 15.1 e 15.2; o procedimento operacional não habilita WinRM,
+não altera firewall e não provisiona credenciais.
 
 ## 16. Backup operacional
 

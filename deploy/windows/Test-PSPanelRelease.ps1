@@ -11,6 +11,8 @@ pelo Git.
 O script nao inicia a aplicacao ou o worker, nao acessa o arquivo .env, nao
 executa scripts de scripts-ps e nao altera bancos, servicos ou tarefas
 agendadas. O npm ci recria somente as dependencias locais em node_modules.
+Durante a validacao, a codificacao do console e normalizada para UTF-8 e os
+valores anteriores sao restaurados ao final.
 
 .PARAMETER ProjectRoot
 Diretorio raiz do clone Git do PS Panel. Por padrao, usa a raiz relativa a este
@@ -258,7 +260,19 @@ function Assert-PowerShellSyntax {
     return $trackedFiles.Count
 }
 
+$previousConsoleInputEncoding = [Console]::InputEncoding
+$previousConsoleOutputEncoding = [Console]::OutputEncoding
+$previousOutputEncoding = $OutputEncoding
+$previousConsoleCodePage = $previousConsoleInputEncoding.CodePage
+$utf8Encoding = [System.Text.UTF8Encoding]::new($false)
+$validationExitCode = 1
+
 try {
+    chcp 65001 | Out-Null
+    [Console]::InputEncoding = $utf8Encoding
+    [Console]::OutputEncoding = $utf8Encoding
+    $OutputEncoding = $utf8Encoding
+
     $startedAt = Get-Date
     $script:ResolvedProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 
@@ -315,12 +329,19 @@ try {
     Write-Host "JavaScript verificado: $javaScriptFileCount arquivo(s)"
     Write-Host "PowerShell verificado: $powerShellFileCount script(s), somente sintaxe"
     Write-Host ("Duracao: {0:mm\:ss}" -f $elapsed)
-    exit 0
+    $validationExitCode = 0
 }
 catch {
     Write-Host ''
     Write-Host 'VALIDACAO INTERROMPIDA' -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     Write-Host 'A tag de release nao deve ser criada enquanto esta falha existir.' -ForegroundColor Yellow
-    exit 1
 }
+finally {
+    chcp $previousConsoleCodePage | Out-Null
+    [Console]::InputEncoding = $previousConsoleInputEncoding
+    [Console]::OutputEncoding = $previousConsoleOutputEncoding
+    $OutputEncoding = $previousOutputEncoding
+}
+
+exit $validationExitCode
