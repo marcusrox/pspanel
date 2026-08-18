@@ -280,7 +280,14 @@ node --check src/routes/mainRoutes.js
 node --check scripts-js/schedule-worker.js
 ```
 
-Observação: `npm test` ainda não possui testes automatizados reais e retorna erro por configuração do próprio `package.json`.
+Execute a suíte automatizada baseada no test runner nativo do Node.js com:
+
+```bash
+npm test
+```
+
+O comando descobre os arquivos de teste mantidos em `test/` e retorna código
+diferente de zero quando qualquer caso falha.
 
 ## Uso com ferramentas de IA
 

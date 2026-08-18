@@ -466,3 +466,17 @@ Antes de alterar comportamento, consulte os pontos de atencao completos em `docs
 - Ao ver arquivos SQLite em `database/` no status do Git, trate-os como estado local e preserve o trabalho existente.
 
 Ao corrigir qualquer um desses pontos, prefira fazer em mudanca pequena e documentada, porque eles podem estar acoplados a operacao atual.
+
+## Testes automatizados
+
+A suíte automatizada usa o test runner nativo do Node.js e deve ser executada
+por um único comando:
+
+```powershell
+npm test
+```
+
+Os testes ficam em `test/*.test.js`. Novos casos devem permanecer
+determinísticos, não acessar o `.env` real, bancos em `database/`, a porta
+`3000` nem serviços corporativos externos. O comando deve retornar código
+diferente de zero quando qualquer teste falhar.

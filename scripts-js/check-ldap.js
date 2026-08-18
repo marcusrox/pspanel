@@ -1,3 +1,5 @@
+// Nome mantido fora do padrao `test-*.js` para que o test runner do Node.js
+// nao execute esta verificacao integrada sem credenciais ao rodar `node --test`.
 require('dotenv').config();
 
 const {

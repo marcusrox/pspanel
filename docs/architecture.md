@@ -379,7 +379,8 @@ Em Windows, o Task Scheduler deve executar o Node.js diretamente com o argumento
 
 ## Observacoes Tecnicas
 
-- O projeto nao possui testes automatizados configurados; `npm test` apenas retorna erro.
+- O projeto possui testes automatizados em `test/*.test.js`, executados pelo
+  test runner nativo do Node.js por meio de `npm test`.
 - Existem arquivos SQLite versionados/modificados no workspace, o que pode misturar estado local com codigo.
 - O README menciona HTMX e Font Awesome, mas essas dependencias nao aparecem no `package.json`; podem estar carregadas pelas views/CDN ou ser documentacao desatualizada.
 - O model `Schedule` concentra tanto persistencia quanto execucao de PowerShell. Isso funciona para o tamanho atual, mas dificulta testar isoladamente a regra de agendamento.

@@ -83,3 +83,41 @@ Nenhuma. Esta e a primeira task da sequencia de automatizacao de release.
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Resultado da implementacao
+
+Status: implementada em 2026-08-18.
+
+- `npm test` passou a executar o test runner nativo com `node --test`.
+- Os 25 testes automatizados atuais sao descobertos e executados tanto por
+  `npm test` quanto por `node --test`.
+- O utilitario integrado LDAP foi renomeado de
+  `scripts-js/test-ldap.js` para `scripts-js/check-ldap.js`, pois o nome
+  anterior era interpretado automaticamente como teste e exigia credenciais
+  `TEST_USERNAME` e `TEST_PASSWORD`.
+- A logica do utilitario LDAP foi preservada e nenhuma conexao LDAP foi feita
+  durante a validacao.
+- `README.md`, `docs/patterns.md` e a observacao correspondente em
+  `docs/architecture.md` foram atualizados.
+- O release foi incrementado para `v2026.08.18-057`.
+
+Validacoes executadas:
+
+- `npm test`: 25 aprovados, 0 falhas;
+- `node --test`: 25 aprovados, 0 falhas;
+- `node --check app.js`;
+- `node --check scripts-js\check-ldap.js`.
+
+Nenhuma dependencia, lockfile, banco SQLite ou configuracao de ambiente foi
+alterada.
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-08-18 11:33:19 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
