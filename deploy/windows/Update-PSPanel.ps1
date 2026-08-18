@@ -372,10 +372,16 @@ function Invoke-NativeCommand {
     )
 
     Push-Location -LiteralPath $WorkingDirectory
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        # Git e outros comandos nativos podem usar stderr para progresso mesmo
+        # quando terminam com sucesso. O codigo de saida e a fonte de verdade.
+        $ErrorActionPreference = 'Continue'
         $output = @(& $FilePath @ArgumentList 2>&1)
         $exitCode = $LASTEXITCODE
-    } finally {
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Pop-Location
     }
 
