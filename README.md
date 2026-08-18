@@ -152,8 +152,21 @@ configurados.
 ### Criar e publicar a release
 
 Antes da atualização, incremente `src/config/release.js` no formato
-`vAAAA.MM.DD-NNN`, faça commit e envie o branch `main`. Em uma árvore de trabalho
-limpa e sincronizada com `origin/main`, valide e publique a tag:
+`vAAAA.MM.DD-NNN` e valide a candidata na estação DEV:
+
+```powershell
+.\deploy\windows\Test-PSPanelRelease.ps1
+```
+
+O validador exige, por padrão, Node.js `v24.18.0`, executa `npm ci`, `npm test`
+e confere a sintaxe de todos os arquivos JavaScript e PowerShell rastreados pelo
+Git. Ele não inicia a aplicação, o worker nem scripts de `scripts-ps/`, e não
+acessa `.env`, bancos, serviços ou tarefas agendadas. Como `npm ci` recria
+`node_modules`, encerre antes eventuais processos locais que estejam usando suas
+dependências.
+
+Depois da validação, faça commit e envie o branch `main`. Em uma árvore de
+trabalho limpa e sincronizada com `origin/main`, valide e publique a tag:
 
 ```powershell
 .\deploy\windows\New-PSPanelReleaseTag.ps1 -WhatIf
@@ -288,6 +301,12 @@ npm test
 
 O comando descobre os arquivos de teste mantidos em `test/` e retorna código
 diferente de zero quando qualquer caso falha.
+
+Antes de criar uma tag de release, execute a barreira completa da estação DEV:
+
+```powershell
+.\deploy\windows\Test-PSPanelRelease.ps1
+```
 
 ## Uso com ferramentas de IA
 
