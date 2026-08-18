@@ -78,3 +78,33 @@ test('renderiza edição recorrente preservando a composição e os valores', as
     assert.match(html, /value="minutes" selected/);
     assert.match(html, /value="5" selected>5 min/);
 });
+
+test('identifica próxima execução como retentativa sem ocultar a recorrência', async () => {
+    const filename = path.join(projectRoot, 'views/schedules.ejs');
+    const html = await ejs.renderFile(filename, {
+        schedules: [{
+            id: 7,
+            script_name: 'Example.ps1',
+            parameters: '',
+            enabled: 1,
+            next_run_at: '2026-08-17T13:10:00.000Z',
+            schedule_type: 'cron',
+            cron_expression: '0 8 * * *',
+            schedule_timezone: 'America/Sao_Paulo',
+            recurrence_description: 'Todos os dias às 08:00',
+            retry_attempt_count: 2,
+            retry_max_attempts: 3,
+            last_run_at: '2026-08-17T13:00:00.000Z',
+            last_run_exit_code: 1,
+            last_run_output: 'Falha controlada'
+        }],
+        messages: { error: [], success: [], info: [] },
+        user: { username: 'test', displayName: 'Test', email: '' },
+        release: { label: 'Test' },
+        ui: { fontScale: '100' }
+    });
+
+    assert.match(html, /Retentativa\s+2\s+de\s+3/);
+    assert.ok(html.includes('Todos os dias às 08:00'));
+    assert.ok(html.includes('schedule-status-icon-active'));
+});

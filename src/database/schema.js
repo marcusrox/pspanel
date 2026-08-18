@@ -1,5 +1,6 @@
 const database = require('./connection');
 const replaceScheduleIntervalWithCron = require('./migrations/replaceScheduleIntervalWithCron');
+const addScheduleRetryAttemptCount = require('./migrations/addScheduleRetryAttemptCount');
 
 const migrations = [
     {
@@ -30,6 +31,7 @@ const migrations = [
                 enabled INTEGER NOT NULL DEFAULT 1,
                 next_run_at TEXT NOT NULL,
                 repeat_interval_minutes INTEGER,
+                retry_attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(retry_attempt_count >= 0),
                 worker_lock_until TEXT,
                 last_run_at TEXT,
                 last_run_exit_code INTEGER,
@@ -142,6 +144,10 @@ const migrations = [
             await database.run('CREATE INDEX IF NOT EXISTS idx_script_history_user_created ON script_history (user_id, start_time)');
             await database.run('CREATE INDEX IF NOT EXISTS idx_schedule_audit_user_created ON schedule_audit (user_id, created_at)');
         }
+    },
+    {
+        id: '005_add_schedule_retry_attempt_count',
+        up: addScheduleRetryAttemptCount
     }
 ];
 

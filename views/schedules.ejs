@@ -15,6 +15,27 @@
         .data-table th { background: var(--bg-darker); color: var(--text-secondary); font-weight: 500; }
         .data-table tr:hover { background: var(--bg-darker); }
         .badge-off { opacity: 0.6; }
+        .schedule-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            white-space: nowrap;
+        }
+        .schedule-status-icon { font-size: 0.65rem; }
+        .schedule-status-icon-active { color: #22c55e; }
+        .schedule-status-icon-inactive { color: #ef4444; }
+        .schedule-retry-badge {
+            display: block;
+            width: fit-content;
+            margin-top: 0.35rem;
+            padding: 0.2rem 0.45rem;
+            border-radius: 999px;
+            background: rgba(245, 158, 11, 0.14);
+            color: #fbbf24;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
         .schedule-actions-cell { width: 8.25rem; text-align: right; white-space: nowrap; }
         .schedule-action-buttons {
             display: inline-flex;
@@ -157,10 +178,27 @@
                     <tbody>
                         <% schedules.forEach(function (s) { %>
                             <tr class="<%= s.enabled ? '' : 'badge-off' %>">
-                                <td><%= s.enabled ? 'Sim' : 'Não' %></td>
+                                <td>
+                                    <span class="schedule-status">
+                                        <i class="fas fa-circle schedule-status-icon <%= s.enabled ? 'schedule-status-icon-active' : 'schedule-status-icon-inactive' %>" aria-hidden="true"></i>
+                                        <%= s.enabled ? 'Sim' : 'Não' %>
+                                    </span>
+                                </td>
                                 <td><%= s.script_name %></td>
                                 <td><%= s.parameters || '—' %></td>
-                                <td><%= new Date(s.next_run_at).toLocaleString('pt-BR', { timeZone: s.schedule_timezone }) %></td>
+                                <td>
+                                    <%= new Date(s.next_run_at).toLocaleString('pt-BR', { timeZone: s.schedule_timezone }) %>
+                                    <% if (s.retry_attempt_count > 0) { %>
+                                        <span class="schedule-retry-badge">
+                                            <i class="fas fa-rotate" aria-hidden="true"></i>
+                                            <% if (s.retry_max_attempts >= s.retry_attempt_count) { %>
+                                                Retentativa <%= s.retry_attempt_count %> de <%= s.retry_max_attempts %>
+                                            <% } else { %>
+                                                Retentativa pendente · limite atual <%= s.retry_max_attempts %>
+                                            <% } %>
+                                        </span>
+                                    <% } %>
+                                </td>
                                 <td title="<%= s.cron_expression || 'Execução única' %>">
                                     <%= s.recurrence_description %>
                                     <% if (s.schedule_type === 'cron') { %>

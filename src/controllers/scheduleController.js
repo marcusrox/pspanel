@@ -26,6 +26,7 @@ const {
     redactSensitiveText
 } = require('../services/powerShellParameters');
 const { getRequestAuditContext } = require('../services/requestAuditContext');
+const { loadScheduleRetryPolicy } = require('../services/scheduleRetryPolicy');
 
 function buildAuditContext(req) {
     const requestContext = getRequestAuditContext(req);
@@ -88,7 +89,7 @@ function buildScheduleFormValues(schedule, parameterDefinitions) {
     };
 }
 
-function buildScheduleListItem(schedule) {
+function buildScheduleListItem(schedule, retryPolicy) {
     const {
         parameters,
         last_run_output: lastRunOutput,
@@ -100,6 +101,7 @@ function buildScheduleListItem(schedule) {
         ...safeSchedule,
         parameters: redactedParameters.maskedParameters,
         last_run_output: redactSensitiveText(lastRunOutput, redactedParameters.sensitiveValues),
+        retry_max_attempts: retryPolicy.maxRetryAttempts,
         recurrence_description: schedule.schedule_type === SCHEDULE_TYPES.CRON
             ? describeCronExpression(schedule.cron_expression)
             : 'Uma vez'
@@ -159,7 +161,8 @@ function buildTimingValues(body) {
 
 exports.list = async (req, res) => {
     try {
-        const schedules = (await Schedule.findAll()).map(buildScheduleListItem);
+        const retryPolicy = await loadScheduleRetryPolicy();
+        const schedules = (await Schedule.findAll()).map((schedule) => buildScheduleListItem(schedule, retryPolicy));
         res.render('schedules', {
             user: req.session.user,
             schedules,

@@ -148,6 +148,31 @@
         }
 
         @media (max-width: 640px) {
+            .main-content {
+                min-width: 0;
+                overflow-x: hidden;
+            }
+
+            .top-header {
+                align-items: flex-start;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .header-logo {
+                height: 40px;
+                margin-left: 0;
+                max-width: 110px;
+            }
+
+            .settings-container {
+                padding: 0;
+            }
+
+            .settings-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
             .summary-status {
                 align-items: stretch;
                 flex-direction: column;
@@ -160,6 +185,10 @@
 
             .settings-accordion-content {
                 padding: 0 1rem 1rem;
+            }
+
+            .form-actions {
+                flex-wrap: wrap;
             }
         }
 
@@ -259,6 +288,57 @@
                                    value="<%= settings.scripts?.max_execution_time || '3600' %>"
                                    min="1">
                         </div>
+                    </div>
+                </div>
+
+                <div class="settings-section" data-section-key="scheduleRetries">
+                    <h2>
+                        <button
+                            type="button"
+                            id="settings-section-schedule-retries-title"
+                            class="settings-accordion-toggle"
+                            aria-expanded="false"
+                            aria-controls="settings-section-schedule-retries-content">
+                            <span class="settings-accordion-title">
+                                <i class="fas fa-rotate"></i>
+                                Agendamentos e retentativas
+                            </span>
+                            <i class="fas fa-chevron-right settings-accordion-chevron" aria-hidden="true"></i>
+                        </button>
+                    </h2>
+                    <div
+                        id="settings-section-schedule-retries-content"
+                        class="settings-accordion-content"
+                        aria-labelledby="settings-section-schedule-retries-title"
+                        hidden>
+                        <div class="settings-grid">
+                            <div class="form-group">
+                                <label for="schedules.retry_interval_minutes">Intervalo entre retentativas (minutos)</label>
+                                <input type="number"
+                                       id="schedules.retry_interval_minutes"
+                                       name="schedules.retry_interval_minutes"
+                                       value="<%= settings.schedules?.retry_interval_minutes || '5' %>"
+                                       min="1"
+                                       max="1440"
+                                       step="1"
+                                       required>
+                                <p class="field-hint">A nova tentativa fica elegível depois desse intervalo e roda na primeira passagem disponível do worker.</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="schedules.max_retry_attempts">Máximo de retentativas por ocorrência</label>
+                                <input type="number"
+                                       id="schedules.max_retry_attempts"
+                                       name="schedules.max_retry_attempts"
+                                       value="<%= settings.schedules?.max_retry_attempts ?? '3' %>"
+                                       min="0"
+                                       max="20"
+                                       step="1"
+                                       required>
+                                <p class="field-hint">Use 0 para não tentar novamente. A tentativa original não entra nessa quantidade.</p>
+                            </div>
+                        </div>
+                        <p class="field-hint">Quando o limite é atingido, uma recorrência continua na próxima ocorrência cron; um agendamento de execução única é desativado.</p>
                     </div>
                 </div>
 
@@ -495,6 +575,7 @@
             const storageKey = 'pspanel.settings.accordion';
             const defaultState = {
                 execution: true,
+                scheduleRetries: false,
                 appearance: true,
                 authenticationAccess: false,
                 smtp: false,

@@ -19,11 +19,15 @@ const {
     parseRawNamedParameters,
     tokenizePowerShellArgs
 } = require('../services/powerShellParameters');
+const {
+    DISABLED_NEXT_RUN_AT,
+    loadScheduleRetryPolicy,
+    buildScheduleFailureState
+} = require('../services/scheduleRetryPolicy');
 
 const SCHEDULE_RUN_USERNAME = 'Agendamento (worker)';
 const LOCK_MS = 30 * 60 * 1000;
 const STALE_LOCK_MS = 2 * 60 * 60 * 1000;
-const RETRY_AFTER_FAIL_MIN = 5;
 const OUTPUT_MAX = 8000;
 
 function nowIso() {
@@ -54,7 +58,8 @@ function safeScheduleSnapshot(row) {
         next_run_at: row.next_run_at,
         schedule_type: row.schedule_type,
         cron_expression: row.cron_expression || null,
-        schedule_timezone: row.schedule_timezone || null
+        schedule_timezone: row.schedule_timezone || null,
+        retry_attempt_count: Number(row.retry_attempt_count) || 0
     };
 }
 
@@ -63,7 +68,7 @@ function buildScheduleUpdateAudit(before, after) {
     const current = safeScheduleSnapshot({ ...before, ...after, id: before.id });
     const changedFields = [];
 
-    for (const field of ['script_name', 'enabled', 'next_run_at', 'schedule_type', 'cron_expression', 'schedule_timezone']) {
+    for (const field of ['script_name', 'enabled', 'next_run_at', 'schedule_type', 'cron_expression', 'schedule_timezone', 'retry_attempt_count']) {
         if ((previous[field] ?? null) !== (current[field] ?? null)) changedFields.push(field);
     }
     if ((before.parameters || null) !== (after.parameters || null)) changedFields.push('parameters');
@@ -244,7 +249,7 @@ class Schedule {
         const result = await database.run(
             `UPDATE schedules SET
                 script_name = ?, parameters = ?, enabled = ?, next_run_at = ?, schedule_type = ?,
-                cron_expression = ?, schedule_timezone = ?, updated_at = ?
+                cron_expression = ?, schedule_timezone = ?, retry_attempt_count = 0, updated_at = ?
              WHERE id = ?`,
             [
                 script_name,
@@ -265,7 +270,8 @@ class Schedule {
             cron_expression: cron_expression || null,
             schedule_timezone,
             next_run_at,
-            enabled: !!en
+            enabled: !!en,
+            retry_attempt_count: 0
         }), script_name);
         return result.changes;
     }
@@ -304,7 +310,15 @@ class Schedule {
 
     static async setLock(id, untilIso) {
         await Schedule.initialize();
-        await database.run(`UPDATE schedules SET worker_lock_until = ?, updated_at = ? WHERE id = ?`, [untilIso, nowIso(), id]);
+        const claimedAt = nowIso();
+        const result = await database.run(
+            `UPDATE schedules
+             SET worker_lock_until = ?, updated_at = ?
+             WHERE id = ? AND enabled = 1 AND next_run_at <= ?
+               AND (worker_lock_until IS NULL OR worker_lock_until <= ?)`,
+            [untilIso, claimedAt, id, claimedAt, claimedAt]
+        );
+        return result.changes === 1;
     }
 
     static async clearLock(id) {
@@ -312,14 +326,64 @@ class Schedule {
         await database.run(`UPDATE schedules SET worker_lock_until = NULL, updated_at = ? WHERE id = ?`, [nowIso(), id]);
     }
 
-    static async recordRunResult(id, { last_run_at, last_run_exit_code, last_run_output, next_run_at, enabled }) {
+    static async recordRunResult(id, {
+        last_run_at,
+        last_run_exit_code,
+        last_run_output,
+        next_run_at,
+        enabled,
+        retry_attempt_count
+    }) {
         await Schedule.initialize();
         const out = last_run_output == null ? null : String(last_run_output).slice(0, OUTPUT_MAX);
+        const retryCount = Number.isInteger(Number(retry_attempt_count)) && Number(retry_attempt_count) >= 0
+            ? Number(retry_attempt_count)
+            : 0;
         await database.run(
-            `UPDATE schedules SET last_run_at = ?, last_run_exit_code = ?, last_run_output = ?, next_run_at = ?, enabled = ?, worker_lock_until = NULL, updated_at = ?
+            `UPDATE schedules SET last_run_at = ?, last_run_exit_code = ?, last_run_output = ?, next_run_at = ?, enabled = ?, retry_attempt_count = ?, worker_lock_until = NULL, updated_at = ?
              WHERE id = ?`,
-            [last_run_at, last_run_exit_code, out, next_run_at, enabled ? 1 : 0, nowIso(), id]
+            [last_run_at, last_run_exit_code, out, next_run_at, enabled ? 1 : 0, retryCount, nowIso(), id]
         );
+    }
+
+    static async recordFailure(row, retryPolicy, {
+        exitCode,
+        output,
+        errorMessage,
+        auditAction
+    }) {
+        const failedAt = new Date();
+        const failedAtIso = failedAt.toISOString();
+        const state = buildScheduleFailureState(row, retryPolicy, failedAt);
+
+        await Schedule.recordRunResult(row.id, {
+            last_run_at: failedAtIso,
+            last_run_exit_code: exitCode,
+            last_run_output: output,
+            next_run_at: state.nextRunAt,
+            enabled: state.enabled,
+            retry_attempt_count: state.retryAttemptCount
+        });
+
+        await Schedule.appendAudit(row.id, auditAction, SCHEDULE_RUN_USERNAME, {
+            error: errorMessage || null,
+            exitCode,
+            success: false,
+            schedule_type: row.schedule_type,
+            cron_expression: row.cron_expression,
+            schedule_timezone: row.schedule_timezone,
+            completed_retry_attempt: Number(row.retry_attempt_count) || 0,
+            retry_attempt_count: state.retryAttemptCount,
+            max_retry_attempts: retryPolicy.maxRetryAttempts,
+            retry_interval_minutes: retryPolicy.retryIntervalMinutes,
+            retry_scheduled: state.retryScheduled,
+            retry_exhausted: state.retryExhausted,
+            next_destination: state.nextDestination,
+            next_run_at: state.nextRunAt,
+            enabled: state.enabled
+        }, row.script_name);
+
+        return state;
     }
 
     /**
@@ -328,13 +392,18 @@ class Schedule {
     static async executeDueJobs(projectRoot = process.cwd()) {
         await Schedule.clearStaleLocks();
         const due = await Schedule.findDueCandidates();
+        const retryPolicy = await loadScheduleRetryPolicy();
         const scriptsDir = path.join(projectRoot, 'scripts-ps');
         const results = [];
 
         for (const row of due) {
             const lockUntil = new Date(Date.now() + LOCK_MS).toISOString();
-            await Schedule.setLock(row.id, lockUntil);
-            await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, { script_name: row.script_name }, row.script_name);
+            const lockAcquired = await Schedule.setLock(row.id, lockUntil);
+            if (!lockAcquired) continue;
+            await Schedule.appendAudit(row.id, 'EXECUTE_START', SCHEDULE_RUN_USERNAME, {
+                script_name: row.script_name,
+                retry_attempt_count: Number(row.retry_attempt_count) || 0
+            }, row.script_name);
 
             const scriptPath = path.join(scriptsDir, row.script_name);
             if (
@@ -344,16 +413,15 @@ class Schedule {
                 || row.script_name.includes('/')
                 || row.script_name.includes('\\')
             ) {
-                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Script inválido ou inexistente' }, row.script_name);
-                const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
-                await Schedule.recordRunResult(row.id, {
-                    last_run_at: nowIso(),
-                    last_run_exit_code: -1,
-                    last_run_output: 'Arquivo de script não encontrado ou nome inválido.',
-                    next_run_at: retryAt,
-                    enabled: row.enabled
+                const message = 'Arquivo de script não encontrado ou nome inválido.';
+                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                const state = await Schedule.recordFailure(row, retryPolicy, {
+                    exitCode: -1,
+                    output: message,
+                    errorMessage: 'Script inválido ou inexistente',
+                    auditAction: 'EXECUTE_ERROR'
                 });
-                results.push({ id: row.id, ok: false, reason: 'bad_script' });
+                results.push({ id: row.id, ok: false, reason: 'bad_script', retryScheduled: state.retryScheduled });
                 continue;
             }
 
@@ -365,17 +433,15 @@ class Schedule {
                     ? parameterInfo.parameters
                     : [];
             } catch (e) {
-                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: 'Não foi possível validar parâmetros do script' }, row.script_name);
-                await recordHistoryFailure(row.script_name, row.parameters || '', 'Não foi possível validar parâmetros do script antes da execução.');
-                const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
-                await Schedule.recordRunResult(row.id, {
-                    last_run_at: nowIso(),
-                    last_run_exit_code: -1,
-                    last_run_output: 'Não foi possível validar parâmetros do script antes da execução.',
-                    next_run_at: retryAt,
-                    enabled: row.enabled
+                const message = 'Não foi possível validar parâmetros do script antes da execução.';
+                await recordHistoryFailure(row.script_name, row.parameters || '', message);
+                const state = await Schedule.recordFailure(row, retryPolicy, {
+                    exitCode: -1,
+                    output: message,
+                    errorMessage: 'Não foi possível validar parâmetros do script',
+                    auditAction: 'EXECUTE_ERROR'
                 });
-                results.push({ id: row.id, ok: false, reason: 'parameter_validation_error' });
+                results.push({ id: row.id, ok: false, reason: 'parameter_validation_error', retryScheduled: state.retryScheduled });
                 continue;
             }
 
@@ -383,17 +449,14 @@ class Schedule {
             const missingRequiredParameters = getMissingRequiredParameters(parameterDefinitions, providedParamValues);
             if (missingRequiredParameters.length) {
                 const message = `Informe os parâmetros obrigatórios: ${missingRequiredParameters.join(', ')}.`;
-                await Schedule.appendAudit(row.id, 'EXECUTE_ERROR', SCHEDULE_RUN_USERNAME, { error: message }, row.script_name);
                 await recordHistoryFailure(row.script_name, row.parameters || '', message);
-                const retryAt = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
-                await Schedule.recordRunResult(row.id, {
-                    last_run_at: nowIso(),
-                    last_run_exit_code: -1,
-                    last_run_output: message,
-                    next_run_at: retryAt,
-                    enabled: row.enabled
+                const state = await Schedule.recordFailure(row, retryPolicy, {
+                    exitCode: -1,
+                    output: message,
+                    errorMessage: message,
+                    auditAction: 'EXECUTE_ERROR'
                 });
-                results.push({ id: row.id, ok: false, reason: 'missing_required_parameters', missing: missingRequiredParameters });
+                results.push({ id: row.id, ok: false, reason: 'missing_required_parameters', missing: missingRequiredParameters, retryScheduled: state.retryScheduled });
                 continue;
             }
 
@@ -430,41 +493,50 @@ class Schedule {
                 }
             }
 
-            let nextRun;
-            let enabled = !!row.enabled;
             if (ok) {
+                let nextRun;
+                let enabled = !!row.enabled;
                 if (row.schedule_type === SCHEDULE_TYPES.CRON) {
                     nextRun = getNextOccurrence(row.cron_expression, {
                         after: new Date(),
                         timezone: row.schedule_timezone
                     });
                 } else {
-                    nextRun = '2099-12-31T23:59:59.999Z';
+                    nextRun = DISABLED_NEXT_RUN_AT;
                     enabled = false;
                 }
+
+                await Schedule.recordRunResult(row.id, {
+                    last_run_at: nowIso(),
+                    last_run_exit_code: proc.code,
+                    last_run_output: combined,
+                    next_run_at: nextRun,
+                    enabled,
+                    retry_attempt_count: 0
+                });
+
+                await Schedule.appendAudit(row.id, 'EXECUTE_FINISH', SCHEDULE_RUN_USERNAME, {
+                    exitCode: proc.code,
+                    success: true,
+                    schedule_type: row.schedule_type,
+                    cron_expression: row.cron_expression,
+                    schedule_timezone: row.schedule_timezone,
+                    completed_retry_attempt: Number(row.retry_attempt_count) || 0,
+                    retry_attempt_count: 0,
+                    next_run_at: nextRun,
+                    enabled
+                }, row.script_name);
+
+                results.push({ id: row.id, ok: true, exitCode: proc.code });
             } else {
-                nextRun = new Date(Date.now() + RETRY_AFTER_FAIL_MIN * 60 * 1000).toISOString();
+                const state = await Schedule.recordFailure(row, retryPolicy, {
+                    exitCode: proc.code,
+                    output: combined,
+                    errorMessage: 'O script terminou com erro.',
+                    auditAction: 'EXECUTE_FINISH'
+                });
+                results.push({ id: row.id, ok: false, exitCode: proc.code, retryScheduled: state.retryScheduled });
             }
-
-            await Schedule.recordRunResult(row.id, {
-                last_run_at: nowIso(),
-                last_run_exit_code: proc.code,
-                last_run_output: combined,
-                next_run_at: nextRun,
-                enabled
-            });
-
-            await Schedule.appendAudit(row.id, 'EXECUTE_FINISH', SCHEDULE_RUN_USERNAME, {
-                exitCode: proc.code,
-                success: ok,
-                schedule_type: row.schedule_type,
-                cron_expression: row.cron_expression,
-                schedule_timezone: row.schedule_timezone,
-                next_run_at: nextRun,
-                enabled
-            }, row.script_name);
-
-            results.push({ id: row.id, ok, exitCode: proc.code });
         }
 
         return results;

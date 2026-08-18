@@ -12,6 +12,8 @@ class Settings {
         // Configurações padrão
         const defaults = {
             'scripts.max_execution_time': '3600',
+            'schedules.retry_interval_minutes': '5',
+            'schedules.max_retry_attempts': '3',
             'ui.font_scale': '100',
             'auth.allowed_ad_group_dn': '',
             'email.daily_summary_recipient': '',

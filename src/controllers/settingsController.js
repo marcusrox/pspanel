@@ -9,6 +9,10 @@ const {
     sendDailySummaryNow
 } = require('../services/dailySummaryEmailService');
 const { validateAllowedAdGroupDn } = require('../services/adAccessService');
+const {
+    RETRY_SETTINGS,
+    validateRetrySetting
+} = require('../services/scheduleRetryPolicy');
 
 function isValidEmail(value) {
     if (!value) return true;
@@ -76,6 +80,8 @@ class SettingsController {
         try {
             const allowedSettings = [
                 'scripts.max_execution_time',
+                RETRY_SETTINGS.INTERVAL_MINUTES,
+                RETRY_SETTINGS.MAX_ATTEMPTS,
                 'ui.font_scale',
                 'auth.allowed_ad_group_dn',
                 'email.daily_summary_recipient',
@@ -101,6 +107,12 @@ class SettingsController {
                 const allowedFontScales = ['85', '90', '100', '110'];
                 if (!allowedFontScales.includes(updates['ui.font_scale'])) {
                     throw new Error('Tamanho da fonte inválido');
+                }
+            }
+
+            for (const retrySettingKey of Object.values(RETRY_SETTINGS)) {
+                if (updates[retrySettingKey] !== undefined) {
+                    updates[retrySettingKey] = validateRetrySetting(retrySettingKey, updates[retrySettingKey]);
                 }
             }
 

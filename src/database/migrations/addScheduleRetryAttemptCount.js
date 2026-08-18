@@ -1,6 +1,8 @@
-async function replaceScheduleIntervalWithCron(db) {
-    await db.run('UPDATE schedule_audit SET schedule_id = NULL WHERE schedule_id IS NOT NULL');
-    await db.run(`CREATE TABLE schedules_cron_migration (
+async function addScheduleRetryAttemptCount(db) {
+    const columns = await db.all('PRAGMA table_info(schedules)');
+    if (columns.some((column) => column.name === 'retry_attempt_count')) return;
+
+    await db.run(`CREATE TABLE schedules_retry_migration (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         script_name TEXT NOT NULL,
         parameters TEXT,
@@ -22,9 +24,20 @@ async function replaceScheduleIntervalWithCron(db) {
             OR (schedule_type = 'cron' AND cron_expression IS NOT NULL)
         )
     )`);
+    await db.run(`INSERT INTO schedules_retry_migration (
+        id, script_name, parameters, enabled, next_run_at, schedule_type,
+        cron_expression, schedule_timezone, retry_attempt_count,
+        worker_lock_until, last_run_at, last_run_exit_code, last_run_output,
+        created_at, updated_at, created_by
+    ) SELECT
+        id, script_name, parameters, enabled, next_run_at, schedule_type,
+        cron_expression, schedule_timezone, 0,
+        worker_lock_until, last_run_at, last_run_exit_code, last_run_output,
+        created_at, updated_at, created_by
+    FROM schedules`);
     await db.run('DROP TABLE schedules');
-    await db.run('ALTER TABLE schedules_cron_migration RENAME TO schedules');
+    await db.run('ALTER TABLE schedules_retry_migration RENAME TO schedules');
     await db.run('CREATE INDEX idx_schedules_due ON schedules (enabled, next_run_at)');
 }
 
-module.exports = replaceScheduleIntervalWithCron;
+module.exports = addScheduleRetryAttemptCount;
