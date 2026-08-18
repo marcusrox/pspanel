@@ -175,7 +175,11 @@ trabalho limpa e sincronizada com `origin/main`, valide e publique a tag:
 
 O script cria uma tag Git anotada com o mesmo identificador de `release.js` e a
 publica no repositório remoto. A operação é recusada se já existir uma release
-igual ou posterior.
+igual ou posterior. Antes de qualquer `git tag` ou `git push`, o próprio script
+executa obrigatoriamente `Test-PSPanelRelease.ps1`; não existe opção para ignorar
+os testes. O `-WhatIf` também executa `npm ci`, a suíte e as validações de
+sintaxe, mas não cria nem publica tags. Portanto, encerre processos locais que
+estejam usando `node_modules` antes da simulação e da execução efetiva.
 
 ### Aplicar a atualização
 

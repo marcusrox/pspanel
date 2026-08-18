@@ -89,3 +89,42 @@ src/config/release.js
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Resultado da implementacao
+
+Status: implementada em 2026-08-18.
+
+`New-PSPanelReleaseTag.ps1` passou a executar obrigatoriamente
+`Test-PSPanelRelease.ps1` depois das validacoes de Git e antes de qualquer
+`git tag` ou `git push`. O validador roda em um processo PowerShell filho para
+que seu codigo de saida seja tratado sem encerrar o criador de tags.
+
+O parametro `RequiredNodeVersion` foi exposto no criador de tags e e repassado
+ao validador. Nao foi adicionada opcao para ignorar testes. O `-WhatIf` executa
+`npm ci`, `npm test` e as validacoes de sintaxe, mas continua sem criar tag local
+ou remota.
+
+Validacoes executadas em repositorio e remote temporarios:
+
+- parser PowerShell do script alterado: sem erros;
+- falha controlada de `npm test` com codigo 23: a tag candidata permaneceu
+  ausente local e remotamente;
+- `-WhatIf` aprovado: 47 testes, 66 arquivos JavaScript e 19 scripts PowerShell
+  validados, sem criacao de tag;
+- fluxo efetivo aprovado: tag anotada criada no commit esperado, com mensagem
+  `Release v2026.08.18-059`, e publicada somente no remote temporario;
+- `git diff --check`.
+
+Nenhuma tag foi criada ou publicada no repositorio oficial. O release foi
+atualizado para `v2026.08.18-060`.
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-08-18 14:02:40 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao

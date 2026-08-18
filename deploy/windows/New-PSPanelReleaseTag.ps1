@@ -8,14 +8,39 @@
     interrompida se ja existir uma release igual ou posterior.
 
     O script tambem exige uma arvore de trabalho limpa, o branch esperado e o
-    HEAD ja publicado no branch remoto antes de criar uma tag anotada e
-    envia-la ao repositorio remoto.
+    HEAD ja publicado no branch remoto. Antes de qualquer criacao de tag, ele
+    executa Test-PSPanelRelease.ps1 em um processo PowerShell isolado. O -WhatIf
+    tambem executa essa validacao, mas nao cria nem publica a tag.
+
+.PARAMETER ProjectRoot
+    Diretorio raiz do clone Git do PS Panel.
+
+.PARAMETER Remote
+    Nome do remote Git que contem o branch e recebera a tag.
+
+.PARAMETER Branch
+    Nome do branch local e remoto que deve apontar para o commit da release.
+
+.PARAMETER RequiredNodeVersion
+    Versao exata do Node.js exigida pelo validador, incluindo o prefixo "v".
+
+.INPUTS
+    Nenhum. Este script nao aceita entrada pelo pipeline.
+
+.OUTPUTS
+    Objeto com os dados da tag publicada quando a operacao e concluida. Em
+    -WhatIf, exibe o plano validado sem criar tag local ou remota.
 
 .EXAMPLE
     .\deploy\windows\New-PSPanelReleaseTag.ps1 -WhatIf
 
 .EXAMPLE
     .\deploy\windows\New-PSPanelReleaseTag.ps1
+
+.NOTES
+    Git, Node.js, npm e PowerShell devem estar disponiveis no PATH. O validador
+    executa npm ci, portanto processos que usam node_modules devem ser
+    encerrados antes deste comando.
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
@@ -30,7 +55,11 @@ param(
 
     [Parameter()]
     [ValidatePattern('^[A-Za-z0-9._/-]+$')]
-    [string] $Branch = 'main'
+    [string] $Branch = 'main',
+
+    [Parameter()]
+    [ValidatePattern('^v\d+\.\d+\.\d+$')]
+    [string] $RequiredNodeVersion = 'v24.18.0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -72,6 +101,59 @@ function Invoke-GitCommand {
     }
 
     return @($output | ForEach-Object { [string]$_ })
+}
+
+function Invoke-ReleaseValidation {
+    $validatorPath = Join-Path $script:ResolvedProjectRoot 'deploy\windows\Test-PSPanelRelease.ps1'
+    if (-not (Test-Path -LiteralPath $validatorPath -PathType Leaf)) {
+        throw "Validador de release nao encontrado: $validatorPath"
+    }
+
+    $preferredHosts = if ($PSVersionTable.PSEdition -eq 'Core') {
+        @('pwsh.exe', 'powershell.exe')
+    } else {
+        @('powershell.exe', 'pwsh.exe')
+    }
+
+    $powerShellPath = $null
+    foreach ($hostName in $preferredHosts) {
+        $command = Get-Command $hostName -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($command) {
+            $powerShellPath = $command.Source
+            break
+        }
+    }
+
+    if (-not $powerShellPath) {
+        throw 'Nenhum executavel PowerShell foi encontrado no PATH para executar o validador.'
+    }
+
+    $arguments = @(
+        '-NoProfile',
+        '-File',
+        $validatorPath,
+        '-ProjectRoot',
+        $script:ResolvedProjectRoot,
+        '-RequiredNodeVersion',
+        $RequiredNodeVersion
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $powerShellPath @arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    $output | ForEach-Object { Write-Host ([string]$_) }
+
+    if ($exitCode -ne 0) {
+        throw "O validador de release falhou com codigo $exitCode. Nenhuma tag foi criada ou publicada."
+    }
 }
 
 function ConvertTo-ReleaseVersion {
@@ -213,12 +295,16 @@ Assert-NoEqualOrLaterRelease `
     -CurrentRelease $currentRelease `
     -TagNames @($localTags + $remoteTags)
 
+Write-Host 'Executando testes e validacoes obrigatorias da release...'
+Invoke-ReleaseValidation
+Write-Host 'Testes e validacoes da release aprovados.' -ForegroundColor Green
+
 $tagName = $currentRelease.Value
 $tagMessage = "Release $tagName"
 $target = "$Remote/$tagName no commit $headCommit"
 
 if (-not $PSCmdlet.ShouldProcess($target, 'criar tag anotada e publicar no repositorio remoto')) {
-    Write-Host "Plano validado: criar e publicar $tagName no commit $headCommit."
+    Write-Host "Plano validado, incluindo os testes: criar e publicar $tagName no commit $headCommit."
     Write-Host 'Nenhuma tag foi criada.'
     return
 }

@@ -516,6 +516,14 @@ atual já está publicado em `origin/main` e consulta tags locais e remotas. Se
 existir uma release igual ou posterior, nenhuma tag será criada. Em caso de
 sucesso, ele cria uma tag anotada e a envia ao `origin`.
 
+Antes de criar a tag, o comando executa obrigatoriamente
+`deploy\windows\Test-PSPanelRelease.ps1`, incluindo `npm ci`, `npm test` e as
+validações de sintaxe dos arquivos versionados. Uma falha impede tanto a tag
+local quanto o push. O `-WhatIf` também executa toda essa barreira, mas permanece
+sem efeitos colaterais Git. Como `npm ci` recria `node_modules`, encerre antes os
+processos locais que estejam usando as dependências do projeto. Não existe
+opção para ignorar os testes.
+
 Prefira implantar uma tag de release ou um hash de commit imutável com o script
 semi-automático. Abra o PowerShell 7 como administrador e faça primeiro uma
 simulação:
