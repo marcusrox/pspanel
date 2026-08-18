@@ -21,26 +21,12 @@ Encerre processos locais que estejam usando `node_modules`. Incremente
 `src/config/release.js` e execute na raiz do projeto:
 
 ```powershell
-Set-Location '<RAIZ_LOCAL_DO_PSPANEL>'
+Set-Location 'c:\Projects\PSPanel'
 $release = node -p "require('./src/config/release').version"
 
-npm test
 .\deploy\windows\Test-PSPanelRelease.ps1
 git status --short
 git diff --check
-```
-
-Os testes devem terminar sem falhas. Revise as alterações, publique o commit e
-confirme a sincronização:
-
-```powershell
-git add <ARQUIVOS_DA_RELEASE>
-git commit -m '<MENSAGEM_DA_RELEASE>'
-git push origin main
-git fetch origin main --tags
-git status --short
-git rev-parse HEAD
-git rev-parse origin/main
 ```
 
 `git status --short` deve ficar vazio e os dois hashes devem ser iguais. Não há
