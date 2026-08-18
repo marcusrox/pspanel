@@ -543,6 +543,29 @@ Se o plano e as verificações preliminares estiverem corretos, execute sem
 .\deploy\windows\Update-PSPanel.ps1 -Version 'HASH_OU_TAG'
 ```
 
+Para automação não interativa, a ausência de confirmação deve ser explícita:
+
+```powershell
+$result = .\deploy\windows\Update-PSPanel.ps1 `
+    -Version 'HASH_OU_TAG' `
+    -Confirm:$false
+```
+
+O objeto `PSPanel.DeploymentResult` retornado contém os commits, snapshot, log,
+estado do serviço, estado e último resultado do worker, health check e situação
+do rollback automático. O `-WhatIf` também devolve esse contrato, mas não cria
+log, snapshot ou lock e não interrompe componentes.
+
+Se PowerShell Remoting já estiver configurado e autorizado fora deste projeto,
+o mesmo comando pode ser executado com `Invoke-Command`. A sessão precisa ter
+privilégios administrativos na VM. O atualizador não habilita WinRM, não altera
+firewall e não provisiona contas ou endpoints. A identidade remota é registrada
+somente quando fornecida pela própria sessão, nunca junto com credenciais.
+
+Em falha, o resultado estruturado é enviado antes da exceção terminante e
+também fica disponível como `TargetObject` do erro, permitindo registrar o
+estado final sem transformar a falha em sucesso.
+
 O script:
 
 - exige execução como administrador e a versão homologada do Node.js;

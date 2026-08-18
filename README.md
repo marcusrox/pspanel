@@ -223,6 +223,42 @@ Os snapshots ficam em `C:\Apps\PSPanel-Backups\<identificador>` e os logs em
 `C:\Apps\PSPanel\log\deploy`. Existe uma janela de indisponibilidade entre a
 parada do serviço e a aprovação do health check.
 
+### Execução não interativa e PowerShell Remoting
+
+Quando a ausência de prompts for explicitamente desejada, use
+`-Confirm:$false`:
+
+```powershell
+$result = .\deploy\windows\Update-PSPanel.ps1 `
+    -Version $release `
+    -Confirm:$false
+```
+
+O retorno é um objeto `PSPanel.DeploymentResult` com operação, versão
+solicitada, commits anterior/alvo/ativo, snapshot, estados do serviço e do
+worker, último resultado do worker, health check, log e situação do rollback
+automático. O `-WhatIf` também retorna esse objeto, com status
+`SimulacaoAprovada`, sem parar componentes, criar log ou alterar dados.
+
+Em uma sessão remota já autorizada e configurada pela equipe responsável, o
+mesmo retorno pode ser capturado por `Invoke-Command`:
+
+```powershell
+$result = Invoke-Command -ComputerName 'PSPANEL-PROD' -ScriptBlock {
+    param($requestedVersion)
+
+    & 'C:\Apps\PSPanel\deploy\windows\Update-PSPanel.ps1' `
+        -Version $requestedVersion `
+        -Confirm:$false
+} -ArgumentList $release
+```
+
+O atualizador não habilita WinRM, não configura firewall, contas ou endpoints
+remotos. Quando o PowerShell fornece a identidade do executor remoto, ela é
+registrada no log e no manifesto do snapshot, sem credenciais. Em uma falha, o
+resultado estruturado é emitido e anexado como `TargetObject` da exceção; o
+comando ainda termina com erro.
+
 ### Rollback
 
 Se houver falha após a parada dos componentes, o atualizador tenta restaurar

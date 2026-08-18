@@ -122,3 +122,64 @@ executa-la depois da TASK-059 para seguir a ordem operacional planejada.
 - Modelo: GPT-5 Codex
 - Versao: nao informado
 - Acao: criacao
+
+---
+
+## Resultado da implementacao
+
+Status: implementada em 2026-08-18.
+
+`Update-PSPanel.ps1` passou a emitir `PSPanel.DeploymentResult` em simulacao,
+sucesso, versao ja instalada e falhas operacionais. O contrato inclui operacao,
+versao solicitada, commits anterior/alvo/ativo, snapshot, servico, worker,
+ultimo resultado do worker, health check, log e situacao do rollback automatico.
+
+Falhas em pre-validacao e deploy continuam terminantes. Quando existe resultado
+estruturado, ele e emitido antes da excecao e anexado como `TargetObject` do
+`ErrorRecord`. Falha critica do rollback possui identificador proprio e mantem
+o diagnostico dos dois erros.
+
+O `-WhatIf` permanece antes da criacao de log e lock e antes de qualquer parada,
+snapshot, checkout ou instalacao. Ele agora retorna status
+`SimulacaoAprovada`. `-Confirm:$false` usa o suporte nativo de `ShouldProcess` e
+nao ha outros prompts interativos no script.
+
+A identidade do executor remoto e registrada no log e no manifesto somente
+quando `PSSenderInfo` a fornece. A URL exibida no plano omite usuario, senha,
+query e fragmento. Mensagens de ferramentas nativas passam por redacao de
+credenciais em URI e valores nomeados como senha, token ou segredo antes de
+serem gravadas. Referencias moveis seguras continuam exigindo `-Force`, enquanto
+tags de release e hashes permanecem aceitos sem essa opcao.
+
+Validacoes executadas:
+
+- parser no PowerShell 7.6.4 e no Windows PowerShell 5.1: sem erros;
+- contrato estruturado exercitado com servico e worker simulados;
+- retorno nulo, estados, health check e serializacao JSON conferidos;
+- URL com usuario, senha e token simulados: nenhum segredo apareceu no destino
+  sanitizado;
+- mensagem nativa simulada com credencial em URI, token e senha: valores
+  redigidos antes do log;
+- falha terminante controlada: objeto recebido pelo pipeline e como
+  `TargetObject` do erro;
+- `-WhatIf -Confirm:$false` em clone temporario com componentes simulados:
+  resultado capturado, commit preservado e nenhum log, lock, checkout ou
+  comando operacional executado;
+- falha completa de pre-validacao: status `FalhaPreValidacao`, identificador de
+  erro proprio e o mesmo objeto disponivel no pipeline e no erro;
+- `npm test`: 47 testes aprovados;
+- `git diff --check`.
+
+Nao foram parados servicos, alteradas tarefas agendadas, acessados bancos ou
+executados deploys reais nesta estacao. O `-WhatIf` e o deploy local controlado
+em uma instalacao autorizada ainda devem ser repetidos antes de habilitar o uso
+remoto em producao. O release foi atualizado para `v2026.08.18-061`.
+
+---
+
+## Assinatura da LLM
+
+- Data: 2026-08-18 14:49:56 -03:00
+- Modelo: GPT-5 Codex
+- Versao: nao informado
+- Acao: atualizacao
