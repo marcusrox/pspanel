@@ -10,7 +10,8 @@
     O script tambem exige uma arvore de trabalho limpa, o branch esperado e o
     HEAD ja publicado no branch remoto. Antes de qualquer criacao de tag, ele
     executa Test-PSPanelRelease.ps1 em um processo PowerShell isolado. O -WhatIf
-    tambem executa essa validacao, mas nao cria nem publica a tag.
+    tambem executa essa validacao, mas nao cria nem publica a tag. A saida do
+    processo isolado e capturada e exibida em UTF-8.
 
 .PARAMETER ProjectRoot
     Diretorio raiz do clone Git do PS Panel.
@@ -140,16 +141,31 @@ function Invoke-ReleaseValidation {
     )
 
     $previousErrorActionPreference = $ErrorActionPreference
+    $previousConsoleInputEncoding = [Console]::InputEncoding
+    $previousConsoleOutputEncoding = [Console]::OutputEncoding
+    $previousOutputEncoding = $OutputEncoding
+    $previousConsoleCodePage = $previousConsoleInputEncoding.CodePage
+    $utf8Encoding = [System.Text.UTF8Encoding]::new($false)
+
     try {
+        chcp 65001 | Out-Null
+        [Console]::InputEncoding = $utf8Encoding
+        [Console]::OutputEncoding = $utf8Encoding
+        $OutputEncoding = $utf8Encoding
+
         $ErrorActionPreference = 'Continue'
         $output = @(& $powerShellPath @arguments 2>&1)
         $exitCode = $LASTEXITCODE
+
+        $output | ForEach-Object { Write-Host ([string]$_) }
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
+        chcp $previousConsoleCodePage | Out-Null
+        [Console]::InputEncoding = $previousConsoleInputEncoding
+        [Console]::OutputEncoding = $previousConsoleOutputEncoding
+        $OutputEncoding = $previousOutputEncoding
     }
-
-    $output | ForEach-Object { Write-Host ([string]$_) }
 
     if ($exitCode -ne 0) {
         throw "O validador de release falhou com codigo $exitCode. Nenhuma tag foi criada ou publicada."
