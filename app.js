@@ -19,6 +19,7 @@ const scheduleRoutes = require('./src/routes/scheduleRoutes');
 const logRoutes = require('./src/routes/logRoutes');
 const runtimeEnvironmentRoutes = require('./src/routes/runtimeEnvironmentRoutes');
 const dataEnvironmentRoutes = require('./src/routes/dataEnvironmentRoutes');
+const documentationRoutes = require('./src/routes/documentationRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const Schedule = require('./src/models/Schedule');
 const History = require('./src/models/History');
@@ -146,7 +147,7 @@ app.use(async (req, res, next) => {
 app.use('/', authRoutes);
 
 // Proteger rotas que precisam de autenticação
-app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs', '/runtime-environment', '/data-environment'], isAuthenticated);
+app.use(['/panel', '/run-script', '/history', '/settings', '/schedules', '/scripts', '/logs', '/runtime-environment', '/data-environment', '/documentation'], isAuthenticated);
 app.use('/users', isAuthenticated, isLocalAdmin);
 
 // Rotas principais
@@ -157,6 +158,7 @@ app.use('/schedules', scheduleRoutes);
 app.use('/logs', logRoutes);
 app.use('/runtime-environment', runtimeEnvironmentRoutes);
 app.use('/data-environment', dataEnvironmentRoutes);
+app.use('/documentation', documentationRoutes);
 app.use('/users', userRoutes);
 
 async function start() {

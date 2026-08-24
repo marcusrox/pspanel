@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR" style="font-size: <%= typeof ui !== 'undefined' ? ui.fontScale : '100' %>%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentação - PS Panel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .documentation-tabs {
+            display: inline-flex;
+            gap: 0.35rem;
+            max-width: 100%;
+            margin-bottom: 1.4rem;
+            padding: 0.3rem;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 0.8rem;
+            background: rgba(15, 23, 42, 0.55);
+        }
+
+        .documentation-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 2.6rem;
+            padding: 0.55rem 0.95rem;
+            border-radius: 0.6rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .documentation-tab:hover,
+        .documentation-tab:focus-visible {
+            color: var(--text-primary);
+            background: rgba(59, 130, 246, 0.12);
+        }
+
+        .documentation-tab[aria-selected="true"] {
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.3);
+            box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35);
+        }
+
+        .documentation-panel[hidden] {
+            display: none;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .documentation-section-header {
+            margin-bottom: 1rem;
+        }
+
+        .documentation-section-header h2 {
+            margin-bottom: 0.25rem;
+            font-size: 1.25rem;
+        }
+
+        .documentation-section-header p {
+            color: var(--text-secondary);
+        }
+
+        .documentation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .documentation-card {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            padding: 1.15rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.7rem;
+            background: var(--bg-light);
+        }
+
+        .documentation-card-heading {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .documentation-card-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 2.4rem;
+            width: 2.4rem;
+            height: 2.4rem;
+            color: #bfdbfe;
+            background: rgba(37, 99, 235, 0.2);
+            border-radius: 0.55rem;
+        }
+
+        .documentation-card h3 {
+            margin: 0;
+            overflow-wrap: anywhere;
+            font-size: 1rem;
+        }
+
+        .documentation-file-name {
+            display: block;
+            margin-top: 0.15rem;
+            color: #7dd3fc;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 0.75rem;
+            overflow-wrap: anywhere;
+        }
+
+        .documentation-card p {
+            flex: 1;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .documentation-open-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            align-self: flex-start;
+            min-height: 2.35rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 0.45rem;
+            color: #dbeafe;
+            background: var(--primary-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .documentation-open-link:hover,
+        .documentation-open-link:focus-visible {
+            background: var(--primary-hover);
+        }
+
+        .tasks-section {
+            margin-top: 1.75rem;
+        }
+
+        .tasks-toolbar {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tasks-search-field {
+            flex: 1;
+            max-width: 36rem;
+        }
+
+        .tasks-search-field label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .tasks-search-field input {
+            width: 100%;
+            min-height: 2.7rem;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.45rem;
+            outline: none;
+            color: var(--text-primary);
+            background: var(--bg-darker);
+        }
+
+        .tasks-search-field input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .tasks-counter {
+            padding-bottom: 0.55rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .tasks-empty,
+        .tasks-unavailable {
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.6rem;
+            color: var(--text-secondary);
+            background: var(--bg-light);
+            text-align: center;
+        }
+
+        .tasks-unavailable {
+            color: #fde68a;
+            border-color: rgba(234, 179, 8, 0.5);
+            background: rgba(234, 179, 8, 0.08);
+        }
+
+        @media (max-width: 1100px) {
+            .documentation-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 660px) {
+            .top-header {
+                align-items: flex-start;
+            }
+
+            .documentation-tabs,
+            .documentation-grid {
+                display: flex;
+                width: 100%;
+            }
+
+            .documentation-grid {
+                flex-direction: column;
+            }
+
+            .documentation-tab {
+                flex: 1 0 auto;
+            }
+
+            .tasks-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .tasks-search-field {
+                max-width: none;
+            }
+
+            .tasks-counter {
+                padding-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { activeMenu: 'documentation', user: user }) %>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-title">
+                <h1>Documentação</h1>
+                <p>Guias operacionais e referências técnicas do PS Panel.</p>
+            </div>
+            <div class="header-logo-container">
+                <img src="/logo.png" alt="Logo" class="header-logo">
+            </div>
+        </header>
+
+        <% if (messages.error && messages.error.length) { %>
+            <div class="alert alert-danger"><%= messages.error[0] %></div>
+        <% } %>
+
+        <nav class="documentation-tabs" role="tablist" aria-label="Seções da documentação">
+            <a
+                id="operationsTab"
+                class="documentation-tab"
+                href="/documentation"
+                role="tab"
+                aria-controls="operationsPanel"
+                aria-selected="<%= activeView === 'operations' ? 'true' : 'false' %>"
+                data-documentation-tab="operations"
+            >
+                <i class="fas fa-book" aria-hidden="true"></i>
+                Uso e operação
+            </a>
+            <a
+                id="developmentTab"
+                class="documentation-tab"
+                href="/documentation?view=development"
+                role="tab"
+                aria-controls="developmentPanel"
+                aria-selected="<%= activeView === 'development' ? 'true' : 'false' %>"
+                data-documentation-tab="development"
+            >
+                <i class="fas fa-code-branch" aria-hidden="true"></i>
+                Desenvolvimento
+            </a>
+        </nav>
+
+        <section
+            id="operationsPanel"
+            class="documentation-panel"
+            role="tabpanel"
+            aria-labelledby="operationsTab"
+            <%= activeView === 'operations' ? '' : 'hidden' %>
+        >
+            <header class="documentation-section-header">
+                <h2>Uso e operação</h2>
+                <p>Materiais para conhecer, instalar e atualizar a aplicação.</p>
+            </header>
+            <div class="documentation-grid">
+                <% catalog.operations.forEach((document) => { %>
+                    <article class="documentation-card">
+                        <div class="documentation-card-heading">
+                            <span class="documentation-card-icon" aria-hidden="true"><i class="fas fa-file-lines"></i></span>
+                            <div>
+                                <h3><%= document.title %></h3>
+                                <span class="documentation-file-name"><%= document.fileName %></span>
+                            </div>
+                        </div>
+                        <p><%= document.description %></p>
+                        <a class="documentation-open-link" href="/documentation/view/<%= document.id %>">
+                            Visualizar
+                            <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                        </a>
+                    </article>
+                <% }); %>
+            </div>
+        </section>
+
+        <section
+            id="developmentPanel"
+            class="documentation-panel"
+            role="tabpanel"
+            aria-labelledby="developmentTab"
+            <%= activeView === 'development' ? '' : 'hidden' %>
+        >
+            <header class="documentation-section-header">
+                <h2>Desenvolvimento</h2>
+                <p>Arquitetura, padrões do projeto e histórico de tasks técnicas.</p>
+            </header>
+            <div class="documentation-grid">
+                <% catalog.development.forEach((document) => { %>
+                    <article class="documentation-card">
+                        <div class="documentation-card-heading">
+                            <span class="documentation-card-icon" aria-hidden="true"><i class="fas fa-file-code"></i></span>
+                            <div>
+                                <h3><%= document.title %></h3>
+                                <span class="documentation-file-name"><%= document.fileName %></span>
+                            </div>
+                        </div>
+                        <p><%= document.description %></p>
+                        <a class="documentation-open-link" href="/documentation/view/<%= document.id %>">
+                            Visualizar
+                            <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                        </a>
+                    </article>
+                <% }); %>
+            </div>
+
+            <section class="tasks-section" aria-labelledby="tasksTitle">
+                <div class="tasks-toolbar">
+                    <div class="tasks-search-field">
+                        <label for="taskSearch">Buscar por número, título ou descrição</label>
+                        <input id="taskSearch" type="search" placeholder="Ex.: TASK-063, atualização, agendamento..." autocomplete="off" <%= catalog.tasks.length ? '' : 'disabled' %>>
+                    </div>
+                    <span id="tasksCounter" class="tasks-counter" aria-live="polite"><%= catalog.tasks.length %> task<%= catalog.tasks.length === 1 ? '' : 's' %></span>
+                </div>
+
+                <h2 id="tasksTitle" class="visually-hidden">Tasks do projeto</h2>
+                <% if (catalog.tasksUnavailable) { %>
+                    <p class="tasks-unavailable">A lista de tasks está temporariamente indisponível.</p>
+                <% } else if (!catalog.tasks.length) { %>
+                    <p class="tasks-empty">Nenhuma task Markdown foi encontrada.</p>
+                <% } else { %>
+                    <div id="tasksGrid" class="documentation-grid">
+                        <% catalog.tasks.forEach((document) => { %>
+                            <article class="documentation-card task-card" data-task-search="<%= [document.number, document.fileName, document.title, document.description].join(' ') %>">
+                                <div class="documentation-card-heading">
+                                    <span class="documentation-card-icon" aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                    <div>
+                                        <h3><%= document.title %></h3>
+                                        <span class="documentation-file-name"><%= document.fileName %></span>
+                                    </div>
+                                </div>
+                                <p><%= document.description %></p>
+                                <a class="documentation-open-link" href="/documentation/view/<%= document.id %>">
+                                    Visualizar
+                                    <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                                </a>
+                            </article>
+                        <% }); %>
+                    </div>
+                    <p id="taskSearchEmpty" class="tasks-empty" hidden>Nenhuma task corresponde à busca.</p>
+                <% } %>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            const tabs = Array.from(document.querySelectorAll('[data-documentation-tab]'));
+            const panels = {
+                operations: document.getElementById('operationsPanel'),
+                development: document.getElementById('developmentPanel')
+            };
+
+            function activateTab(view, updateUrl) {
+                const normalizedView = view === 'development' ? 'development' : 'operations';
+                tabs.forEach((tab) => {
+                    tab.setAttribute('aria-selected', String(tab.dataset.documentationTab === normalizedView));
+                });
+                Object.entries(panels).forEach(([name, panel]) => {
+                    panel.hidden = name !== normalizedView;
+                });
+
+                if (updateUrl) {
+                    const url = normalizedView === 'development' ? '/documentation?view=development' : '/documentation';
+                    window.history.replaceState({}, '', url);
+                }
+            }
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    activateTab(tab.dataset.documentationTab, true);
+                });
+            });
+
+            const search = document.getElementById('taskSearch');
+            const cards = Array.from(document.querySelectorAll('.task-card'));
+            const counter = document.getElementById('tasksCounter');
+            const empty = document.getElementById('taskSearchEmpty');
+            const normalize = (value) => value
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLocaleLowerCase('pt-BR');
+
+            if (search) {
+                search.addEventListener('input', () => {
+                    const term = normalize(search.value.trim());
+                    let visible = 0;
+                    cards.forEach((card) => {
+                        const matches = !term || normalize(card.dataset.taskSearch).includes(term);
+                        card.hidden = !matches;
+                        if (matches) visible += 1;
+                    });
+                    counter.textContent = `${visible} task${visible === 1 ? '' : 's'}`;
+                    if (empty) empty.hidden = visible !== 0;
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
