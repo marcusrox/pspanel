@@ -80,6 +80,9 @@ function getStatusText(status) {
 }
 
 function buildDailySummaryMessage(reportDate, runs) {
+	const os = require('os');
+	const hostname = os.hostname(); 
+	
     const generatedAt = new Date();
     const reportDateText = formatReportDatePtBr(reportDate);
     const generatedAtText = formatLocalDateTime(generatedAt);
@@ -96,7 +99,8 @@ function buildDailySummaryMessage(reportDate, runs) {
         <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;">
             Enviado em: <strong>${escapeHtml(generatedAtText)}</strong><br>
             Sistema: <strong>PS Panel</strong><br>
-            Rotina: <strong>${escapeHtml(routineName)}</strong>
+            Rotina: <strong>${escapeHtml(routineName)}</strong><br>
+			Servidor: <strong>${escapeHtml(hostname)}</strong>
         </div>
     `;
 
