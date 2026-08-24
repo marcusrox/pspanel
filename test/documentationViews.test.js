@@ -37,6 +37,7 @@ test('compila e renderiza página de documentação com abas, busca e links na m
         activeView: 'development',
         messages: { error: [], success: [], info: [] },
         user: { username: 'test', displayName: 'Test', email: '' },
+        release: { version: 'v2026.08.24-068' },
         ui: { fontScale: '100' }
     });
 
@@ -44,6 +45,7 @@ test('compila e renderiza página de documentação com abas, busca e links na m
     assert.match(html, /id="taskSearch"/);
     assert.match(html, /href="\/documentation\/view\/task-063-exemplo"/);
     assert.doesNotMatch(html, /target="_blank"/);
+    assert.match(html, /PSPanel foi feito com/);
     extractInlineScripts(html).forEach((script) => {
         assert.doesNotThrow(() => new Function(script));
     });
