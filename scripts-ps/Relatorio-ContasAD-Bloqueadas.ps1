@@ -4,10 +4,10 @@
 
 .DESCRIPTION
     Descobre o dominio atual, consulta todos os seus controladores de dominio e consolida
-    as contas de usuario bloqueadas por autenticacao invalida e os atributos locais de
-    senha incorreta. No PDC Emulator, tambem consulta contas com senha expirada e contas
-    desativadas. O relatorio HTML apresenta cada situacao em um topico independente. O
-    script e somente leitura e envia o relatorio mesmo quando as listas estao vazias.
+    as contas de usuario habilitadas bloqueadas por autenticacao invalida e os atributos
+    locais de senha incorreta. No PDC Emulator, tambem consulta contas com senha expirada
+    e contas desativadas. O relatorio HTML apresenta cada situacao em um topico independente.
+    O script e somente leitura e envia o relatorio mesmo quando as listas estao vazias.
 
 .PARAMETER MailTo
     Um ou mais destinatarios. Enderecos em uma unica string podem ser separados por
@@ -349,6 +349,7 @@ function New-AccountStatusEmailHtml {
     [void]$builder.Append('<body style="margin:0;padding:24px;background:#f5f7fa;font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#1f2933;">')
     [void]$builder.Append('<div style="max-width:1200px;margin:0 auto;background:#ffffff;border:1px solid #d9e2ec;border-radius:8px;padding:24px;">')
     [void]$builder.Append('<h1 style="margin:0 0 18px;color:#173f5f;font-size:24px;">Situa&ccedil;&otilde;es de contas no Active Directory</h1>')
+    [void]$builder.Append('<h1 style="margin:0 0 18px;color:#173f5f;font-size:18px;">Contas bloqueadas, expiradas e desativadas</h1>')
     [void]$builder.Append('<table role="presentation" style="border-collapse:collapse;margin-bottom:18px;">')
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Bloqueadas por autentica&ccedil;&atilde;o inv&aacute;lida:</td><td style=""padding:3px 0;font-weight:600;"">$count</td></tr>")
     [void]$builder.Append("<tr><td style=""padding:3px 18px 3px 0;color:#52606d;"">Com senha expirada:</td><td style=""padding:3px 0;font-weight:600;"">$($passwordExpiredList.Count)</td></tr>")
@@ -361,7 +362,7 @@ function New-AccountStatusEmailHtml {
     [void]$builder.Append('<p style="padding:12px;background:#eaf2f8;border:1px solid #9fb3c8;border-radius:4px;color:#243b53;">Uma mesma conta pode aparecer em mais de um t&oacute;pico quando atender a mais de um crit&eacute;rio. O estado pode mudar durante ou depois da coleta.</p>')
 
     [void]$builder.Append('<h2 style="margin:28px 0 10px;color:#243b53;font-size:18px;">1. Contas bloqueadas por autentica&ccedil;&atilde;o inv&aacute;lida</h2>')
-    [void]$builder.Append('<p style="margin:0 0 12px;color:#52606d;">Contas bloqueadas pela pol&iacute;tica do Active Directory ap&oacute;s tentativas de autentica&ccedil;&atilde;o inv&aacute;lidas. Os atributos <strong>badPasswordTime</strong> e <strong>badPwdCount</strong> n&atilde;o s&atilde;o replicados; a consolida&ccedil;&atilde;o usa o hor&aacute;rio mais recente e o maior contador local observados, sem somar contadores.</p>')
+    [void]$builder.Append('<p style="margin:0 0 12px;color:#52606d;">Contas habilitadas bloqueadas pela pol&iacute;tica do Active Directory ap&oacute;s tentativas de autentica&ccedil;&atilde;o inv&aacute;lidas. Os atributos <strong>badPasswordTime</strong> e <strong>badPwdCount</strong> n&atilde;o s&atilde;o replicados; a consolida&ccedil;&atilde;o usa o hor&aacute;rio mais recente e o maior contador local observados, sem somar contadores.</p>')
 
     [void]$builder.Append('<h2 style="margin:24px 0 10px;color:#243b53;font-size:18px;">Controladores consultados</h2>')
     [void]$builder.Append('<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;border:1px solid #bcccdc;font-size:12px;">')
@@ -581,6 +582,10 @@ try {
                 $profile = @($observations | Select-Object -First 1)
             }
             $profile = $profile[0]
+
+            if (-not $profile.Enabled) {
+                continue
+            }
 
             $lastBadPasswordObservation = @(
                 $observations |
