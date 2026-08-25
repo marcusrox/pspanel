@@ -77,7 +77,7 @@ Import-Module (Join-Path $PSScriptRoot 'modules\PSPanel.Email\PSPanel.Email.psm1
 
 $ApiPageSize = 200
 $ApiMaxPages = 100
-$ApiMaxPollAttempts = 45
+$ApiMaxPollAttempts = 300
 $ApiPollIntervalSeconds = 2
 $ApiTimeoutSeconds = 90
 
@@ -246,18 +246,33 @@ function Wait-FortiLogApiResponse {
 
     $response = $InitialResponse
     $sessionId = Get-ResponsePropertyValue -Response $response -Names @('session_id', 'session-id')
+    $lastProgress = $null
+    $lastReportedProgress = $null
     for ($attempt = 1; $attempt -le $ApiMaxPollAttempts; $attempt++) {
+        $status = Get-ResponsePropertyValue -Response $response -Names @('status')
+        if ($status -and [string]$status -notmatch '^(?i)success$') {
+            throw "A Log API retornou status inesperado durante a pesquisa: $status."
+        }
+
         $ready = Get-ResponsePropertyValue -Response $response -Names @('ready')
         if ($null -eq $ready -or $ready -eq $true -or [string]$ready -match '^(?i:true|1)$') {
             return $response
         }
 
-        if ($null -eq $sessionId) {
+        if ([string]::IsNullOrWhiteSpace([string]$sessionId)) {
             throw 'A Log API informou que a consulta nao esta pronta, mas nao retornou session_id.'
         }
         if ($attempt -eq $ApiMaxPollAttempts) { break }
 
-        Write-Host "Aguardando a pesquisa de logs ficar pronta (tentativa $attempt de $ApiMaxPollAttempts)..."
+        $lastProgress = Get-ResponsePropertyValue -Response $response -Names @('percent_logs_processed', 'completed')
+        $progressMessage = if ($null -ne $lastProgress -and [string]$lastProgress -ne '') {
+            " Progresso informado pelo FortiGate: $lastProgress%."
+        }
+        else { '' }
+        if ($attempt -eq 1 -or $attempt % 10 -eq 0 -or [string]$lastProgress -ne [string]$lastReportedProgress) {
+            Write-Host "Aguardando a pesquisa de logs ficar pronta (tentativa $attempt de $ApiMaxPollAttempts).$progressMessage"
+            $lastReportedProgress = $lastProgress
+        }
         if ($ApiPollIntervalSeconds -gt 0) { Start-Sleep -Seconds $ApiPollIntervalSeconds }
         if ($Uri -match '(?i)[?&]session_id=') {
             $pollUri = $Uri
@@ -271,7 +286,11 @@ function Wait-FortiLogApiResponse {
         if ($null -ne $newSessionId) { $sessionId = $newSessionId }
     }
 
-    throw "A pesquisa da Log API nao ficou pronta apos $ApiMaxPollAttempts tentativas."
+    $lastProgressMessage = if ($null -ne $lastProgress -and [string]$lastProgress -ne '') {
+        " Ultimo progresso informado pelo FortiGate: $lastProgress%."
+    }
+    else { '' }
+    throw "A pesquisa da Log API nao ficou pronta apos $ApiMaxPollAttempts tentativas ($($ApiMaxPollAttempts * $ApiPollIntervalSeconds) segundos de espera entre consultas).$lastProgressMessage"
 }
 
 function Get-FortiIpsecHistoryRecords {
@@ -462,7 +481,7 @@ function New-HistoryReportHtml {
         [void]$builder.Append('</tbody></table>')
     }
 
-    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong></div>")
+    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong><br>Servidor: <strong>$(Encode-Html ([System.Environment]::MachineName))</strong></div>")
     [void]$builder.Append('</body></html>')
     return $builder.ToString()
 }

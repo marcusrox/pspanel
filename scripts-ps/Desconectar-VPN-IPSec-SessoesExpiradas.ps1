@@ -424,7 +424,7 @@ function New-ExpiredSessionsReportHtml {
     }
 
     $sentAtText = (Get-Date).ToString('dd/MM/yyyy HH:mm:ss')
-    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong></div>")
+    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;line-height:1.5;"">Enviado em: <strong>$(Encode-Html $sentAtText)</strong><br>Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(Encode-Html $routineName)</strong><br>Servidor: <strong>$(Encode-Html ([System.Environment]::MachineName))</strong></div>")
     [void]$builder.Append('</body></html>')
     return $builder.ToString()
 }

@@ -17,7 +17,8 @@ saída e encerra normalmente, sem realizar envios.
 
 Quando ArquivoEntrada não é informado, usa o arquivo classificado mais recente
 do DiretorioEntrada. Com WhatIf, os grupos são mantidos separados, mas todos
-os e-mails são redirecionados ao DestinatarioSimulacao.
+os e-mails são redirecionados ao DestinatarioSimulacao e nenhuma cópia é
+enviada ao DestinatarioCopia.
 
 .PARAMETER ArquivoEntrada
 Caminho opcional do arquivo XLSX a processar.
@@ -37,11 +38,21 @@ o envio; ele apenas impede a entrega aos destinatários originais.
 .PARAMETER DestinatarioSimulacao
 Endereço que recebe os e-mails quando WhatIf é usado.
 
+.PARAMETER DestinatarioCopia
+Endereço opcional que recebe uma cópia de cada resumo enviado ao destinatário
+original. Não é usado quando WhatIf está ativo.
+
 .PARAMETER NomeRemetente
 Nome de exibição associado ao endereço remetente configurado no PS Panel.
 
 .EXAMPLE
 .\Quarentena-Step-3-Enviar-Sumario-Emails.ps1
+
+.EXAMPLE
+.\Quarentena-Step-3-Enviar-Sumario-Emails.ps1 `
+    -DestinatarioCopia "auditoria@example.com"
+
+Envia cada resumo ao respectivo usuário e uma cópia para o endereço informado.
 
 .EXAMPLE
 .\Quarentena-Step-3-Enviar-Sumario-Emails.ps1 `
@@ -75,6 +86,10 @@ param(
 
     [ValidateNotNullOrEmpty()]
     [string]$DestinatarioSimulacao = "msouza@desenbahia.ba.gov.br",
+
+    [AllowEmptyString()]
+    [ValidateLength(0, 320)]
+    [string]$DestinatarioCopia = "",
 
     [ValidateNotNullOrEmpty()]
     [ValidateLength(1, 256)]
@@ -633,7 +648,8 @@ function New-CorpoEmailQuarentena {
               </div>
               <div style="margin-top:24px;padding-top:18px;border-top:1px solid #d9e2ec;color:#52616b;font-size:12px;line-height:1.55;">
                 <strong style="color:#334e68;">Mensagem enviada por GTI - Gerência de Tecnologia da Informação</strong><br>
-                Rotina automática: $nomeScriptSeguro em $dataExecucaoTexto
+                Rotina automática: $nomeScriptSeguro em $dataExecucaoTexto<br>
+                Servidor: <strong>$(ConvertTo-HtmlSeguro ([System.Environment]::MachineName))</strong>
               </div>
             </td>
           </tr>
@@ -742,6 +758,16 @@ if ($WhatIf -and -not (Test-EnderecoEmail -Endereco $DestinatarioSimulacao)) {
     throw "Destinatário de simulação inválido: $DestinatarioSimulacao"
 }
 
+$destinatarioCopiaNormalizado = ""
+
+if (-not [string]::IsNullOrWhiteSpace($DestinatarioCopia)) {
+    $destinatarioCopiaNormalizado = $DestinatarioCopia.Trim()
+
+    if (-not (Test-EnderecoEmail -Endereco $destinatarioCopiaNormalizado)) {
+        throw "Destinatário da cópia inválido: $DestinatarioCopia"
+    }
+}
+
 $dataReferencia = Get-DataReferenciaArquivo `
     -Arquivo $arquivo `
     -Registros $registros
@@ -765,9 +791,17 @@ if ($WhatIf) {
         $grupos.Count,
         $DestinatarioSimulacao
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($destinatarioCopiaNormalizado)) {
+        Write-Warning "O destinatário da cópia será ignorado durante a simulação."
+    }
 }
 else {
     Write-Host "Serão enviados $($grupos.Count) resumo(s), um por destinatário."
+
+    if (-not [string]::IsNullOrWhiteSpace($destinatarioCopiaNormalizado)) {
+        Write-Host "Uma cópia de cada resumo será enviada para: $destinatarioCopiaNormalizado"
+    }
 }
 
 $falhas = [Collections.Generic.List[string]]::new()
@@ -805,13 +839,24 @@ foreach ($grupo in $grupos) {
         -DestinatarioEntrega $destinatarioEntrega
 
     try {
-        Send-PSPanelEmail `
-            -To $destinatarioEntrega `
-            -Subject $assunto `
-            -Body $corpo `
-            -BodyAsHtml `
-            -FromName $NomeRemetente `
-            -ErrorAction Stop
+        $parametrosEmail = @{
+            To = $destinatarioEntrega
+            Subject = $assunto
+            Body = $corpo
+            BodyAsHtml = $true
+            FromName = $NomeRemetente
+            ErrorAction = "Stop"
+        }
+
+        if (
+            -not $WhatIf -and
+            -not [string]::IsNullOrWhiteSpace($destinatarioCopiaNormalizado) -and
+            $destinatarioCopiaNormalizado -ine $destinatarioEntrega
+        ) {
+            $parametrosEmail.Cc = @($destinatarioCopiaNormalizado)
+        }
+
+        Send-PSPanelEmail @parametrosEmail
 
         $enviados++
         Write-Host (

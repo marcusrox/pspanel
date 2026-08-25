@@ -462,7 +462,7 @@ function New-AccountStatusEmailHtml {
         -ShowDeletionCandidate `
         -Accounts $disabledList
 
-    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #d9e2ec;color:#627d98;font-size:12px;line-height:1.6;"">Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(ConvertTo-HtmlEncodedText $routineName)</strong><br>Enviado em: <strong>$(ConvertTo-HtmlEncodedText $sentAtText)</strong></div>")
+    [void]$builder.Append("<div style=""margin-top:24px;padding-top:12px;border-top:1px solid #d9e2ec;color:#627d98;font-size:12px;line-height:1.6;"">Sistema: <strong>PS Panel</strong><br>Rotina: <strong>$(ConvertTo-HtmlEncodedText $routineName)</strong><br>Enviado em: <strong>$(ConvertTo-HtmlEncodedText $sentAtText)</strong><br>Servidor: <strong>$(ConvertTo-HtmlEncodedText ([System.Environment]::MachineName))</strong></div>")
     [void]$builder.Append('</div></body></html>')
 
     return $builder.ToString()

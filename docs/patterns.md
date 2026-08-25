@@ -255,6 +255,38 @@ Ao adicionar novos fluxos de execucao:
 
 Parametros hoje sao separados por espacos simples. Se precisar suportar aspas, caminhos com espaco ou escaping, crie um parser compartilhado antes de mudar apenas um fluxo.
 
+### Envio de email por scripts PowerShell
+
+Scripts PowerShell que enviam email devem usar o modulo compartilhado
+`scripts-ps/modules/PSPanel.Email/PSPanel.Email.psm1` e a funcao
+`Send-PSPanelEmail`. Nao duplique configuracao ou transporte SMTP dentro de
+scripts individuais.
+
+Todo email HTML enviado por um script deve terminar com um rodape que identifique
+a execucao. O rodape deve conter, no minimo, estas informacoes:
+
+```text
+Enviado em: **dd/MM/aaaa HH:mm:ss**
+Sistema: **PS Panel**
+Rotina: **Nome-Do-Script.ps1**
+Servidor: **NOME-DO-HOST**
+```
+
+Ao montar o HTML:
+
+- Separe as linhas com `<br>` e destaque os valores com `<strong>`.
+- Obtenha o servidor em tempo de execucao com
+  `[System.Environment]::MachineName`; nunca fixe o hostname no script.
+- Escape data, nome da rotina e servidor com a funcao de encoding HTML usada
+  pelo proprio script antes de inclui-los no corpo.
+- Preserve informacoes adicionais de rodapes especificos, mas mantenha sempre
+  as quatro identificacoes acima.
+- Se um novo fluxo enviar texto simples, inclua as mesmas quatro linhas sem
+  marcacao HTML.
+
+O teste `test/powerShellEmailFooters.test.js` verifica que todo arquivo `.ps1`
+que chama `Send-PSPanelEmail` inclui a identificacao do servidor no rodape.
+
 ## Agendamentos e Workers
 
 Workers em `scripts-js/` devem:

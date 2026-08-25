@@ -30,6 +30,10 @@ o envio; ele apenas impede a entrega ao destinatário original.
 Endereço opcional que recebe o relatório quando WhatIf é usado. Quando
 omitido, o Step 3 utiliza seu próprio valor padrão.
 
+.PARAMETER DestinatarioCopia
+Endereço opcional repassado ao Step 3 para receber uma cópia de cada resumo
+enviado ao destinatário original. O Step 3 ignora a cópia quando WhatIf é usado.
+
 .EXAMPLE
 .\Quarentena-Executar-Fluxo-Completo.ps1
 
@@ -41,6 +45,14 @@ para todos os destinatários encontrados pelo Step 3.
 
 Executa as três etapas e envia os relatórios para todos os destinatários
 encontrados pelo Step 3.
+
+.EXAMPLE
+.\Quarentena-Executar-Fluxo-Completo.ps1 `
+    -DataMensagens "2026-08-14" `
+    -DestinatarioCopia "auditoria@example.com"
+
+Executa as três etapas e envia uma cópia de cada resumo para o endereço
+informado.
 
 .EXAMPLE
 .\Quarentena-Executar-Fluxo-Completo.ps1 `
@@ -78,7 +90,11 @@ param(
 
     [AllowEmptyString()]
     [ValidateLength(0, 320)]
-    [string]$DestinatarioSimulacao = ""
+    [string]$DestinatarioSimulacao = "",
+
+    [AllowEmptyString()]
+    [ValidateLength(0, 320)]
+    [string]$DestinatarioCopia = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -206,6 +222,13 @@ if (
     throw "Destinatário de simulação inválido: $DestinatarioSimulacao"
 }
 
+if (
+    -not [string]::IsNullOrWhiteSpace($DestinatarioCopia) -and
+    -not (Test-EnderecoEmailFluxo -Endereco $DestinatarioCopia)
+) {
+    throw "Destinatário da cópia inválido: $DestinatarioCopia"
+}
+
 Assert-ScriptEtapaExiste -Caminho $step1 -NomeEtapa "Step 1"
 Assert-ScriptEtapaExiste -Caminho $step2 -NomeEtapa "Step 2"
 Assert-ScriptEtapaExiste -Caminho $step3 -NomeEtapa "Step 3"
@@ -281,6 +304,10 @@ if (-not [string]::IsNullOrWhiteSpace($FiltroPara)) {
     $parametrosStep3["FiltroPara"] = $FiltroPara.Trim()
 }
 
+if (-not [string]::IsNullOrWhiteSpace($DestinatarioCopia)) {
+    $parametrosStep3["DestinatarioCopia"] = $DestinatarioCopia.Trim()
+}
+
 if ($WhatIf) {
     $parametrosStep3["WhatIf"] = $true
 
@@ -319,4 +346,7 @@ if ($WhatIf) {
     else {
         Write-Host "Modo de simulação: destinatário padrão do Step 3"
     }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($DestinatarioCopia)) {
+    Write-Host "Cópia de cada resumo enviada para: $($DestinatarioCopia.Trim())"
 }

@@ -844,7 +844,8 @@ $emailBody = @"
         <li>VDOM: <strong>$(ConvertTo-HtmlText $Vdom)</strong></li>
         <li>Aplicacao: <strong>$(ConvertTo-HtmlText $ApplicationName)</strong></li>
     </ul>
-    <p>Mensagem enviada automaticamente pelo PS Panel.</p>
+    <p>Mensagem enviada automaticamente pelo PS Panel.<br>
+    Servidor: <strong>$(ConvertTo-HtmlText ([System.Environment]::MachineName))</strong></p>
 </body>
 </html>
 "@
