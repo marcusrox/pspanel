@@ -255,6 +255,66 @@ Ao adicionar novos fluxos de execucao:
 
 Parametros hoje sao separados por espacos simples. Se precisar suportar aspas, caminhos com espaco ou escaping, crie um parser compartilhado antes de mudar apenas um fluxo.
 
+### Conexao ao SQL Server por scripts PowerShell
+
+Scripts PowerShell que acessam instancias SQL Server corporativas devem usar
+`System.Data.SqlClient.SqlConnectionStringBuilder`, autenticacao integrada do
+Windows e timeout finito. Nao instale o modulo `SqlServer` em tempo de execucao
+e nao receba usuario, senha ou connection string completa por parametro.
+
+Use as chaves canonicas pelo indexador do builder:
+
+```powershell
+function New-SqlConnectionString {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Server,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Database
+    )
+
+    $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
+    $builder['Data Source'] = $Server
+    $builder['Initial Catalog'] = $Database
+    $builder['Integrated Security'] = $true
+    $builder['Connect Timeout'] = 15
+    $builder['Encrypt'] = $true
+    $builder['TrustServerCertificate'] = $true
+    $builder['Application Name'] = 'PS Panel - Nome da rotina'
+    return $builder.ConnectionString
+}
+```
+
+Nao substitua as chaves com espaco por atribuicoes como
+`$builder.DataSource`, `$builder.InitialCatalog` ou
+`$builder.IntegratedSecurity`. Como o builder tambem implementa uma interface
+de dicionario, o adaptador do PowerShell pode interpretar esses nomes como
+palavras-chave literais (`DataSource`, por exemplo), gerando o erro
+`Keyword not supported`.
+
+No ambiente corporativo atual, `TrustServerCertificate=True` e usado porque a
+cadeia apresentada pelo SQL Server pode nao estar disponivel no repositorio de
+confianca do host do PS Panel. Essa opcao mantem `Encrypt=True` e, portanto, a
+criptografia do canal, mas nao valida a cadeia de confianca nem se o nome do
+certificado corresponde ao servidor. Documente essa excecao no script e na
+task correspondente. Ela se aplica somente a conexao SQL e nao deve ser
+propagada para SMTP, HTTPS ou outros clientes TLS.
+
+Ao executar consultas:
+
+- valide servidor e banco antes de criar a conexao;
+- prefira definir o banco em `Initial Catalog`, sem concatenar seu nome no SQL;
+- use parametros SQL para todos os valores de entrada;
+- use somente catalogos e comandos documentados; nao use `sp_MSforeachdb`;
+- configure `CommandTimeout` finito;
+- encerre e descarte `SqlConnection`, `SqlCommand` e `SqlDataReader` em
+  `finally`, inclusive quando houver erro;
+- nao registre connection strings, credenciais ou consultas que contenham
+  dados sensiveis;
+- para rotinas de inventario, mantenha as consultas estritamente de leitura e
+  falhe se uma varredura que deveria ser completa ficar parcial.
+
 ### Envio de email por scripts PowerShell
 
 Scripts PowerShell que enviam email devem usar o modulo compartilhado
